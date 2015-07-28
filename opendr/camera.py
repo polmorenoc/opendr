@@ -188,7 +188,7 @@ class ProjectPoints3D(ProjectPoints):
                 drz = self.z_coords.dr_wrt(wrt)
                 if drz is not None:
                     if sp.issparse(drz):
-                        drz = drz.todense()
+                        drz = drz.toarray()
                     bigger[:,2,:] = drz.reshape(bigger[:,2,:].shape)
 
                 result = bigger.reshape((-1, bigger.shape[-1]))

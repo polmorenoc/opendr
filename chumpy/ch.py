@@ -502,8 +502,8 @@ class Ch(object):
 
             t1 = self._superdot(dr_rev, np.asarray(value).ravel())
             t2 = self._superdot(dr_rev, self._superdot(dr, inner.x.ravel()))
-            if sp.issparse(t1): t1 = np.array(t1.todense())
-            if sp.issparse(t2): t2 = np.array(t2.todense())
+            if sp.issparse(t1): t1 = t1.toarray()
+            if sp.issparse(t2): t2 = t2.toarray()
 
             inner.x = inner.x + t1.reshape(inner_shape) - t2.reshape(inner_shape)
             #inner.x = inner.x + self._superdot(dr_rev, value.ravel()).reshape(inner_shape) - self._superdot(dr_rev, self._superdot(dr, inner.x.ravel())).reshape(inner_shape)
@@ -631,7 +631,7 @@ class Ch(object):
 
         return result
         
-        
+
     def compute_lop(self, wrt, lhs):
         dr = self._compute_dr_wrt_sliced(wrt)
         if dr is None: return None
@@ -657,7 +657,7 @@ class Ch(object):
 
         for k in range(len(drs)):
             if sp.issparse(drs[k]):
-                drs[k] = drs[k].todense()
+                drs[k] = drs[k].toarray()
 
         if len(drs)==0:
             result = None

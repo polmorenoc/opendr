@@ -23,6 +23,7 @@ import scipy.sparse
 import scipy.optimize
 from scipy.sparse.linalg.interface import LinearOperator
 import collections
+import chumpy.minimize_ras as min_ras
 import ipdb
 
 
@@ -122,14 +123,14 @@ def minimize(fun, x0, method='dogleg', bounds=None, constraints=(), tol=None, ca
             return scalar_jacfunc.J
             
         changevars(vs, obj, obj_scalar, free_variables)
-        
-        if True: # faster, at least on some problems
+
+        if False: # faster, at least on some problems
             result = np.concatenate([np.array(obj_scalar.lop(wrt, np.array([[1]]))).ravel() for wrt in free_variables])            
         else:
             jacs = [obj_scalar.dr_wrt(wrt) for wrt in free_variables]
             for idx, jac in enumerate(jacs):
                 if sp.issparse(jac):
-                    jacs[idx] = jacs[idx].todense()
+                    jacs[idx] = jacs[idx].toarray()
             result = np.concatenate([jac.ravel() for jac in jacs])
 
         scalar_jacfunc.J = result
@@ -150,17 +151,22 @@ def minimize(fun, x0, method='dogleg', bounds=None, constraints=(), tol=None, ca
         ns_jacfunc.vs = vs
         return result
 
-        
-    x1 = scipy.optimize.minimize(
-        method=method,
-        fun=residuals,
-        callback=callback,
-        x0=np.concatenate([free_variable.r.ravel() for free_variable in free_variables]),
-        jac=scalar_jacfunc,
-        hessp=hessp, hess=hess, args=(obj, obj_scalar, free_variables),
-        bounds=bounds, constraints=constraints, tol=tol, options=options).x
+    if method == 'minimize':
+        x1, fX, i = min_ras.minimize(np.concatenate([free_variable.r.ravel() for free_variable in free_variables]), residuals, scalar_jacfunc, args=(obj, obj_scalar, free_variables))
+    else:
+        x1 = scipy.optimize.minimize(
+            method=method,
+            fun=residuals,
+            callback=callback,
+            x0=np.concatenate([free_variable.r.ravel() for free_variable in free_variables]),
+            jac=scalar_jacfunc,
+            hessp=hessp, hess=hess, args=(obj, obj_scalar, free_variables),
+            bounds=bounds, constraints=constraints, tol=tol, options=options).x
+
+
 
     changevars(x1, obj, obj_scalar, free_variables)
+
     return free_variables
     
 

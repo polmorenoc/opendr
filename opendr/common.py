@@ -18,6 +18,7 @@ from opendr.contexts._constants import *
 import bottleneck as bn
 import ipdb
 import matplotlib.pyplot as plt
+import warnings
 
 def nanmean(a, axis):
     # don't call nan_to_num in here, unless you check that
@@ -26,22 +27,25 @@ def nanmean(a, axis):
     return result
 
 def nangradients(arr):
-    dy = np.expand_dims(arr[:-1,:,:] - arr[1:,:,:], axis=3)
-    dx = np.expand_dims(arr[:,:-1,:] - arr[:, 1:, :], axis=3)
 
-    dy = np.concatenate((dy[1:,:,:], dy[:-1,:,:]), axis=3)
-    dy = np.nanmean(dy, axis=3)
-    dx = np.concatenate((dx[:,1:,:], dx[:,:-1,:]), axis=3)
-    dx = np.nanmean(dx, axis=3)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", category=RuntimeWarning)
+        dy = np.expand_dims(arr[:-1,:,:] - arr[1:,:,:], axis=3)
+        dx = np.expand_dims(arr[:,:-1,:] - arr[:, 1:, :], axis=3)
 
-    if arr.shape[2] > 1:
-        gy, gx, _ = np.gradient(arr)
-    else:
-        gy, gx = np.gradient(arr.squeeze())
-        gy = np.atleast_3d(gy)
-        gx = np.atleast_3d(gx)
-    gy[1:-1,:,:] = -dy
-    gx[:,1:-1,:] = -dx
+        dy = np.concatenate((dy[1:,:,:], dy[:-1,:,:]), axis=3)
+        dy = np.nanmean(dy, axis=3)
+        dx = np.concatenate((dx[:,1:,:], dx[:,:-1,:]), axis=3)
+        dx = np.nanmean(dx, axis=3)
+
+        if arr.shape[2] > 1:
+            gy, gx, _ = np.gradient(arr)
+        else:
+            gy, gx = np.gradient(arr.squeeze())
+            gy = np.atleast_3d(gy)
+            gx = np.atleast_3d(gx)
+        gy[1:-1,:,:] = -dy
+        gx[:,1:-1,:] = -dx
 
     return gy, gx
 
@@ -132,9 +136,9 @@ def dImage_wrt_2dVerts_bnd(observed, visible, visibility, barycentric, image_wid
     ydiffbnd *= 2.0
 
     xdiffnb = -xdiffnb
-    ydiffnb = -ydiffnb
+    ydiffnb = ydiffnb
     xdiffbnd = -xdiffbnd
-    ydiffbnd = -ydiffbnd
+    ydiffbnd = ydiffbnd
     # ydiffnb *= 0
     # xdiffnb *= 0
 

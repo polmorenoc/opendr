@@ -85,7 +85,7 @@ class TestOcclusion(unittest.TestCase):
             if visualize:
                 plt.figure()
             for i in range(3):
-                dr_pred = np.array(rn.dr_wrt(tr[i]).todense()).reshape(rn.shape) * eps_pred
+                dr_pred = np.array(rn.dr_wrt(tr[i]).toarray()).reshape(rn.shape) * eps_pred
                 dr_pred = blur(dr_pred)
 
                 # central differences
