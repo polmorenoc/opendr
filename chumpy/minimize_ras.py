@@ -41,7 +41,7 @@ Matlab-function minimize.m
 
 from numpy import dot, isinf, isnan, any, sqrt, isreal, real, nan, inf
 
-def minimize(X, f, grad, args, maxnumlinesearch=200, maxnumfuneval=None, red=1.0, verbose=True):
+def minimize(X, f, grad, args, on_step=None, maxnumlinesearch=200, maxnumfuneval=None, red=1.0, verbose=True):
     INT = 0.1;# don't reevaluate within 0.1 of the limit of the current bracket
     EXT = 3.0;              # extrapolate maximum 3 times the current step-size
     MAX = 20;                     # max 20 function evaluations per line search
@@ -70,6 +70,10 @@ def minimize(X, f, grad, args, maxnumlinesearch=200, maxnumfuneval=None, red=1.0
             S = 'Linesearch'
             length = maxnumlinesearch
 
+    def call_cb():
+        if on_step is not None:
+            on_step(f)
+
     i = 0                                         # zero the run length counter
     ls_failed = 0                          # no previous line search has failed
     f0 = f(X, *args)                          # get function value and gradient
@@ -82,6 +86,7 @@ def minimize(X, f, grad, args, maxnumlinesearch=200, maxnumfuneval=None, red=1.0
 
     while i < abs(length):                                 # while not finished
         i = i + (length>0)                                 # count iterations?!
+        call_cb()
 
         X0 = X; F0 = f0; dF0 = df0              # make a copy of current values
         if length>0:

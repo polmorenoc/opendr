@@ -123,7 +123,6 @@ class BaseRenderer(Ch):
         GL.glPolygonMode(GL.GL_FRONT_AND_BACK, GL.GL_FILL)
         GL.glDisable(GL.GL_CULL_FACE)
 
-
         GL.glClear(GL.GL_COLOR_BUFFER_BIT)
         GL.glClear(GL.GL_DEPTH_BUFFER_BIT)
 
@@ -139,7 +138,6 @@ class BaseRenderer(Ch):
         assert (GL.glCheckFramebufferStatus(GL.GL_FRAMEBUFFER) == GL.GL_FRAMEBUFFER_COMPLETE)
 
         GL.glBindFramebuffer(GL.GL_FRAMEBUFFER,0)
-
 
         assert (GL.glCheckFramebufferStatus(GL.GL_FRAMEBUFFER) == GL.GL_FRAMEBUFFER_COMPLETE)
 
@@ -265,7 +263,6 @@ void main(){
         print('glGetProgramInfoLog ' + str(GL.glGetProgramInfoLog(self.colorProgram)))
         print('GL_MAX_VERTEX_ATTRIBS: ' + str(GL.glGetInteger(GL.GL_MAX_VERTEX_ATTRIBS)))
 
-
         print (GL.glGetError())
 
     @depends_on('f') # not v: specifically, it depends only on the number of vertices, not on the values in v
@@ -301,13 +298,9 @@ void main(){
     def shape(self):
         raise NotImplementedError('Should be implemented in inherited class.')
 
-
-
-
     # @v.setter
     # def v(self, newval):
     #     self.camera.v = newval
-
 
     @property
     def vpe(self):

@@ -152,7 +152,7 @@ def minimize(fun, x0, method='dogleg', bounds=None, constraints=(), tol=None, ca
         return result
 
     if method == 'minimize':
-        x1, fX, i = min_ras.minimize(np.concatenate([free_variable.r.ravel() for free_variable in free_variables]), residuals, scalar_jacfunc, args=(obj, obj_scalar, free_variables))
+        x1, fX, i = min_ras.minimize(np.concatenate([free_variable.r.ravel() for free_variable in free_variables]), residuals, scalar_jacfunc, args=(obj, obj_scalar, free_variables), on_step=callback)
     else:
         x1 = scipy.optimize.minimize(
             method=method,
