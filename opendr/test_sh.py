@@ -16,9 +16,10 @@ try:
 except:
     from dummy import dummy as plt
 from topology import loop_subdivider
-
 visualize = False
-
+import ipdb
+import bpy
+import mathutils
 def getcam():
     from camera import ProjectPoints3D
 
@@ -49,18 +50,26 @@ class TestSphericalHarmonics(unittest.TestCase):
     
         # Get mesh
         v, f = get_sphere_mesh()
-
+        ipdb.set_trace()
         from geometry import VertNormals
         vn = VertNormals(v=v, f=f)
         #vn =  Ch(mesh.estimate_vertex_normals())
 
         # Get camera
         cam, frustum = getcam()
-    
+        ipdb.set_trace()
         # Get renderer
         from renderer import ColoredRenderer
         cam.v = v
-        cr = ColoredRenderer(f=f, camera=cam, frustum=frustum, v=v)
+
+
+        cr = ColoredRenderer()
+        cr.camera = cam
+        cr.camera.openglMat = np.array(mathutils.Matrix.Rotation(np.pi, 4, 'X'))
+        cr.frustum = frustum
+        cr.set(v=v, f=f)
+
+        # cr = ColoredRenderer(f=f, camera=cam, frustum=frustum, v=v)
     
         sh_red = SphericalHarmonics(vn=vn, light_color=np.array([1,0,0]))
         sh_green = SphericalHarmonics(vn=vn, light_color=np.array([0,1,0]))

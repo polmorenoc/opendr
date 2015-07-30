@@ -5,7 +5,7 @@ See LICENCE.txt for licensing and contact information.
 """
 
 __author__ = 'matt'
-
+import ipdb
 __all__ = ['load_mesh', 'load_image']
 
 from os.path import split, splitext, join, exists, normpath
@@ -29,6 +29,8 @@ def load_mesh(filename):
 
 def _update_mtl(mtl, filename):
 
+
+
     lines = [l.strip() for l in open(filename).read().split('\n')]
 
     curkey = ''
@@ -48,7 +50,7 @@ def _update_mtl(mtl, filename):
 
 
 def read_obj(filename):
-
+    # ipdb.set_trace()
     obj_directory = os.path.dirname(filename) + '/'
     lines = open(filename).read().split('\n')
     print(obj_directory)
@@ -116,6 +118,7 @@ def read_obj(filename):
                 del d[k]
         else:
             d[k] = v
+
 
     result = Minimal(**d)
 

@@ -56,7 +56,7 @@ class RigidTransform(Ch):
             
             IS = np.repeat(np.arange(self.v.r.size), 3)
             JS = np.repeat(np.arange(self.v.r.size).reshape((-1,3)), 3, axis=0)
-            data = np.vstack([rot for i in range(self.v.r.size/3)])
+            data = np.vstack([rot for i in range(np.int(self.v.r.size/3))])
             result = sp.csc_matrix((data.ravel(), (IS.ravel(), JS.ravel())))
             return result
 

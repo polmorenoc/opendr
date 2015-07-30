@@ -4,7 +4,7 @@ Author(s): Matthew Loper
 See LICENCE.txt for licensing and contact information.
 """
 __all__ = ['mstack', 'wget']
-
+import ipdb
 def mstack(vs, fs):
     import chumpy as ch
     import numpy as np
@@ -27,4 +27,5 @@ def wget(url, dest_fname=None):
         contents = urllib.request.urlopen(url).read()
     except:
         raise Exception('Unable to get url: %s' % (url,))
-    open(dest_fname, 'wb').write(bytes(contents, 'UTF-8'))
+
+    open(dest_fname, 'wb').write(contents)

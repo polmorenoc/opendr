@@ -21,7 +21,7 @@ visualize = False
 
 
 def Rosen():
-    
+
     args = {
         'x1': Ch(-120.),
         'x2': Ch(-100.)

@@ -22,7 +22,7 @@ class TestLinalg(unittest.TestCase):
 
     def test_slogdet(self):
         from chumpy import ch
-        tmp = ch.random.randn(100).reshape((10,10))
+        tmp = ch.Ch(np.random.randn(100).reshape((10,10)))
         # print 'chumpy version: ' + str(slogdet(tmp)[1].r)
         # print 'old version:' + str(np.linalg.slogdet(tmp.r)[1])
 
@@ -30,7 +30,7 @@ class TestLinalg(unittest.TestCase):
         diff = np.random.rand(100) * eps
         diff_reshaped = diff.reshape((10,10))
         gt = np.linalg.slogdet(tmp.r+diff_reshaped)[1] - np.linalg.slogdet(tmp.r)[1]
-        pred = ch.linalg.slogdet(tmp)[1].dr_wrt(tmp).dot(diff)
+        pred = ch.slogdet(tmp)[1].dr_wrt(tmp).dot(diff)
         #print gt
         #print pred
         diff = gt - pred
@@ -38,7 +38,7 @@ class TestLinalg(unittest.TestCase):
         self.assertTrue(np.max(np.abs(diff)) < 1e-12)
 
         sgn_gt = np.linalg.slogdet(tmp.r)[0]
-        sgn_pred = ch.linalg.slogdet(tmp)[0]
+        sgn_pred = ch.slogdet(tmp)[0]
 
         #print sgn_gt
         #print sgn_pred

@@ -82,8 +82,8 @@ class TestCh(unittest.TestCase):
         self.assertTrue(isinstance(x.r[0], np.float64))
 
     def test_cross(self):
-        aa = ch.random.randn(30).reshape((10,3))
-        bb = ch.random.randn(30).reshape((10,3))
+        aa = ch.Ch(np.random.randn(30).reshape((10,3)))
+        bb = ch.Ch(np.random.randn(30).reshape((10,3)))
 
         cross_ch = ch.cross(aa, bb)
         cross_np = np.cross(aa.r, bb.r)
@@ -163,7 +163,7 @@ class TestCh(unittest.TestCase):
         cs = ch.cumsum(a)
         r1 = cs.r
         dr = cs.dr_wrt(a)
-        diff = (ch.random.rand(4)-.5)*.1
+        diff = (ch.Ch(np.random.rand(4)-.5)*.1)
         a.x += diff.r
         pred = dr.dot(diff.r)
         gt = cs.r - r1

@@ -7,7 +7,7 @@ Author(s): Matthew Loper
 See LICENCE.txt for licensing and contact information.
 """
 
-__all__ = ['ColoredRenderer', 'TexturedRenderer', 'DepthRenderer']
+__all__ = ['ColoredRenderer', 'TexturedRenderer']
 
 import numpy as np
 import cv2
@@ -43,11 +43,11 @@ class BaseRenderer(Ch):
     dterms = ['camera', 'v']
 
     def clear(self):
-        ipdb.set_trace()
+        # ipdb.set_trace()
         try:
             self.win
         except:
-            print ("well, necessary variables were not defined!")
+            print ("Clearing when not initialized.")
             return
 
         if not self.win:
@@ -717,7 +717,7 @@ void main(){
 
 class ColoredRenderer(BaseRenderer):
     terms = 'f', 'frustum', 'background_image', 'overdraw', 'num_channels'
-    dterms = 'vc', 'camera', 'bgcolor' , 'v', 'texture_stack'
+    dterms = 'vc', 'camera', 'bgcolor' , 'v'
 
     @depends_on('vc')
     def num_channels(self):
