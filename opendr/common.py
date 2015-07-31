@@ -136,9 +136,9 @@ def dImage_wrt_2dVerts_bnd(observed, visible, visibility, barycentric, image_wid
     ydiffbnd *= 2.0
 
     xdiffnb = -xdiffnb
-    ydiffnb = ydiffnb
+    ydiffnb = -ydiffnb
     xdiffbnd = -xdiffbnd
-    ydiffbnd = ydiffbnd
+    ydiffbnd = -ydiffbnd
     # ydiffnb *= 0
     # xdiffnb *= 0
 
