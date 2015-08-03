@@ -79,7 +79,7 @@ class BaseRenderer(Ch):
         glfw.window_hint(glfw.OPENGL_PROFILE, glfw.OPENGL_CORE_PROFILE)
         glfw.window_hint(glfw.DEPTH_BITS,32)
 
-        glfw.window_hint(glfw.VISIBLE, GL.GL_FALSE)
+        glfw.window_hint(glfw.VISIBLE, GL.GL_TRUE)
         self.win = glfw.create_window(self.frustum['width'], self.frustum['height'], "test",  None, None)
         glfw.make_context_current(self.win)
         GL.USE_ACCELERATE = True
@@ -1072,6 +1072,94 @@ void main(){
 
         #Pol: why do we add the lines edges in the final render?
         return no_overdraw
+
+    def image_mesh_bool(self, mesh):
+        self._call_on_changed()
+        GL.glPolygonMode(GL.GL_FRONT_AND_BACK, GL.GL_FILL)
+
+        glfw.make_context_current(self.win)
+        self._call_on_changed()
+
+        GL.glClearColor(0.,0.,0., 1.)
+
+        # use face colors if given
+        # FIXME: this won't work for 2 channels
+        GL.glBindFramebuffer(GL.GL_DRAW_FRAMEBUFFER, self.fbo)
+        GL.glClear(GL.GL_COLOR_BUFFER_BIT | GL.GL_DEPTH_BUFFER_BIT)
+
+        GL.glUseProgram(self.colorProgram)
+
+        self.draw_index(mesh)
+
+        GL.glBindFramebuffer(GL.GL_FRAMEBUFFER, self.fbo)
+        GL.glReadBuffer(GL.GL_COLOR_ATTACHMENT0)
+        result = np.flipud(np.frombuffer(GL.glReadPixels( 0,0, self.frustum['width'], self.frustum['height'], GL.GL_RGB, GL.GL_UNSIGNED_BYTE), np.uint8).reshape(self.frustum['height'],self.frustum['height'],3).astype(np.uint32))[:,:,0]
+
+        GL.glBindFramebuffer(GL.GL_DRAW_FRAMEBUFFER, self.fbo)
+
+        return result!=0
+
+    @depends_on(dterms+terms)
+    def indices_image(self):
+        self._call_on_changed()
+        GL.glPolygonMode(GL.GL_FRONT_AND_BACK, GL.GL_FILL)
+
+        glfw.make_context_current(self.win)
+        self._call_on_changed()
+
+        GL.glClearColor(0.,0.,0., 1.)
+
+        # use face colors if given
+        # FIXME: this won't work for 2 channels
+        GL.glBindFramebuffer(GL.GL_DRAW_FRAMEBUFFER, self.fbo)
+        GL.glClear(GL.GL_COLOR_BUFFER_BIT | GL.GL_DEPTH_BUFFER_BIT)
+
+        GL.glUseProgram(self.colorProgram)
+
+        for index in range(len(self.f_list)):
+            self.draw_index(index)
+
+        GL.glBindFramebuffer(GL.GL_FRAMEBUFFER, self.fbo)
+        GL.glReadBuffer(GL.GL_COLOR_ATTACHMENT0)
+        result = np.flipud(np.frombuffer(GL.glReadPixels( 0,0, self.frustum['width'], self.frustum['height'], GL.GL_RGB, GL.GL_UNSIGNED_BYTE), np.uint8).reshape(self.frustum['height'],self.frustum['height'],3).astype(np.uint32))[:,:,0]
+
+        GL.glBindFramebuffer(GL.GL_DRAW_FRAMEBUFFER, self.fbo)
+
+        return result
+
+    def draw_index(self, index):
+
+        mesh = index
+
+        vbo_color = self.vbo_colors_mesh[mesh]
+        vc = self.vc_list[mesh]
+        colors = np.array(np.ones_like(vc)*(index+1)/255.0, dtype=np.float32)
+
+        #Pol: Make a static zero vbo_color to make it more efficient?
+        vbo_color.set_array(colors)
+
+        view_mtx = self.camera.openglMat.dot(np.asarray(np.vstack((self.camera.view_matrix, np.array([0, 0, 0, 1]))),np.float32))
+        MVP = np.dot(self.projectionMatrix, view_mtx)
+
+        for polygons in np.arange(len(self.f_list[mesh])):
+
+            vao_mesh = self.vao_tex_mesh_list[mesh][polygons]
+            vbo_f = self.vbo_indices_mesh_list[mesh][polygons]
+
+            GL.glBindVertexArray(vao_mesh)
+            vbo_color.bind()
+
+            if self.f.shape[1]==2:
+                primtype = GL.GL_LINES
+            else:
+                primtype = GL.GL_TRIANGLES
+
+            GL.glUniformMatrix4fv(self.MVP_location, 1, GL.GL_TRUE, MVP)
+
+            # ipdb.set_trace()
+            GL.glDrawElements(primtype, len(vbo_f)*vbo_f.data.shape[1], GL.GL_UNSIGNED_INT, None)
+
+
 
     def draw_texcoord_image(self, v, f, ft, boundarybool_image=None):
         # gl = glf

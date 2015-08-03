@@ -47,6 +47,7 @@ def hstack(x):
 # SLSQP
 # dogleg
 # trust-ncg
+
 def gradCheckSimple(fun, var, delta):
     f0 = fun.r
     oldvar = var.r[:]
@@ -163,7 +164,7 @@ def scipyGradCheck(fun, x0):
         return result
 
     err = scipy.optimize.check_grad(residuals, scalar_jacfunc, np.concatenate([free_variable.r.ravel() for free_variable in free_variables]), obj, obj_scalar, free_variables)
-    print("Grad check (Root Sum Sq. of Diff.) error: " + str(err))
+    print("Grad check (Root Sum Sq. of Diff.) error of real and finite difference gradients: " + str(err))
 
     return err
 
