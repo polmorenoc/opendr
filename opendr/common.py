@@ -63,30 +63,30 @@ def dImage_wrt_2dVerts_bnd(observed, visible, visibility, barycentric, image_wid
     #Add them to IJs.
 
     background = visibility == 4294967295
+    notbackground = np.logical_not(background)
+    horizontall = np.hstack((np.diff(notbackground.astype(np.int8),axis=1), np.zeros((shape[0],1), dtype=np.int8)))
+    horizontalr = np.hstack((np.diff(background.astype(np.int8),axis=1), np.zeros((shape[0],1), dtype=np.int8)))
+    verticalt = np.vstack((np.diff(notbackground.astype(np.int8), axis=0), np.zeros((1,shape[1]), dtype=np.int8)))
+    verticalb = np.vstack((np.diff(background.astype(np.int8), axis=0), np.zeros((1,shape[1]), dtype=np.int8)))
 
-    horizontalrl = np.hstack((np.zeros((shape[0],1)), np.fliplr(np.diff(np.fliplr(background), axis=1))))
-    horizontallr = np.hstack((np.diff(np.logical_not(background),axis=1), np.zeros((shape[0],1))))
-    verticaltb = np.vstack((np.diff(np.logical_not(background), axis=0), np.zeros((1,shape[1]))))
-    verticalbt = np.vstack((np.zeros((1,shape[1])), np.flipud(np.diff(np.flipud(np.logical_not(background)), axis=0))))
 
-
-    pixrl = (background) & (horizontalrl == 1)
-    pixlr = (background) & (horizontallr == 1)
-    pixtb = (background) & (verticaltb == 1)
-    pixbt = (background) & (verticalbt == 1)
+    pixr = (horizontalr == 1)
+    pixl = (horizontall == 1)
+    pixt = (verticalt == 1)
+    pixb = (verticalb == 1)
 
     # plt.imshow((pixrl | pixlr | pixtb | pixbt))
 
     #Quicker, convolve (FFT) and take mask * etc.
 
-    lidxs_out = np.where(pixrl.ravel())[0]
-    ridxs_out = np.where(pixlr.ravel())[0]
-    tidxs_out = np.where(pixtb.ravel())[0]
-    bidxs_out = np.where(pixbt.ravel())[0]
-    lidxs_int = np.where(pixrl.ravel())[0]+1
-    ridxs_int = np.where(pixlr.ravel())[0]-1
-    tidxs_int = np.where(pixtb.ravel())[0] + shape[1]
-    bidxs_int = np.where(pixbt.ravel())[0] - shape[1]
+    lidxs_out = np.where(pixl.ravel())[0]
+    ridxs_out = np.where(pixr.ravel())[0]+1
+    tidxs_out = np.where(pixt.ravel())[0]
+    bidxs_out = np.where(pixb.ravel())[0] + shape[1]
+    lidxs_int = np.where(pixl.ravel())[0]+1
+    ridxs_int = np.where(pixr.ravel())[0]
+    tidxs_int = np.where(pixt.ravel())[0] + shape[1]
+    bidxs_int = np.where(pixb.ravel())[0]
 
     visibleidxs = np.zeros(shape).ravel().astype(np.uint32)
     visibleidxs[visible] = np.arange(visible.size)
@@ -107,19 +107,19 @@ def dImage_wrt_2dVerts_bnd(observed, visible, visibility, barycentric, image_wid
         JS = np.concatenate([JS for i in range(n_channels)])
 
     # Step 2: get the data ready, ie the actual values of the derivatives
-    ksize = 1
-    bndf = bnd_bool.astype(np.float64)
-    nbndf = np.logical_not(bnd_bool).astype(np.float64)
-    sobel_normalizer = cv2.Sobel(np.asarray(np.tile(row(np.arange(10)), (10, 1)), np.float64), cv2.CV_64F, dx=1, dy=0, ksize=ksize)[5,5]
-
-    bnd_nan = bndf.reshape((observed.shape[0], observed.shape[1], -1)).copy()
-    bndindices = bnd_nan.ravel()>0
-    bnd_nan.ravel()[bnd_nan.ravel()>0] = np.nan
-    bnd_nan += 1
-    obs_nonbnd = np.atleast_3d(observed) * bnd_nan
-
-    ydiffnb_, xdiffnb = nangradients(obs_nonbnd)
-    ydiffnb, xdiffnb = nangradients(obs_nonbnd)
+    # ksize = 1
+    # bndf = bnd_bool.astype(np.float64)
+    # nbndf = np.logical_not(bnd_bool).astype(np.float64)
+    # sobel_normalizer = cv2.Sobel(np.asarray(np.tile(row(np.arange(10)), (10, 1)), np.float64), cv2.CV_64F, dx=1, dy=0, ksize=ksize)[5,5]
+    #
+    # bnd_nan = bndf.reshape((observed.shape[0], observed.shape[1], -1)).copy()
+    # bndindices = bnd_nan.ravel()>0
+    # bnd_nan.ravel()[bnd_nan.ravel()>0] = np.nan
+    # bnd_nan += 1
+    # obs_nonbnd = np.atleast_3d(observed) * bnd_nan
+    #
+    # ydiffnb_, xdiffnb = nangradients(obs_nonbnd)
+    # ydiffnb, xdiffnb = nangradients(obs_nonbnd)
 
     observed = np.atleast_3d(observed)
 
@@ -131,38 +131,70 @@ def dImage_wrt_2dVerts_bnd(observed, visible, visibility, barycentric, image_wid
         xdiffbnd = np.atleast_3d(xdiffbnd)
 
     # ydiffbnd, xdiffbnd = np.gradient(observed.squeeze())
-    ydiffbnd_fliplr, xdiffbnd_fliplr, _ = np.gradient(np.fliplr(observed.squeeze()))
-    ydiffbnd_flipud, xdiffbnd_flipud, _ = np.gradient(np.flipud(observed.squeeze()))
+    # ydiffedge = np.vstack(np.diff(observed.squeeze(), axis=0), np.zeros(1,shape[1],n_channels))
+    # xdiffedge = np.hstack(np.diff(observed.squeeze(), axis=1), np.zeros(shape[0],1,n_channels))
 
     # This corrects for a bias imposed boundary differences begin spread over two pixels
     # (by np.gradients or similar) but only counted once (since OpenGL's line
     # drawing spans 1 pixel)
-    xdiffbnd *= 2.0
-    ydiffbnd *= 2.0
+    # xdiffbnd *= 2.0
+    # ydiffbnd *= 2.0
 
-    xdiffnb = -xdiffnb
-    ydiffnb = -ydiffnb
-    xdiffbnd = -xdiffbnd
-    ydiffbnd = -ydiffbnd
+    # xdiffnb = -xdiffnb
+    # ydiffnb = -ydiffnb
+
     # ydiffnb *= 0
     # xdiffnb *= 0
+
+    # ipdb.set_trace()
+
+    xdiffbnd = np.zeros([shape[0],shape[1],n_channels])
+    ydiffbnd = np.zeros([shape[0],shape[1],n_channels])
+
+    xdiffbnd.reshape([shape[0]*shape[1], n_channels])[ridxs_int,:] = observed.reshape([shape[0]*shape[1], n_channels])[ridxs_int,:] - observed.reshape([shape[0]*shape[1], n_channels])[ridxs_int-1,:]
+
+    xdiffbnd.reshape([shape[0]*shape[1], n_channels])[lidxs_int,:] = observed.reshape([shape[0]*shape[1], n_channels])[lidxs_int+1,:] - observed.reshape([shape[0]*shape[1], n_channels])[lidxs_int,:]
+
+    ydiffbnd.reshape([shape[0]*shape[1], n_channels])[bidxs_int,:] = observed.reshape([shape[0]*shape[1], n_channels])[bidxs_int,:] - observed.reshape([shape[0]*shape[1], n_channels])[bidxs_int-shape[1],:]
+
+    ydiffbnd.reshape([shape[0]*shape[1], n_channels])[tidxs_int,:] = observed.reshape([shape[0]*shape[1], n_channels])[tidxs_int+ shape[1],:] - observed.reshape([shape[0]*shape[1], n_channels])[tidxs_int,:]
+
+
+    xdiffbnd.reshape([shape[0]*shape[1], n_channels])[ridxs_int,:]=     xdiffbnd.reshape([shape[0]*shape[1], n_channels])[ridxs_int,:]*2
+
+    xdiffbnd.reshape([shape[0]*shape[1], n_channels])[lidxs_int,:]= xdiffbnd.reshape([shape[0]*shape[1], n_channels])[lidxs_int,:]*2
+
+    ydiffbnd.reshape([shape[0]*shape[1], n_channels])[bidxs_int,:]=     ydiffbnd.reshape([shape[0]*shape[1], n_channels])[bidxs_int,:]*2
+
+    ydiffbnd.reshape([shape[0]*shape[1], n_channels])[tidxs_int,:]=     ydiffbnd.reshape([shape[0]*shape[1], n_channels])[tidxs_int,:]*2
+
+    # xdiffbnd.reshape([shape[0]*shape[1], n_channels])[ridxs_int,:] = 0
+    #
+    # xdiffbnd.reshape([shape[0]*shape[1], n_channels])[lidxs_int,:] = 0
+    #
+    # ydiffbnd.reshape([shape[0]*shape[1], n_channels])[bidxs_int,:] = 0
+    #
+    # ydiffbnd.reshape([shape[0]*shape[1], n_channels])[tidxs_int,:] = 0
+
+    xdiffbnd = -xdiffbnd
+    ydiffbnd = -ydiffbnd
 
     if False:
         import matplotlib.pyplot as plt
         plt.figure()
         plt.subplot(121)
-        plt.imshow(xdiffnb)
+        plt.imshow(ydiffbnd)
         plt.title('xdiffnb')
         plt.subplot(122)
         plt.imshow(xdiffbnd)
         plt.title('xdiffbnd')
         import pdb; pdb.set_trace()
 
-    idxs = np.isnan(xdiffnb.ravel())
-    xdiffnb.ravel()[idxs] = xdiffbnd.ravel()[idxs]
-
-    idxs = np.isnan(ydiffnb.ravel())
-    ydiffnb.ravel()[idxs] = ydiffbnd.ravel()[idxs]
+    # idxs = np.isnan(xdiffnb.ravel())
+    # xdiffnb.ravel()[idxs] = xdiffbnd.ravel()[idxs]
+    #
+    # idxs = np.isnan(ydiffnb.ravel())
+    # ydiffnb.ravel()[idxs] = ydiffbnd.ravel()[idxs]
 
     # idxs = np.isnan(xdiffnb.ravel())
     # xdiffnb.ravel()[idxs] = xdiffbnd.ravel()[idxs]
@@ -172,14 +204,6 @@ def dImage_wrt_2dVerts_bnd(observed, visible, visibility, barycentric, image_wid
 
     # ipdb.set_trace()
 
-    xdiffnb[:,:,0].ravel()[ridxs_int] = np.fliplr(xdiffbnd_fliplr[:,:,0]).ravel()[ridxs_int]
-    xdiffnb[:,:,1].ravel()[ridxs_int] = np.fliplr(xdiffbnd_fliplr[:,:,1]).ravel()[ridxs_int]
-    xdiffnb[:,:,2].ravel()[ridxs_int] = np.fliplr(xdiffbnd_fliplr[:,:,2]).ravel()[ridxs_int]
-
-    ydiffnb[:,:,0].ravel()[bidxs_int] = np.flipud(ydiffbnd_flipud[:,:,0]).ravel()[bidxs_int]
-    ydiffnb[:,:,1].ravel()[bidxs_int] = np.flipud(ydiffbnd_flipud[:,:,1]).ravel()[bidxs_int]
-    ydiffnb[:,:,2].ravel()[bidxs_int] = np.flipud(ydiffbnd_flipud[:,:,2]).ravel()[bidxs_int]
-
     # idxs = np.isnan(ydiffnb.ravel())
     # ydiffnb.ravel()[idxs] = ydiffbnd.ravel()[idxs]
     # boundydiff = ydiffnb.ravel().copy()
@@ -187,8 +211,8 @@ def dImage_wrt_2dVerts_bnd(observed, visible, visibility, barycentric, image_wid
     # ydiffnb.ravel()[bndindices] = ydiffbnd.ravel()[bndindices]
 
     if True: # should be right thing
-        xdiff = xdiffnb
-        ydiff = ydiffnb
+        xdiff = xdiffbnd
+        ydiff = ydiffbnd
     else:  #should be old way
         xdiff = xdiffbnd
         ydiff = ydiffbnd
@@ -338,39 +362,6 @@ def dImage_wrt_2dVerts_bnd_old(observed, visible, visibility, barycentric, image
 
     n_channels = np.atleast_3d(observed).shape[2]
     shape = visibility.shape
-
-    #Pol:
-    #1; Expand visible to those around edges of bounding pixels that are not in visible, keep track of the corresponding visible f index.
-    #Add them to IJs.
-
-    # background = visibility == 4294967295
-    #
-    # horizontalrl = np.hstack((np.diff(background,axis=1), np.zeros((shape[0],1))))
-    # horizontallr = np.hstack((np.zeros((shape[0],1)), np.fliplr(np.diff(np.fliplr(background), axis=1))))
-    # verticaltb = np.vstack((np.diff(background, axis=0), np.zeros((1,shape[1]))))
-    # verticalbt = np.vstack((np.zeros((1,shape[1])), np.flipud(np.diff(np.flipud(background), axis=0))))
-    #
-    #
-    # pixrl = (background) & (horizontalrl == 1)
-    # pixlr = (background) & (horizontallr == 1)
-    # pixtb = (background) & (verticaltb == 1)
-    # pixbt = (background) & (verticalbt == 1)
-    #
-    # # plt.imshow((pixrl | pixlr | pixtb | pixbt))
-    #
-    # #Quicker, convolve (FFT) and take mask * etc.
-    #
-    # lidxs_out = np.where(pixrl.ravel())[0]
-    # ridxs_out = np.where(pixlr.ravel())[0]
-    # tidxs_out = np.where(pixtb.ravel())[0]
-    # bidxs_out = np.where(pixbt.ravel())[0]
-    # lidxs_int = np.where(pixrl.ravel())[0]+1
-    # bidxs_int = np.where(pixlr.ravel())[0]-1
-    # tidxs_int = np.where(pixtb.ravel())[0] + shape[1]
-    # bidxs_int = np.where(pixbt.ravel())[0] - shape[1]
-    #
-    # visibleidxs = np.zeros(shape).ravel().astype(np.uint32)
-    # visibleidxs[visible] = np.arange(visible.size)
 
 
     #2: Take the data and copy the corresponding dxs and dys to these new pixels.
