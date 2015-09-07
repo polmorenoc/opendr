@@ -148,8 +148,8 @@ def dImage_wrt_2dVerts_bnd(observed, visible, visibility, barycentric, image_wid
 
     # ipdb.set_trace()
 
-    xdiffbnd = np.zeros([shape[0],shape[1],n_channels])
-    ydiffbnd = np.zeros([shape[0],shape[1],n_channels])
+    # xdiffbnd = np.zeros([shape[0],shape[1],n_channels])
+    # ydiffbnd = np.zeros([shape[0],shape[1],n_channels])
 
     xdiffbnd.reshape([shape[0]*shape[1], n_channels])[ridxs_int,:] = observed.reshape([shape[0]*shape[1], n_channels])[ridxs_int,:] - observed.reshape([shape[0]*shape[1], n_channels])[ridxs_int-1,:]
 
