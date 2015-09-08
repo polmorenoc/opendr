@@ -50,7 +50,7 @@ def nangradients(arr):
     return gy, gx
 
 
-def dImage_wrt_2dVerts_bnd(observed, visible, visibility, barycentric, image_width, image_height, num_verts, f, bnd_bool):
+def dImage_wrt_2dVerts_bnd_new(observed, visible, visibility, barycentric, image_width, image_height, num_verts, f, bnd_bool):
     """Construct a sparse jacobian that relates 2D projected vertex positions
     (in the columns) to pixel values (in the rows). This can be done
     in two steps."""
@@ -160,13 +160,13 @@ def dImage_wrt_2dVerts_bnd(observed, visible, visibility, barycentric, image_wid
     ydiffbnd.reshape([shape[0]*shape[1], n_channels])[tidxs_int,:] = observed.reshape([shape[0]*shape[1], n_channels])[tidxs_int+ shape[1],:] - observed.reshape([shape[0]*shape[1], n_channels])[tidxs_int,:]
 
 
-    xdiffbnd.reshape([shape[0]*shape[1], n_channels])[ridxs_int,:]=     xdiffbnd.reshape([shape[0]*shape[1], n_channels])[ridxs_int,:]*2
-
-    xdiffbnd.reshape([shape[0]*shape[1], n_channels])[lidxs_int,:]= xdiffbnd.reshape([shape[0]*shape[1], n_channels])[lidxs_int,:]*2
-
-    ydiffbnd.reshape([shape[0]*shape[1], n_channels])[bidxs_int,:]=     ydiffbnd.reshape([shape[0]*shape[1], n_channels])[bidxs_int,:]*2
-
-    ydiffbnd.reshape([shape[0]*shape[1], n_channels])[tidxs_int,:]=     ydiffbnd.reshape([shape[0]*shape[1], n_channels])[tidxs_int,:]*2
+    # xdiffbnd.reshape([shape[0]*shape[1], n_channels])[ridxs_int,:]=     xdiffbnd.reshape([shape[0]*shape[1], n_channels])[ridxs_int,:]*2
+    #
+    # xdiffbnd.reshape([shape[0]*shape[1], n_channels])[lidxs_int,:]= xdiffbnd.reshape([shape[0]*shape[1], n_channels])[lidxs_int,:]*2
+    #
+    # ydiffbnd.reshape([shape[0]*shape[1], n_channels])[bidxs_int,:]=     ydiffbnd.reshape([shape[0]*shape[1], n_channels])[bidxs_int,:]*2
+    #
+    # ydiffbnd.reshape([shape[0]*shape[1], n_channels])[tidxs_int,:]=     ydiffbnd.reshape([shape[0]*shape[1], n_channels])[tidxs_int,:]*2
 
     # xdiffbnd.reshape([shape[0]*shape[1], n_channels])[ridxs_int,:] = 0
     #
@@ -249,8 +249,6 @@ def dImage_wrt_2dVerts_bnd(observed, visible, visibility, barycentric, image_wid
     #import pdb; pdb.set_trace()
 
     datas = []
-
-    #Pol: expand barycentric.? No because an out pixel can be influenced by up to 6 vertices (neighobring 2 in pixels)/.
 
     # The data is weighted according to barycentric coordinates
     bc0 = col(barycentric[pys, pxs, 0])
@@ -355,7 +353,7 @@ def dImage_wrt_2dVerts_bnd(observed, visible, visibility, barycentric, image_wid
     return result
 
 
-def dImage_wrt_2dVerts_bnd_old(observed, visible, visibility, barycentric, image_width, image_height, num_verts, f, bnd_bool):
+def dImage_wrt_2dVerts_bnd(observed, visible, visibility, barycentric, image_width, image_height, num_verts, f, bnd_bool):
     """Construct a sparse jacobian that relates 2D projected vertex positions
     (in the columns) to pixel values (in the rows). This can be done
     in two steps."""
