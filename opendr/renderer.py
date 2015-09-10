@@ -145,27 +145,27 @@ class BaseRenderer(Ch):
         # ENABLE SHADER
 
         FRAGMENT_SHADER = shaders.compileShader("""#version 330 core
-// Interpolated values from the vertex shaders
-in vec3 theColor;
-// Ouput data
-out vec3 color;
-void main(){
-	color = theColor;
-}""", GL.GL_FRAGMENT_SHADER)
+        // Interpolated values from the vertex shaders
+        in vec3 theColor;
+        // Ouput data
+        out vec3 color;
+        void main(){
+            color = theColor;
+        }""", GL.GL_FRAGMENT_SHADER)
 
 
-        VERTEX_SHADER = shaders.compileShader("""#version 330 core
-// Input vertex data, different for all executions of this shader.
-layout (location = 0) in vec3 position;
-layout (location = 1) in vec3 color;
-uniform mat4 MVP;
-out vec3 theColor;
-// Values that stay constant for the whole mesh.
-void main(){
-	// Output position of the vertex, in clip space : MVP * position
-	gl_Position =  MVP* vec4(position,1);
-	theColor = color;
-}""", GL.GL_VERTEX_SHADER)
+                VERTEX_SHADER = shaders.compileShader("""#version 330 core
+        // Input vertex data, different for all executions of this shader.
+        layout (location = 0) in vec3 position;
+        layout (location = 1) in vec3 color;
+        uniform mat4 MVP;
+        out vec3 theColor;
+        // Values that stay constant for the whole mesh.
+        void main(){
+            // Output position of the vertex, in clip space : MVP * position
+            gl_Position =  MVP* vec4(position,1);
+            theColor = color;
+        }""", GL.GL_VERTEX_SHADER)
 
         self.colorProgram = shaders.compileProgram(VERTEX_SHADER,FRAGMENT_SHADER)
 
@@ -917,36 +917,39 @@ class TexturedRenderer(ColoredRenderer):
     terms = 'f', 'frustum', 'vt', 'ft', 'background_image', 'overdraw', 'ft_list', 'haveUVs_list', 'textures_list', 'vc_list'
     dterms = 'vc', 'camera', 'bgcolor', 'texture_stack', 'v'
 
+    def clear(self):
+        GL.glDeleteProgram(self.colorTextureProgram)
+        super(TexturedRenderer, self).clear()
 
     def initGLTexture(self):
         print("Initializing Texture OpenGL.")
 
         FRAGMENT_SHADER = shaders.compileShader("""#version 330 core
-// Interpolated values from the vertex shaders
-in vec3 theColor;
-in vec2 UV;
-uniform sampler2D myTextureSampler;
-// Ouput data
-out vec3 color;
-void main(){
-	color = theColor * texture2D( myTextureSampler, UV ).rgb;
-}""", GL.GL_FRAGMENT_SHADER)
+        // Interpolated values from the vertex shaders
+        in vec3 theColor;
+        in vec2 UV;
+        uniform sampler2D myTextureSampler;
+        // Ouput data
+        out vec3 color;
+        void main(){
+            color = theColor * texture2D( myTextureSampler, UV ).rgb;
+        }""", GL.GL_FRAGMENT_SHADER)
 
         VERTEX_SHADER = shaders.compileShader("""#version 330 core
-// Input vertex data, different for all executions of this shader.
-layout (location = 0) in vec3 position;
-layout (location = 1) in vec3 color;
-layout(location = 2) in vec2 vertexUV;
-uniform mat4 MVP;
-out vec3 theColor;
-out vec2 UV;
-// Values that stay constant for the whole mesh.
-void main(){
-	// Output position of the vertex, in clip space : MVP * position
-	gl_Position =  MVP* vec4(position,1);
-	theColor = color;
-	UV = vertexUV;
-}""", GL.GL_VERTEX_SHADER)
+        // Input vertex data, different for all executions of this shader.
+        layout (location = 0) in vec3 position;
+        layout (location = 1) in vec3 color;
+        layout(location = 2) in vec2 vertexUV;
+        uniform mat4 MVP;
+        out vec3 theColor;
+        out vec2 UV;
+        // Values that stay constant for the whole mesh.
+        void main(){
+            // Output position of the vertex, in clip space : MVP * position
+            gl_Position =  MVP* vec4(position,1);
+            theColor = color;
+            UV = vertexUV;
+        }""", GL.GL_VERTEX_SHADER)
 
         self.colorTextureProgram = shaders.compileProgram(VERTEX_SHADER,FRAGMENT_SHADER)
 
