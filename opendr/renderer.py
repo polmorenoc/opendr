@@ -154,7 +154,7 @@ class BaseRenderer(Ch):
         }""", GL.GL_FRAGMENT_SHADER)
 
 
-                VERTEX_SHADER = shaders.compileShader("""#version 330 core
+        VERTEX_SHADER = shaders.compileShader("""#version 330 core
         // Input vertex data, different for all executions of this shader.
         layout (location = 0) in vec3 position;
         layout (location = 1) in vec3 color;
@@ -767,7 +767,6 @@ class ColoredRenderer(BaseRenderer):
         if 'frustum' in which:
             w = self.frustum['width']
             h = self.frustum['height']
-            self.initGL()
 
         if 'frustum' in which or 'camera' in which:
             self.setup_camera(self.camera, self.frustum)
@@ -918,7 +917,10 @@ class TexturedRenderer(ColoredRenderer):
     dterms = 'vc', 'camera', 'bgcolor', 'texture_stack', 'v'
 
     def clear(self):
-        GL.glDeleteProgram(self.colorTextureProgram)
+        try:
+            GL.glDeleteProgram(self.colorTextureProgram)
+        except:
+            print("Program had not been initialized")
         super(TexturedRenderer, self).clear()
 
     def initGLTexture(self):
@@ -1076,7 +1078,7 @@ class TexturedRenderer(ColoredRenderer):
         #Pol: why do we add the lines edges in the final render?
         return no_overdraw
 
-    def image_mesh_bool(self, mesh):
+    def image_mesh_bool(self, meshes):
         self._call_on_changed()
         GL.glPolygonMode(GL.GL_FRONT_AND_BACK, GL.GL_FILL)
 
@@ -1091,8 +1093,8 @@ class TexturedRenderer(ColoredRenderer):
         GL.glClear(GL.GL_COLOR_BUFFER_BIT | GL.GL_DEPTH_BUFFER_BIT)
 
         GL.glUseProgram(self.colorProgram)
-
-        self.draw_index(mesh)
+        for mesh in meshes:
+            self.draw_index(mesh)
 
         GL.glBindFramebuffer(GL.GL_FRAMEBUFFER, self.fbo)
         GL.glReadBuffer(GL.GL_COLOR_ATTACHMENT0)
@@ -1236,9 +1238,9 @@ class TexturedRenderer(ColoredRenderer):
     def on_changed(self, which):
         super(self.__class__, self).on_changed(which)
 
-        # have to redo if frustum changes, b/c frustum triggers new context
-        if 'frustum' in which:
-            self.initGLTexture()
+        # have to redo if frustum changes, b/c frustum triggers new # context
+        # if 'frustum' in  which:
+        #     self.initGLTexture()
 
         if 'texture_stack' in which:
             # gl = self.glf
