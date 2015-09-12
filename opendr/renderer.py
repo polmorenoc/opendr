@@ -50,10 +50,12 @@ class BaseRenderer(Ch):
             print ("Clearing when not initialized.")
             return
 
-        if not self.win:
+        if self.win:
+            glfw.make_context_current(self.win)
             GL.glDeleteProgram(self.colorProgram)
-            glfw.terminate()
+            # glfw.terminate()
             self.win = 0
+            #Maybe delete all those buffers?
 
     def __del__(self):
         self.clear()
@@ -79,8 +81,8 @@ class BaseRenderer(Ch):
         glfw.window_hint(glfw.OPENGL_PROFILE, glfw.OPENGL_CORE_PROFILE)
         glfw.window_hint(glfw.DEPTH_BITS,32)
 
-        glfw.window_hint(glfw.VISIBLE, GL.GL_TRUE)
-        self.win = glfw.create_window(self.frustum['width'], self.frustum['height'], "test",  None, None)
+        glfw.window_hint(glfw.VISIBLE, GL.GL_FALSE)
+        self.win = glfw.create_window(self.frustum['width'], self.frustum['height'], "test",  None, self.sharedWin)
         glfw.make_context_current(self.win)
         GL.USE_ACCELERATE = True
         GL.glViewport(0, 0, self.frustum['width'], self.frustum['height'])
@@ -187,6 +189,12 @@ class BaseRenderer(Ch):
         self.vbo_indices_dyn = vbo.VBO(indices, target=GL.GL_ELEMENT_ARRAY_BUFFER)
 
         self.vbo_verts = vbo.VBO(np.array(self.v, dtype=np.float32))
+        # glGenBuffers(1, &vboID);
+        # glBindBuffer(GL_VERTEX_ARRAY, vboID);
+        # glBufferData(GL_VERTEX_ARRAY, 3 * sizeof(Vertex), &vertices[0], GL_STATIC_DRAW);
+        # glBindBuffer(GL_VERTEX_ARRAY, NULL);
+
+
         self.vbo_verts_face = vbo.VBO(self.verts_by_face.astype(np.float32))
         self.vbo_verts_dyn = vbo.VBO(np.array(self.v, dtype=np.float32))
 
@@ -199,7 +207,9 @@ class BaseRenderer(Ch):
         GL.glGenVertexArrays(1, self.vao_static)
         GL.glBindVertexArray(self.vao_static)
 
+
         self.vbo_indices.bind()
+
         self.vbo_verts.bind()
         GL.glEnableVertexAttribArray(position_location) # from 'location = 0' in shader
         GL.glVertexAttribPointer(position_location, 3, GL.GL_FLOAT, GL.GL_FALSE, 0, None)
@@ -216,7 +226,9 @@ class BaseRenderer(Ch):
 
         #Can arrays be empty?
         # ipdb.set_trace()
+
         self.vbo_indices_range.bind()
+
         self.vbo_verts_face.bind()
         GL.glEnableVertexAttribArray(position_location) # from 'location = 0' in shader
         GL.glVertexAttribPointer(position_location, 3, GL.GL_FLOAT, GL.GL_FALSE, 0, None)
@@ -235,6 +247,7 @@ class BaseRenderer(Ch):
         # ipdb.set_trace()
 
         self.vbo_indices_dyn.bind()
+
         self.vbo_verts_dyn.bind()
         GL.glEnableVertexAttribArray(position_location) # from 'location = 0' in shader
         GL.glVertexAttribPointer(position_location, 3, GL.GL_FLOAT, GL.GL_FALSE, 0, None)
@@ -249,12 +262,15 @@ class BaseRenderer(Ch):
         GL.glGenVertexArrays(1, self.vao_dyn_ub)
         GL.glBindVertexArray(self.vao_dyn_ub)
 
+
         self.vbo_indices_dyn.bind()
+
         self.vbo_verts_dyn.bind()
         GL.glEnableVertexAttribArray(position_location) # from 'location = 0' in shader
         GL.glVertexAttribPointer(position_location, 3, GL.GL_FLOAT, GL.GL_FALSE, 0, None)
 
         self.vbo_colors_ub = vbo.VBO(np.array(np.array(self.vc, dtype=np.uint8)))
+
         self.vbo_colors_ub.bind()
         GL.glEnableVertexAttribArray(color_location) # from 'location = 0' in shader
         GL.glVertexAttribPointer(color_location, 3, GL.GL_UNSIGNED_BYTE, GL.GL_TRUE, 0, None)
@@ -918,10 +934,15 @@ class TexturedRenderer(ColoredRenderer):
 
     def clear(self):
         try:
+            glfw.make_context_current(self.win)
             GL.glDeleteProgram(self.colorTextureProgram)
         except:
             print("Program had not been initialized")
+
         super(TexturedRenderer, self).clear()
+
+    def __del__(self):
+        self.clear()
 
     def initGLTexture(self):
         print("Initializing Texture OpenGL.")
@@ -1416,6 +1437,8 @@ class TexturedRenderer(ColoredRenderer):
         texcoord_image = texcoord_image[:,:,0] + texcoord_image[:,:,1]*self.texture_image.shape[1]
         return texcoord_image, texture_idx
 
+    def checkBufferNum(self):
+       GL.glGenBuffers(1)
     @depends_on('ft', 'f', 'frustum', 'camera')
     def texcoord_image(self):
         return self.draw_texcoord_image(self.v.r, self.f, self.ft, self.boundarybool_image if self.overdraw else None)
