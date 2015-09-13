@@ -57,8 +57,8 @@ class BaseRenderer(Ch):
             self.win = 0
             #Maybe delete all those buffers?
 
-    def __del__(self):
-        self.clear()
+    # def __del__(self):
+    #     self.clear()
 
     def initGL(self):
         try:
@@ -941,8 +941,8 @@ class TexturedRenderer(ColoredRenderer):
 
         super(TexturedRenderer, self).clear()
 
-    def __del__(self):
-        self.clear()
+    # def __del__(self):
+    #     self.clear()
 
     def initGLTexture(self):
         print("Initializing Texture OpenGL.")
