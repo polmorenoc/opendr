@@ -69,8 +69,8 @@ class SphericalHarmonics(Ch):
             # http://en.wikipedia.org/wiki/Spherical_coordinate_system#Cartesian_coordinates
             self.theta = np.arccos(vn[:,2])
             self.phi = np.arctan2(vn[:,1], vn[:,0])
-            
-            self.sh_coeffs = real_sh_coeff(vn)            
+            # vnswapped = np.swapaxes(vn, 0,1)
+            self.sh_coeffs = real_sh_coeff(vn)
             self.num_verts = self.sh_coeffs.shape[0]
 
         if 'light_color' in which or self.mtx.shape[1] != self.num_verts:
@@ -93,7 +93,9 @@ class SphericalHarmonics(Ch):
         comps[:len(self.components.r)] = self.components.r
         comps = comps * self.K.ravel()
         if wrt is self.vn:
+
             vn = self.vn.r.reshape((-1,3))
+            # vn = np.swapaxes(vn, 0,1)
 
             #real_coeff[:,1] = (np.sqrt(3)/d_sqrt_pi)*xyz_samples[:,0]
             VS0 = np.ones(self.sh_coeffs.shape[0]) * comps[1]
