@@ -799,9 +799,9 @@ class ColoredRenderer(BaseRenderer):
             self.overdraw = True
 
         if 'v' or 'f' in which:
-            self.vbo_verts_face.set_array(self.verts_by_face.astype(np.float32))
+            self.vbo_verts_face.set_array(np.array(self.verts_by_face).astype(np.float32))
             self.vbo_verts.bind()
-            self.vbo_colors_face.set_array(self.vc_by_face.astype(np.float32))
+            self.vbo_colors_face.set_array(np.array(self.vc_by_face).astype(np.float32))
             self.vbo_colors_face.bind()
 
         if 'v' in which:
@@ -1261,7 +1261,21 @@ class TexturedRenderer(ColoredRenderer):
 
         # have to redo if frustum changes, b/c frustum triggers new # context
         # if 'frustum' in  which:
-        #     self.initGLTexture()
+
+        if 'v' in which:
+            for mesh in range(len(self.f_list)):
+                self.vbo_verts_mesh[mesh].set_array(np.array(self.v_list[mesh]).astype(np.float32))
+                self.vbo_colors_mesh[mesh].set_array(np.array(self.vc_list[mesh]).astype(np.float32))
+                self.vbo_verts_mesh[mesh].bind()
+                self.vbo_colors_mesh[mesh].bind()
+
+        if 'f' in which:
+            self.vbo_indices.set_array(self.f.astype(np.uint32))
+            self.vbo_indices.bind()
+
+            self.vbo_indices_range.set_array(np.arange(self.f.size, dtype=np.uint32).ravel())
+            self.vbo_indices_range.bind()
+
 
         if 'texture_stack' in which:
             # gl = self.glf
