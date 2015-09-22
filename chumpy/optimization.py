@@ -50,11 +50,11 @@ def hstack(x):
 
 def gradCheckSimple(fun, var, delta):
     f0 = fun.r
-    oldvar = var.r[:]
+    oldvar = var.r[:].copy()
     var[:] = var.r[:] + delta
     f1 = fun.r
     diff = (f1 - f0)/np.abs(delta)
-    var[:] = oldvar
+    var[:] = oldvar.copy()
     return diff
 
 def gradCheck(fun, vars, delta):
