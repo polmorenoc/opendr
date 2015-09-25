@@ -387,7 +387,8 @@ class BaseRenderer(Ch):
     def draw_edge_visibility(self, v, e, f, hidden_wireframe=True):
         """Assumes camera is set up correctly in gl context."""
         shaders.glUseProgram(self.colorProgram)
-        GL.glBindFramebuffer(GL.GL_DRAW_FRAMEBUFFER, self.fbo)
+        GL.glBindFramebuffer(GL.GL_FRAMEBUFFER, self.fbo)
+
 
         GL.glDepthMask(GL.GL_TRUE)
         GL.glEnable(GL.GL_DEPTH_TEST)
@@ -419,7 +420,6 @@ class BaseRenderer(Ch):
 
         GL.glBindFramebuffer(GL.GL_FRAMEBUFFER, self.fbo)
         GL.glReadBuffer(GL.GL_COLOR_ATTACHMENT0)
-
 
         raw = np.flipud(np.frombuffer(GL.glReadPixels( 0,0, self.frustum['width'], self.frustum['height'], GL.GL_RGB, GL.GL_UNSIGNED_BYTE), np.uint8).reshape(self.frustum['height'],self.frustum['height'],3).astype(np.uint32))
 
@@ -865,16 +865,17 @@ class ColoredRenderer(BaseRenderer):
             GL.glReadBuffer(GL.GL_COLOR_ATTACHMENT0)
 
             result = np.flipud(np.frombuffer(GL.glReadPixels( 0,0, self.frustum['width'], self.frustum['height'], GL.GL_RGB, GL.GL_UNSIGNED_BYTE), np.uint8).reshape(self.frustum['height'],self.frustum['height'],3).astype(np.float64))/255.0
+            # plt.imsave("opendr_draw_color_image.png", result)
+            GL.glBindFramebuffer(GL.GL_DRAW_FRAMEBUFFER, self.fbo)
+            GL.glDisable(GL.GL_MULTISAMPLE)
+            GL.glClearColor(0.,0.,0., 1.)
 
             if hasattr(self, 'background_image'):
                 bg_px = np.tile(np.atleast_3d(self.visibility_image) == 4294967295, (1,1,self.num_channels)).squeeze()
                 fg_px = 1 - bg_px
                 result = bg_px * self.background_image + fg_px * result
 
-            # plt.imsave("opendr_draw_color_image.png", result)
-            GL.glBindFramebuffer(GL.GL_DRAW_FRAMEBUFFER, self.fbo)
-            GL.glDisable(GL.GL_MULTISAMPLE)
-            GL.glClearColor(0.,0.,0., 1.)
+
 
             return result
         except:
@@ -1431,14 +1432,16 @@ class TexturedRenderer(ColoredRenderer):
 
         result = np.flipud(np.frombuffer(GL.glReadPixels( 0,0, self.frustum['width'], self.frustum['height'], GL.GL_RGB, GL.GL_UNSIGNED_BYTE), np.uint8).reshape(self.frustum['height'],self.frustum['height'],3).astype(np.float64))/255.0
 
+
+        GL.glBindFramebuffer(GL.GL_DRAW_FRAMEBUFFER, self.fbo)
+        GL.glDisable(GL.GL_MULTISAMPLE)
+        GL.glClearColor(0.,0.,0., 1.)
+
         if hasattr(self, 'background_image'):
             bg_px = np.tile(np.atleast_3d(self.visibility_image) == 4294967295, (1,1,3))
             fg_px = 1 - bg_px
             result = bg_px * self.background_image + fg_px * result
 
-        GL.glBindFramebuffer(GL.GL_DRAW_FRAMEBUFFER, self.fbo)
-        GL.glDisable(GL.GL_MULTISAMPLE)
-        GL.glClearColor(0.,0.,0., 1.)
         return result
 
     @depends_on('ft', 'f', 'frustum', 'camera')

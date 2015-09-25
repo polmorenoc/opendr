@@ -49,6 +49,23 @@ def nangradients(arr):
 
     return gy, gx
 
+#Based on Ravi Ramamoorthi and 3D gradient enhancement by Fukai Zhao et al
+# def dImage_wrt_2dVerts_bnd_rev(observed, visible, visibility, barycentric, image_width, image_height, num_verts, f, bnd_bool):
+#     a = -vn[:,0]/vn[:,2]
+#
+#     b = -vn[:,]
+#
+#     c =
+
+    # 0 Compute dxdu
+
+    # 1 For each visible point:
+        # Compute the unprojected x
+        # take corresponding triangle.
+        # Take corresponding normal and barycentric gradient.
+        # Use that to compute dr vc wrt normal * dr normal wrt x
+    # 2 Idx * dxdu
+
 
 def dImage_wrt_2dVerts_bnd_new(observed, visible, visibility, barycentric, image_width, image_height, num_verts, f, bnd_bool):
     """Construct a sparse jacobian that relates 2D projected vertex positions
@@ -677,7 +694,7 @@ def dr_wrt_bgcolor(visibility, frustum, num_channels):
     result = sp.csc_matrix((data, ij), shape=(frustum['width']*frustum['height']*num_channels, num_channels))
     return result
 
-#Pol: might be able to use Fragment shader dFx dFy
+
 def dr_wrt_vc(visible, visibility, f, barycentric, frustum, vc_size, num_channels):
 
     # Each pixel relies on three verts

@@ -176,6 +176,10 @@ def minimize(fun, x0, method='dogleg', bounds=None, constraints=(), tol=None, ca
         if options is None: options = {}
         return _minimize_dogleg(fun, free_variables=x0, on_step=callback, **options)
 
+    maxiter = None
+    if options != None:
+        maxiter = options['maxiter']
+
     if isinstance(fun, list) or isinstance(fun, tuple):
         fun = ch.concatenate([f.ravel() for f in fun])
     if isinstance(fun, dict):
@@ -274,7 +278,7 @@ def minimize(fun, x0, method='dogleg', bounds=None, constraints=(), tol=None, ca
         return result
 
     if method == 'minimize':
-        x1, fX, i = min_ras.minimize(np.concatenate([free_variable.r.ravel() for free_variable in free_variables]), residuals, scalar_jacfunc, args=(obj, obj_scalar, free_variables), on_step=callback)
+        x1, fX, i = min_ras.minimize(np.concatenate([free_variable.r.ravel() for free_variable in free_variables]), residuals, scalar_jacfunc, args=(obj, obj_scalar, free_variables), on_step=callback, maxnumfuneval=maxiter)
     else:
         x1 = scipy.optimize.minimize(
             method=method,
