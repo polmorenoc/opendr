@@ -57,7 +57,7 @@ class BaseRenderer(Ch):
             return
 
         if self.win:
-            glfw.make_context_current(self.win)
+            self.makeCurrentContext()
 
             GL.glDeleteProgram(self.colorProgram)
             # glfw.terminate()
