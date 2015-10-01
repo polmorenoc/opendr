@@ -34,14 +34,19 @@ from chumpy import *
 # from opendr.contexts._constants import *
 from chumpy.utils import row, col
 import time
-
+from OpenGL import arrays
+from OpenGL.raw.osmesa import mesa
 pixel_center_offset = 0.5
 
 
 class BaseRenderer(Ch):
     terms = ['f', 'frustum','overdraw', 'win', 'f_list', 'v_list', 'vn_list', 'vc_list']
     dterms = ['camera', 'v']
-
+    def makeCurrentContext(self):
+        if self.glMode == 'glfw':
+            glfw.make_context_current(self.win)
+        else:
+            mesa.OSMesaMakeCurrent(self.ctx, GL.GLuint(self.mesap), GL.GL_UNSIGNED_BYTE, self.frustum['width'], self.frustum['height'])
     def clear(self):
         # ipdb.set_trace()
         try:
@@ -52,6 +57,7 @@ class BaseRenderer(Ch):
 
         if self.win:
             glfw.make_context_current(self.win)
+
             GL.glDeleteProgram(self.colorProgram)
             # glfw.terminate()
             self.win = 0
@@ -66,25 +72,34 @@ class BaseRenderer(Ch):
             self.f
             self.v
             self.vc
+            self.glMode
         except:
             print ("Necessary variables have not been set (frustum, f, v, or vc).")
             return
 
-        # self.clear()
+        # self.cleaif self.glMode lfw':
 
-        glfw.init()
-        print("Initializing GLFW.")
+            glfw.init()
+            print("Initializing GLFW.")
 
-        glfw.window_hint(glfw.CONTEXT_VERSION_MAJOR, 3)
-        glfw.window_hint(glfw.CONTEXT_VERSION_MINOR, 3)
-        # glfw.window_hint(glfw.OPENGL_FORWARD_COMPAT, GL.GL_TRUE)
-        glfw.window_hint(glfw.OPENGL_PROFILE, glfw.OPENGL_CORE_PROFILE)
-        glfw.window_hint(glfw.DEPTH_BITS,32)
+            glfw.window_hint(glfw.CONTEXT_VERSION_MAJOR, 3)
+            glfw.window_hint(glfw.CONTEXT_VERSION_MINOR, 3)
+            # glfw.window_hint(glfw.OPENGL_FORWARD_COMPAT, GL.GL_TRUE)
+            glfw.window_hint(glfw.OPENGL_PROFILE, glfw.OPENGL_CORE_PROFILE)
+            glfw.window_hint(glfw.DEPTH_BITS,32)
 
-        glfw.window_hint(glfw.VISIBLE, GL.GL_FALSE)
-        self.win = glfw.create_window(self.frustum['width'], self.frustum['height'], "test",  None, self.sharedWin)
-        glfw.make_context_current(self.win)
+            glfw.window_hint(glfw.VISIBLE, GL.GL_FALSE)
+            self.win = glfw.create_window(self.frustum['width'], self.frustum['height'], "test",  None, self.sharedWin)
+            glfw.make_context_current(self.win)
+
+        else:
+            self.ctx = mesa.OSMesaCreateContext(GL.GL_RGB, None)
+            self.buf = arrays.GLubyteArray.zeros((self.frustum['height'], self.frustum['width'], 4))
+            self.mesap = arrays.ArrayDatatype.dataPointer(self.buf)
+            assert(mesa.OSMesaMakeCurrent(self.ctx, GL.GLuint(self.mesap), GL.GL_UNSIGNED_BYTE, self.frustum['width'], self.frustum['height']))
+
         GL.USE_ACCELERATE = True
+
         GL.glViewport(0, 0, self.frustum['width'], self.frustum['height'])
 
         #FBO_f
@@ -104,6 +119,7 @@ class BaseRenderer(Ch):
         GL.glRenderbufferStorage(GL.GL_RENDERBUFFER,  GL.GL_DEPTH_COMPONENT, self.frustum['width'], self.frustum['height'])
         GL.glFramebufferRenderbuffer(GL.GL_FRAMEBUFFER, GL.GL_DEPTH_ATTACHMENT, GL.GL_RENDERBUFFER, z_buf)
 
+
         #FBO_f
         self.fbo_ms = GL.glGenFramebuffers(1)
 
@@ -113,6 +129,9 @@ class BaseRenderer(Ch):
 
         render_buf = GL.glGenRenderbuffers(1)
         GL.glBindRenderbuffer(GL.GL_RENDERBUFFER,render_buf)
+
+        ipdb.set_trace()
+
         GL.glRenderbufferStorageMultisample(GL.GL_RENDERBUFFER, 8, GL.GL_RGB8, self.frustum['width'], self.frustum['height'])
         GL.glFramebufferRenderbuffer(GL.GL_DRAW_FRAMEBUFFER, GL.GL_COLOR_ATTACHMENT0, GL.GL_RENDERBUFFER, render_buf)
 
@@ -583,8 +602,7 @@ class BaseRenderer(Ch):
     def draw_visibility_image(self, v, f, boundarybool_image=None):
         v = np.asarray(v)
         # gl.Disable(GL_TEXTURE_2D)
-        # gl.DisableClientState(GL_TEXTURE_COORD_ARRAY)
-        glfw.make_context_current(self.win)
+        # gl.DisableClientState(GL_TEXTURE_COORD_ARR
         shaders.glUseProgram(self.colorProgram)
 
         result = self.draw_visibility_image_internal(v, f)
@@ -621,8 +639,7 @@ class BaseRenderer(Ch):
 
 
     def draw_visibility_image_internal(self, v, f):
-        """Assumes camera is set up correctly in gl context."""
-        glfw.make_context_current(self.win)
+        """Assumes camera is set up correctly in"""
         GL.glUseProgram(self.colorProgram)
 
         #Attach FBO
@@ -666,8 +683,6 @@ class BaseRenderer(Ch):
 
 
     def draw_barycentric_image_internal(self):
-
-        glfw.make_context_current(self.win)
         GL.glUseProgram(self.colorProgram)
 
         view_mtx = self.camera.openglMat.dot(np.asarray(np.vstack((self.camera.view_matrix, np.array([0, 0, 0, 1]))),np.float32))
@@ -842,7 +857,7 @@ class ColoredRenderer(BaseRenderer):
     #         import pdb; pdb.set_trace()
 
     def draw_color_image(self):
-        glfw.make_context_current(self.win)
+        self.makeCurrentContext()
         self._call_on_changed()
         try:
 
@@ -935,7 +950,8 @@ class TexturedRenderer(ColoredRenderer):
 
     def clear(self):
         try:
-            glfw.make_context_current(self.win)
+            if self.glMode == 'glfw':
+                glfw.make_context_current(self.win)
             GL.glDeleteProgram(self.colorTextureProgram)
         except:
             print("Program had not been initialized")
@@ -1101,10 +1117,9 @@ class TexturedRenderer(ColoredRenderer):
         return no_overdraw
 
     def image_mesh_bool(self, meshes):
+        self.makeCurrentContext()
         self._call_on_changed()
         GL.glPolygonMode(GL.GL_FRONT_AND_BACK, GL.GL_FILL)
-
-        glfw.make_context_current(self.win)
         self._call_on_changed()
 
         GL.glClearColor(0.,0.,0., 1.)
@@ -1129,9 +1144,8 @@ class TexturedRenderer(ColoredRenderer):
     @depends_on(dterms+terms)
     def indices_image(self):
         self._call_on_changed()
+        self.makeCurrentContext()
         GL.glPolygonMode(GL.GL_FRONT_AND_BACK, GL.GL_FILL)
-
-        glfw.make_context_current(self.win)
         self._call_on_changed()
 
         GL.glClearColor(0.,0.,0., 1.)
@@ -1191,8 +1205,8 @@ class TexturedRenderer(ColoredRenderer):
     def draw_texcoord_image(self, v, f, ft, boundarybool_image=None):
         # gl = glf
         # gl.Disable(GL_TEXTURE_2D)
-        # gl.DisableClientState(GL_TEXTURE_COORD_ARRAY)
-        glfw.make_context_current(self.win)
+        # gl.DisableClientState(GL_TEXTURE_COORD_ARR
+        self.makeCurrentContext()
         shaders.glUseProgram(self.colorProgram)
 
         GL.glBindFramebuffer(GL.GL_DRAW_FRAMEBUFFER, self.fbo)
@@ -1350,8 +1364,8 @@ class TexturedRenderer(ColoredRenderer):
     def boundaryid_image(self):
         self._call_on_changed()
 
-        # self.texture_mapping_off()
-        glfw.make_context_current(self.win)
+        # self.texture_mapping_of
+        self.makeCurrentContext()
         GL.glUseProgram(self.colorProgram)
 
         result = self.draw_boundaryid_image(self.v.r, self.f, self.vpe, self.fpe, self.camera)
@@ -1362,7 +1376,7 @@ class TexturedRenderer(ColoredRenderer):
         return result
 
     def draw_color_image(self, with_vertex_colors=True, with_texture_on=True):
-        glfw.make_context_current(self.win)
+        self.makeCurrentContext()
         self._call_on_changed()
 
         GL.glEnable(GL.GL_MULTISAMPLE)
