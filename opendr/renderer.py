@@ -123,7 +123,6 @@ class BaseRenderer(Ch):
         GL.glRenderbufferStorage(GL.GL_RENDERBUFFER,  GL.GL_DEPTH_COMPONENT, self.frustum['width'], self.frustum['height'])
         GL.glFramebufferRenderbuffer(GL.GL_FRAMEBUFFER, GL.GL_DEPTH_ATTACHMENT, GL.GL_RENDERBUFFER, z_buf)
 
-        ipdb.set_trace()
 
         #FBO_f
         self.fbo_ms = GL.glGenFramebuffers(1)
