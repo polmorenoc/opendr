@@ -34,8 +34,7 @@ from chumpy import *
 # from opendr.contexts._constants import *
 from chumpy.utils import row, col
 import time
-from OpenGL import arrays
-from OpenGL.raw.osmesa import mesa
+
 pixel_center_offset = 0.5
 
 
@@ -46,6 +45,8 @@ class BaseRenderer(Ch):
         if self.glMode == 'glfw':
             glfw.make_context_current(self.win)
         else:
+            from OpenGL import arrays
+            from OpenGL.raw.osmesa import mesa
             mesa.OSMesaMakeCurrent(self.ctx, GL.GLuint(self.mesap), GL.GL_UNSIGNED_BYTE, self.frustum['width'], self.frustum['height'])
     def clear(self):
         # ipdb.set_trace()
@@ -77,7 +78,7 @@ class BaseRenderer(Ch):
             print ("Necessary variables have not been set (frustum, f, v, or vc).")
             return
 
-        # self.cleaif self.glMode lfw':
+        if self.glMode == 'glfw':
 
             glfw.init()
             print("Initializing GLFW.")
@@ -93,6 +94,9 @@ class BaseRenderer(Ch):
             glfw.make_context_current(self.win)
 
         else:
+            from OpenGL import arrays
+            from OpenGL.raw.osmesa import mesa
+
             self.ctx = mesa.OSMesaCreateContext(GL.GL_RGB, None)
             self.buf = arrays.GLubyteArray.zeros((self.frustum['height'], self.frustum['width'], 4))
             self.mesap = arrays.ArrayDatatype.dataPointer(self.buf)
@@ -130,14 +134,12 @@ class BaseRenderer(Ch):
         render_buf = GL.glGenRenderbuffers(1)
         GL.glBindRenderbuffer(GL.GL_RENDERBUFFER,render_buf)
 
-        ipdb.set_trace()
-
-        GL.glRenderbufferStorageMultisample(GL.GL_RENDERBUFFER, 8, GL.GL_RGB8, self.frustum['width'], self.frustum['height'])
+        GL.glRenderbufferStorageMultisample(GL.GL_RENDERBUFFER,0, GL.GL_RGB8, self.frustum['width'], self.frustum['height'])
         GL.glFramebufferRenderbuffer(GL.GL_DRAW_FRAMEBUFFER, GL.GL_COLOR_ATTACHMENT0, GL.GL_RENDERBUFFER, render_buf)
 
         z_buf = GL.glGenRenderbuffers(1)
         GL.glBindRenderbuffer(GL.GL_RENDERBUFFER, z_buf)
-        GL.glRenderbufferStorageMultisample(GL.GL_RENDERBUFFER, 8, GL.GL_DEPTH_COMPONENT, self.frustum['width'], self.frustum['height'])
+        GL.glRenderbufferStorageMultisample(GL.GL_RENDERBUFFER,0 , GL.GL_DEPTH_COMPONENT, self.frustum['width'], self.frustum['height'])
         GL.glFramebufferRenderbuffer(GL.GL_FRAMEBUFFER, GL.GL_DEPTH_ATTACHMENT, GL.GL_RENDERBUFFER, z_buf)
 
         GL.glEnable(GL.GL_DEPTH_TEST)
@@ -152,15 +154,9 @@ class BaseRenderer(Ch):
 
         GL.glBindFramebuffer(GL.GL_FRAMEBUFFER,0)
 
-        GL.glClear(GL.GL_COLOR_BUFFER_BIT)
-        GL.glClear(GL.GL_DEPTH_BUFFER_BIT)
+        # GL.glClear(GL.GL_COLOR_BUFFER_BIT)
+        # GL.glClear(GL.GL_DEPTH_BUFFER_BIT)
 
-        print ("FRAMEBUFFER ERR: " + str(GL.glCheckFramebufferStatus(GL.GL_FRAMEBUFFER)))
-        assert (GL.glCheckFramebufferStatus(GL.GL_FRAMEBUFFER) == GL.GL_FRAMEBUFFER_COMPLETE)
-
-        GL.glBindFramebuffer(GL.GL_FRAMEBUFFER,0)
-
-        assert (GL.glCheckFramebufferStatus(GL.GL_FRAMEBUFFER) == GL.GL_FRAMEBUFFER_COMPLETE)
 
         ############################
         # ENABLE SHADER
