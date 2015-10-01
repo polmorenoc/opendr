@@ -97,8 +97,8 @@ class BaseRenderer(Ch):
             from OpenGL import arrays
             from OpenGL.raw.osmesa import mesa
 
-            self.ctx = mesa.OSMesaCreateContext(GL.GL_RGB, None)
-            self.buf = arrays.GLubyteArray.zeros((self.frustum['height'], self.frustum['width'], 4))
+            self.ctx = mesa.OSMesaCreateContext(GL.GL_RGBA, None)
+            self.buf = arrays.GLubyteArray.zeros((self.frustum['height'], self.frustum['width'], 3))
             self.mesap = arrays.ArrayDatatype.dataPointer(self.buf)
             assert(mesa.OSMesaMakeCurrent(self.ctx, GL.GLuint(self.mesap), GL.GL_UNSIGNED_BYTE, self.frustum['width'], self.frustum['height']))
 
