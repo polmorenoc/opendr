@@ -39,8 +39,6 @@ def real_sh_coeff(xyz_samples):
     real_coeff[:,8] = (np.sqrt(15)/(2*d_sqrt_pi))*(xyz_samples[:,0]**2 - xyz_samples[:,1]**2)
     return real_coeff	
 
-
-
 class SphericalHarmonics(Ch):
     dterms = 'vn', 'components'
     terms = ['light_color']
