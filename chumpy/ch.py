@@ -1233,7 +1233,19 @@ class tan(UnaryElemwise):
 class arctan(UnaryElemwise):
     _r = np.arctan
     _d = lambda self, x : np.reciprocal(np.square(x)+1.)
-    
+
+# class arctan2(Ch):
+#     dterms = 'x', 'y'
+#
+#     def compute_r(self):
+#         return np.arctan2(self.y.r,self.x.r)
+#
+#     def compute_dr_wrt(self, wrt):
+#         if self.x.r != 0:
+#             return -self.y/(self.x.r**2 + self.y.r**2)
+#         elif self.x.r == 0:
+#             return 0
+
 class negative(UnaryElemwise):
     _r = np.negative
     _d = lambda self, x : np.negative(np.ones_like(x))
