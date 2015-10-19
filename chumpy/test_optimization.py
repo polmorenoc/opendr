@@ -14,7 +14,7 @@ from optimization import minimize
 from ch import Ch
 import numpy as np
 from scipy.optimize import rosen, rosen_der
-from utils import row, col
+from blender_utils import row, col
 
 
 visualize = False

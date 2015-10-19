@@ -30,7 +30,7 @@ context_dir = os.path.join(os.path.dirname(__file__), 'contexts')
 
 def download_osmesa():
     import os, re, zipfile
-    from utils import wget
+    from blender_utils import wget
     mesa_dir = os.path.join(context_dir,'OSMesa')
     if not os.path.exists(mesa_dir):
         sysinfo = platform.uname()

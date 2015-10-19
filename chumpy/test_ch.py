@@ -257,7 +257,7 @@ class TestCh(unittest.TestCase):
         self.assertTrue(dr2 is not dr1)
     
     def test_transpose(self):
-        from utils import row, col
+        from blender_utils import row, col
         from copy import deepcopy
         for which in ('C', 'F'): # test in fortran and contiguous mode
             a = ch.Ch(np.require(np.zeros(8).reshape((4,2)), requirements=which))
@@ -354,7 +354,7 @@ class TestCh(unittest.TestCase):
             self.assertTrue(np.max(np.abs(pred-real)) < 1e-10)
 
     def test_maximum(self):
-        from utils import row, col
+        from blender_utils import row, col
         from ch import maximum
         
         # Make sure that when we compare the max of two *identical* numbers,

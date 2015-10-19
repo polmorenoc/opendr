@@ -57,7 +57,25 @@ class BaseRenderer(Ch):
             return
 
         if self.win:
+
+            print ("Clearing base renderer.")
             self.makeCurrentContext()
+            self.vbo_indices.delete()
+            self.vbo_indices_range.delete()
+            self.vbo_indices_dyn.delete()
+            self.vbo_verts.delete()
+            self.vbo_verts_face.delete()
+            self.vbo_verts_dyn.delete()
+            self.vbo_colors.delete()
+            self.vbo_colors_face.delete()
+
+            GL.glDeleteFramebuffers(1, [int(self.fbo)])
+            GL.glDeleteFramebuffers(1, [int(self.fbo_ms)])
+
+            GL.glDeleteRenderbuffers(1, [int(self.render_buf)])
+            GL.glDeleteRenderbuffers(1, [int(self.z_buf)])
+            GL.glDeleteRenderbuffers(1, [int(self.render_buf_ms)])
+            GL.glDeleteRenderbuffers(1, [int(self.z_buf_ms)])
 
             GL.glDeleteProgram(self.colorProgram)
             # glfw.terminate()
@@ -113,15 +131,15 @@ class BaseRenderer(Ch):
 
         GL.glBindFramebuffer(GL.GL_FRAMEBUFFER, self.fbo )
 
-        render_buf = GL.glGenRenderbuffers(1)
-        GL.glBindRenderbuffer(GL.GL_RENDERBUFFER,render_buf)
+        self.render_buf = GL.glGenRenderbuffers(1)
+        GL.glBindRenderbuffer(GL.GL_RENDERBUFFER,self.render_buf)
         GL.glRenderbufferStorage(GL.GL_RENDERBUFFER, GL.GL_RGB8, self.frustum['width'], self.frustum['height'])
-        GL.glFramebufferRenderbuffer(GL.GL_DRAW_FRAMEBUFFER, GL.GL_COLOR_ATTACHMENT0, GL.GL_RENDERBUFFER, render_buf)
+        GL.glFramebufferRenderbuffer(GL.GL_DRAW_FRAMEBUFFER, GL.GL_COLOR_ATTACHMENT0, GL.GL_RENDERBUFFER, self.render_buf)
 
-        z_buf = GL.glGenRenderbuffers(1)
-        GL.glBindRenderbuffer(GL.GL_RENDERBUFFER, z_buf)
+        self.z_buf = GL.glGenRenderbuffers(1)
+        GL.glBindRenderbuffer(GL.GL_RENDERBUFFER, self.z_buf)
         GL.glRenderbufferStorage(GL.GL_RENDERBUFFER,  GL.GL_DEPTH_COMPONENT, self.frustum['width'], self.frustum['height'])
-        GL.glFramebufferRenderbuffer(GL.GL_FRAMEBUFFER, GL.GL_DEPTH_ATTACHMENT, GL.GL_RENDERBUFFER, z_buf)
+        GL.glFramebufferRenderbuffer(GL.GL_FRAMEBUFFER, GL.GL_DEPTH_ATTACHMENT, GL.GL_RENDERBUFFER, self.z_buf)
 
 
         #FBO_f
@@ -131,16 +149,16 @@ class BaseRenderer(Ch):
 
         GL.glBindFramebuffer(GL.GL_FRAMEBUFFER, self.fbo_ms )
 
-        render_buf = GL.glGenRenderbuffers(1)
-        GL.glBindRenderbuffer(GL.GL_RENDERBUFFER,render_buf)
+        self.render_buf_ms = GL.glGenRenderbuffers(1)
+        GL.glBindRenderbuffer(GL.GL_RENDERBUFFER,self.render_buf_ms)
 
-        GL.glRenderbufferStorageMultisample(GL.GL_RENDERBUFFER,1, GL.GL_RGB8, self.frustum['width'], self.frustum['height'])
-        GL.glFramebufferRenderbuffer(GL.GL_DRAW_FRAMEBUFFER, GL.GL_COLOR_ATTACHMENT0, GL.GL_RENDERBUFFER, render_buf)
+        GL.glRenderbufferStorageMultisample(GL.GL_RENDERBUFFER,8, GL.GL_RGB8, self.frustum['width'], self.frustum['height'])
+        GL.glFramebufferRenderbuffer(GL.GL_DRAW_FRAMEBUFFER, GL.GL_COLOR_ATTACHMENT0, GL.GL_RENDERBUFFER, self.render_buf_ms)
 
-        z_buf = GL.glGenRenderbuffers(1)
-        GL.glBindRenderbuffer(GL.GL_RENDERBUFFER, z_buf)
-        GL.glRenderbufferStorageMultisample(GL.GL_RENDERBUFFER,1 , GL.GL_DEPTH_COMPONENT, self.frustum['width'], self.frustum['height'])
-        GL.glFramebufferRenderbuffer(GL.GL_FRAMEBUFFER, GL.GL_DEPTH_ATTACHMENT, GL.GL_RENDERBUFFER, z_buf)
+        self.z_buf_ms = GL.glGenRenderbuffers(1)
+        GL.glBindRenderbuffer(GL.GL_RENDERBUFFER, self.z_buf_ms)
+        GL.glRenderbufferStorageMultisample(GL.GL_RENDERBUFFER,8 , GL.GL_DEPTH_COMPONENT, self.frustum['width'], self.frustum['height'])
+        GL.glFramebufferRenderbuffer(GL.GL_FRAMEBUFFER, GL.GL_DEPTH_ATTACHMENT, GL.GL_RENDERBUFFER, self.z_buf_ms)
 
         GL.glEnable(GL.GL_DEPTH_TEST)
         GL.glPolygonMode(GL.GL_FRONT_AND_BACK, GL.GL_FILL)
@@ -221,7 +239,6 @@ class BaseRenderer(Ch):
 
         GL.glGenVertexArrays(1, self.vao_static)
         GL.glBindVertexArray(self.vao_static)
-
 
         self.vbo_indices.bind()
 
@@ -752,6 +769,10 @@ class ColoredRenderer(BaseRenderer):
             return self.vc.shape[1]
         return 3
 
+    def clear(self):
+        print ("Clearing color renderer.")
+        super(ColoredRenderer, self).clear()
+
     @property
     def shape(self):
         if not hasattr(self, 'num_channels'):
@@ -946,13 +967,26 @@ class TexturedRenderer(ColoredRenderer):
 
     def clear(self):
         try:
+            print ("Clearing textured renderer.")
+            [vbo.delete() for sublist in self.vbo_indices_mesh_list for vbo in sublist]
+            [vbo.delete() for vbo in self.vbo_colors_mesh]
+            [vbo.delete() for vbo in self.vbo_verts_mesh]
+            [vbo.delete() for vbo in self.vbo_uvs_mesh]
+            [GL.glDeleteVertexArrays(1, [vao.value]) for sublist in self.vao_tex_mesh_list for vao in sublist]
+
+            self.release_textures()
             if self.glMode == 'glfw':
                 glfw.make_context_current(self.win)
             GL.glDeleteProgram(self.colorTextureProgram)
+
+            super(TexturedRenderer, self).clear()
+
+            GL.glFlush()
+            GL.glFinish()
         except:
             print("Program had not been initialized")
 
-        super(TexturedRenderer, self).clear()
+
 
     # def __del__(self):
     #     self.clear()
@@ -1077,8 +1111,9 @@ class TexturedRenderer(ColoredRenderer):
         self.textureID  = GL.glGetUniformLocation(self.colorTextureProgram, "myTextureSampler")
 
 
-    def __del__(self):
-        self.release_textures()
+    # def __del__(self):
+    #     pass
+    #     # self.release_textures()
 
     @property
     def shape(self):
@@ -1092,9 +1127,10 @@ class TexturedRenderer(ColoredRenderer):
         if hasattr(self, 'textureID_mesh_list'):
             if self.textureID_mesh_list != []:
                 for texture_mesh in self.textureID_mesh_list:
-                    if texture_mesh != None and texture_mesh != []:
+                    if texture_mesh != []:
                         for texture in texture_mesh:
-                            GL.glDeleteTextures(1, texture)
+                            if texture != None:
+                                GL.glDeleteTextures(1, [texture.value])
 
         self.textureID_mesh_list = []
 
@@ -1240,7 +1276,7 @@ class TexturedRenderer(ColoredRenderer):
             cim = sp.spdiags(row(cim), [0], cim.size, cim.size)
             result = cim.dot(result)
         elif wrt is self.texture_stack:
-            ipdb.set_trace()
+
             IS = np.nonzero(self.visibility_image.ravel() != 4294967295)[0]
             texcoords, texidx = self.texcoord_image_quantized
             vis_texidx = texidx.ravel()[IS]

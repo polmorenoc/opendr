@@ -49,7 +49,7 @@ import numpy as np
 import warnings
 import pickle as pickle
 import scipy.sparse as sp
-from utils import row, col
+from blender_utils import row, col
 from copy import copy as copy_copy
 import bottleneck as bn
 

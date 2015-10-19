@@ -11,7 +11,7 @@ See LICENCE.txt for licensing and contact information.
 import numpy as np
 import scipy.sparse as sp
 from ch import Ch, depends_on, NanDivide
-from utils import row, col
+from blender_utils import row, col
 from chumpy import ch
 
 
