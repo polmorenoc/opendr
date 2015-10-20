@@ -60,30 +60,54 @@ class BaseRenderer(Ch):
 
             print ("Clearing base renderer.")
             self.makeCurrentContext()
+            self.vbo_indices.set_array(np.array([]))
+            self.vbo_indices.bind()
+            self.vbo_indices.unbind()
             self.vbo_indices.delete()
+            self.vbo_indices_range.set_array(np.array([]))
+            self.vbo_indices_range.bind()
+            self.vbo_indices_range.unbind()
             self.vbo_indices_range.delete()
+            self.vbo_indices_dyn.set_array(np.array([]))
+            self.vbo_indices_dyn.bind()
+            self.vbo_indices_dyn.unbind()
             self.vbo_indices_dyn.delete()
+            self.vbo_verts.set_array(np.array([]))
+            self.vbo_verts.bind()
+            self.vbo_verts.unbind()
             self.vbo_verts.delete()
+            self.vbo_verts_face.set_array(np.array([]))
+            self.vbo_verts_face.bind()
+            self.vbo_verts_face.unbind()
             self.vbo_verts_face.delete()
+            self.vbo_verts_dyn.set_array(np.array([]))
+            self.vbo_verts_dyn.bind()
+            self.vbo_verts_dyn.unbind()
             self.vbo_verts_dyn.delete()
+            self.vbo_colors.set_array(np.array([]))
+            self.vbo_colors.bind()
+            self.vbo_colors.unbind()
             self.vbo_colors.delete()
+            self.vbo_colors_face.set_array(np.array([]))
+            self.vbo_colors_face.bind()
+            self.vbo_colors_face.unbind()
             self.vbo_colors_face.delete()
 
-            GL.glDeleteFramebuffers(1, [int(self.fbo)])
-            GL.glDeleteFramebuffers(1, [int(self.fbo_ms)])
+            GL.glDeleteVertexArrays(1, [self.vao_static])
+            GL.glDeleteVertexArrays(1, [self.vao_static_face])
+            GL.glDeleteVertexArrays(1, [self.vao_dyn])
+            GL.glDeleteVertexArrays(1, [self.vao_dyn_ub])
 
             GL.glDeleteRenderbuffers(1, [int(self.render_buf)])
             GL.glDeleteRenderbuffers(1, [int(self.z_buf)])
             GL.glDeleteRenderbuffers(1, [int(self.render_buf_ms)])
             GL.glDeleteRenderbuffers(1, [int(self.z_buf_ms)])
 
-            GL.glDeleteProgram(self.colorProgram)
-            # glfw.terminate()
-            self.win = 0
-            #Maybe delete all those buffers?
+            GL.glDeleteFramebuffers(1, [int(self.fbo)])
+            GL.glDeleteFramebuffers(1, [int(self.fbo_ms)])
 
-    # def __del__(self):
-    #     self.clear()
+
+            GL.glDeleteProgram(self.colorProgram)
 
     def initGL(self):
         try:
@@ -97,7 +121,6 @@ class BaseRenderer(Ch):
             return
 
         if self.glMode == 'glfw':
-
             glfw.init()
             print("Initializing GLFW.")
 
@@ -108,7 +131,7 @@ class BaseRenderer(Ch):
             glfw.window_hint(glfw.DEPTH_BITS,32)
 
             glfw.window_hint(glfw.VISIBLE, GL.GL_FALSE)
-            self.win = glfw.create_window(self.frustum['width'], self.frustum['height'], "test",  None, self.sharedWin)
+            self.win = glfw.create_window(self.frustum['width'], self.frustum['height'], "test",  None, None)
             glfw.make_context_current(self.win)
 
         else:
@@ -968,24 +991,33 @@ class TexturedRenderer(ColoredRenderer):
     def clear(self):
         try:
             print ("Clearing textured renderer.")
+            [vbo.set_array([]) for sublist in self.vbo_indices_mesh_list for vbo in sublist]
+            [vbo.bind() for sublist in self.vbo_indices_mesh_list for vbo in sublist]
+            [vbo.unbind() for sublist in self.vbo_indices_mesh_list for vbo in sublist]
             [vbo.delete() for sublist in self.vbo_indices_mesh_list for vbo in sublist]
+            [vbo.set_array([]) for vbo in self.vbo_colors_mesh]
+            [vbo.bind() for vbo in self.vbo_colors_mesh]
             [vbo.delete() for vbo in self.vbo_colors_mesh]
+            [vbo.unbind() for vbo in self.vbo_colors_mesh]
             [vbo.delete() for vbo in self.vbo_verts_mesh]
+            [vbo.set_array([]) for vbo in self.vbo_uvs_mesh]
+            [vbo.bind() for vbo in self.vbo_uvs_mesh]
+            [vbo.unbind() for vbo in self.vbo_uvs_mesh]
             [vbo.delete() for vbo in self.vbo_uvs_mesh]
             [GL.glDeleteVertexArrays(1, [vao.value]) for sublist in self.vao_tex_mesh_list for vao in sublist]
 
             self.release_textures()
+
             if self.glMode == 'glfw':
                 glfw.make_context_current(self.win)
+
             GL.glDeleteProgram(self.colorTextureProgram)
 
             super(TexturedRenderer, self).clear()
-
             GL.glFlush()
             GL.glFinish()
         except:
             print("Program had not been initialized")
-
 
 
     # def __del__(self):
