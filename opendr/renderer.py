@@ -175,12 +175,12 @@ class BaseRenderer(Ch):
         self.render_buf_ms = GL.glGenRenderbuffers(1)
         GL.glBindRenderbuffer(GL.GL_RENDERBUFFER,self.render_buf_ms)
 
-        GL.glRenderbufferStorageMultisample(GL.GL_RENDERBUFFER,1, GL.GL_RGB8, self.frustum['width'], self.frustum['height'])
+        GL.glRenderbufferStorageMultisample(GL.GL_RENDERBUFFER,8, GL.GL_RGB8, self.frustum['width'], self.frustum['height'])
         GL.glFramebufferRenderbuffer(GL.GL_DRAW_FRAMEBUFFER, GL.GL_COLOR_ATTACHMENT0, GL.GL_RENDERBUFFER, self.render_buf_ms)
 
         self.z_buf_ms = GL.glGenRenderbuffers(1)
         GL.glBindRenderbuffer(GL.GL_RENDERBUFFER, self.z_buf_ms)
-        GL.glRenderbufferStorageMultisample(GL.GL_RENDERBUFFER,1 , GL.GL_DEPTH_COMPONENT, self.frustum['width'], self.frustum['height'])
+        GL.glRenderbufferStorageMultisample(GL.GL_RENDERBUFFER,8 , GL.GL_DEPTH_COMPONENT, self.frustum['width'], self.frustum['height'])
         GL.glFramebufferRenderbuffer(GL.GL_FRAMEBUFFER, GL.GL_DEPTH_ATTACHMENT, GL.GL_RENDERBUFFER, self.z_buf_ms)
 
         GL.glEnable(GL.GL_DEPTH_TEST)

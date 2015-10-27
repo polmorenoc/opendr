@@ -48,7 +48,9 @@ def hstack(x):
 # dogleg
 # trust-ncg
 
-def minimize_sgdmom(obj, free_variables, lr=0.01, momentum=0.9, decay=0.9, tol=1e-8, on_step=None, maxiters=None):
+def minimize_sgdmom(obj, free_variables, lr=0.01, momentum=0.9, decay=0.9, tol=1e-5, on_step=None, maxiters=None):
+
+    verbose = False
 
     labels = {}
     if isinstance(obj, list) or isinstance(obj, tuple):
@@ -105,58 +107,47 @@ def minimize_sgdmom(obj, free_variables, lr=0.01, momentum=0.9, decay=0.9, tol=1
     tm = time.time()
     pif('updating A and g...')
 
-    r = col(obj.r.copy())
-
     stop = False
-    dp = 1
+    dp = np.array([[0]])
+
+    bestParams = p
+    bestEval = obj.r
+    numWorse = 0
+
     while (not stop) and (k < k_max):
         k += 1
+
         pif('beginning iteration %d' % (k,))
 
-        if norm(dp) <= tol*norm(p):
-            pif('stopping because of small step size (norm_dl < %.2e)' % (e_2*norm(p)))
+        dp = col(lr*J.toarray()) + momentum*dp
+
+        p_new = p - dp
+
+        lr = lr*decay
+
+        obj.x = p_new.ravel()
+
+        if norm(dp) < tol:
+            pif('stopping due to small update')
             stop = True
+
+        J = obj.J.copy()
+
+        if bestEval > obj.r:
+            numWorse = 0
+            bestEval = obj.r.copy()
+            bestParams = p.copy()
         else:
-            dp = lr*J + momentum*dp
-            p_new = p - dp
+            numWorse += 1
+            if numWorse >= 10:
+                print("Stopping due to increasing evaluation error.")
+                stop = True
+                obj.x = bestParams.ravel()
+                obj.r
 
-            lr = lr*decay
+        p = col(obj.x.r)
 
-            tm_residuals = time.time()
-            obj.x = p_new
-
-            r_trial = obj.r.copy()
-            tm_residuals = time.time() - tm
-
-            # faster
-            sqnorm_ep = sqnorm(r)
-            rho = sqnorm_ep - norm(r_trial)**2
-
-            improvement_occurred = rho > 0
-
-            # if the objective function improved, update input parameter estimate.
-            # Note that the obj.x already has the new parms,
-            # and we should not set them again to the same (or we'll bust the cache)
-            if improvement_occurred:
-                p = col(p_new)
-                call_cb()
-
-                if (sqnorm_ep - norm(r_trial)**2) / sqnorm_ep < e_3:
-                    stop = True
-                    pif('stopping because improvement < %.1e%%' % (100*e_3,))
-
-            # if the objective function improved and we're not done,
-            # get ready for the next iteration
-            if improvement_occurred and not stop:
-                tm_jac = time.time()
-                pif('computing Jacobian...')
-                J = obj.J.copy()
-                tm_jac = time.time() - tm_jac
-                pif('Jacobian (%dx%d) computed in %.2fs' % (J.shape[0], J.shape[1], tm_jac))
-
-                pif('Residuals+Jac computed in %.2fs' % (tm_jac + tm_residuals,))
-
-                tm = time.time()
+        call_cb()
 
         if k >= k_max:
             pif('stopping because max number of user-specified iterations (%d) has been met' % (k_max,))
@@ -396,7 +387,7 @@ def minimize(fun, x0, method='dogleg', bounds=None, constraints=(), tol=None, ca
     if method == 'minimize':
         x1, fX, i = min_ras.minimize(np.concatenate([free_variable.r.ravel() for free_variable in free_variables]), residuals, scalar_jacfunc, args=(obj, obj_scalar, free_variables), on_step=callback, maxnumfuneval=maxiter)
     elif method == 'SGDMom':
-        return minimize_sgdmom(np.concatenate([free_variable.r.ravel() for free_variable in free_variables]), residuals, scalar_jacfunc, args=(obj, obj_scalar, free_variables), lr=options['lr'], momentum=options['momentum'], decay=options['decay'], on_step=callback, maxnumfuneval=maxiter)
+        return minimize_sgdmom(obj=fun, free_variables=x0 , lr=options['lr'], momentum=options['momentum'], decay=options['decay'], on_step=callback, maxiters=maxiter)
     else:
         x1 = scipy.optimize.minimize(
             method=method,
