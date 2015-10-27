@@ -48,6 +48,122 @@ def hstack(x):
 # dogleg
 # trust-ncg
 
+def minimize_sgdmom(obj, free_variables, lr=0.01, momentum=0.9, decay=0.9, tol=1e-8, on_step=None, maxiters=None):
+
+    labels = {}
+    if isinstance(obj, list) or isinstance(obj, tuple):
+        obj = ch.concatenate([f.ravel() for f in obj])
+    elif isinstance(obj, dict):
+        labels = obj
+        obj = ch.concatenate([f.ravel() for f in list(obj.values())])
+
+    num_unique_ids = len(np.unique(np.array([id(freevar) for freevar in free_variables])))
+    if num_unique_ids != len(free_variables):
+        raise Exception('The "free_variables" param contains duplicate variables.')
+
+    obj = ChInputsStacked(obj=obj, free_variables=free_variables, x=np.concatenate([freevar.r.ravel() for freevar in free_variables]))
+
+    def call_cb():
+        if on_step is not None:
+            on_step(obj)
+
+        report_line = ""
+        if len(labels) > 0:
+            report_line += '%.2e | ' % (np.sum(obj.r**2),)
+        for label in sorted(labels.keys()):
+            objective = labels[label]
+            report_line += '%s: %.2e | ' % (label, np.sum(objective.r**2))
+        if len(labels) > 0:
+            report_line += '\n'
+        sys.stderr.write(report_line)
+
+    call_cb()
+
+    # pif = print-if-verbose.
+    # can't use "print" because it's a statement, not a fn
+    pif = lambda x: print(x) if verbose else 0
+
+    # optimization parms
+    k_max = maxiters
+
+    k = 0
+
+    p = col(obj.x.r)
+
+    tm = time.time()
+    pif('computing Jacobian...')
+    J = obj.J
+
+    if sp.issparse(J):
+        assert(J.nnz > 0)
+    pif('Jacobian (%dx%d) computed in %.2fs' % (J.shape[0], J.shape[1], time.time() - tm))
+
+    if J.shape[1] != p.size:
+        import pdb; pdb.set_trace()
+    assert(J.shape[1] == p.size)
+
+    tm = time.time()
+    pif('updating A and g...')
+
+    r = col(obj.r.copy())
+
+    stop = False
+    dp = 1
+    while (not stop) and (k < k_max):
+        k += 1
+        pif('beginning iteration %d' % (k,))
+
+        if norm(dp) <= tol*norm(p):
+            pif('stopping because of small step size (norm_dl < %.2e)' % (e_2*norm(p)))
+            stop = True
+        else:
+            dp = lr*J + momentum*dp
+            p_new = p - dp
+
+            lr = lr*decay
+
+            tm_residuals = time.time()
+            obj.x = p_new
+
+            r_trial = obj.r.copy()
+            tm_residuals = time.time() - tm
+
+            # faster
+            sqnorm_ep = sqnorm(r)
+            rho = sqnorm_ep - norm(r_trial)**2
+
+            improvement_occurred = rho > 0
+
+            # if the objective function improved, update input parameter estimate.
+            # Note that the obj.x already has the new parms,
+            # and we should not set them again to the same (or we'll bust the cache)
+            if improvement_occurred:
+                p = col(p_new)
+                call_cb()
+
+                if (sqnorm_ep - norm(r_trial)**2) / sqnorm_ep < e_3:
+                    stop = True
+                    pif('stopping because improvement < %.1e%%' % (100*e_3,))
+
+            # if the objective function improved and we're not done,
+            # get ready for the next iteration
+            if improvement_occurred and not stop:
+                tm_jac = time.time()
+                pif('computing Jacobian...')
+                J = obj.J.copy()
+                tm_jac = time.time() - tm_jac
+                pif('Jacobian (%dx%d) computed in %.2fs' % (J.shape[0], J.shape[1], tm_jac))
+
+                pif('Residuals+Jac computed in %.2fs' % (tm_jac + tm_residuals,))
+
+                tm = time.time()
+
+        if k >= k_max:
+            pif('stopping because max number of user-specified iterations (%d) has been met' % (k_max,))
+
+    return obj.free_variables
+
+
 def gradCheckSimple(fun, var, delta):
     f0 = fun.r
     oldvar = var.r[:].copy()
@@ -279,6 +395,8 @@ def minimize(fun, x0, method='dogleg', bounds=None, constraints=(), tol=None, ca
 
     if method == 'minimize':
         x1, fX, i = min_ras.minimize(np.concatenate([free_variable.r.ravel() for free_variable in free_variables]), residuals, scalar_jacfunc, args=(obj, obj_scalar, free_variables), on_step=callback, maxnumfuneval=maxiter)
+    elif method == 'SGDMom':
+        return minimize_sgdmom(np.concatenate([free_variable.r.ravel() for free_variable in free_variables]), residuals, scalar_jacfunc, args=(obj, obj_scalar, free_variables), lr=options['lr'], momentum=options['momentum'], decay=options['decay'], on_step=callback, maxnumfuneval=maxiter)
     else:
         x1 = scipy.optimize.minimize(
             method=method,
@@ -292,7 +410,6 @@ def minimize(fun, x0, method='dogleg', bounds=None, constraints=(), tol=None, ca
     changevars(x1, obj, obj_scalar, free_variables)
 
     return free_variables
-    
 
 _giter = 0
 class ChInputsStacked(ch.Ch):
