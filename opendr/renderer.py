@@ -396,6 +396,11 @@ class BaseRenderer(Ch):
     def fpe(self):
         return self.primitives_per_edge[0]
 
+    @depends_on(terms+dterms)
+    def boundary_neighborhood(self):
+        return common.boundary_neighborhood(self.boundarybool_image)
+
+
     def _setup_camera(self, cx, cy, fx, fy, w, h, near, far, view_matrix, k):
         k = np.asarray(k)
         #Make Projection matrix.
@@ -706,7 +711,6 @@ class BaseRenderer(Ch):
 
         without_overdraw = self.draw_barycentric_image_internal()
         if boundarybool_image is None:
-            plt.imsave("barycentric_image_without_overdraw.png", without_overdraw)
             return without_overdraw
 
         GL.glPolygonMode(GL.GL_FRONT_AND_BACK, GL.GL_LINE)

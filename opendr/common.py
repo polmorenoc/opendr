@@ -67,6 +67,34 @@ def nangradients(arr):
     # 2 Idx * dxdu
 
 
+def boundary_neighborhood(boundary):
+    shape = boundary.shape
+
+    notboundary = np.logical_not(boundary)
+    horizontall = np.hstack((np.diff(notboundary.astype(np.int8),axis=1), np.zeros((shape[0],1), dtype=np.int8)))
+    horizontalr = np.hstack((np.diff(boundary.astype(np.int8),axis=1), np.zeros((shape[0],1), dtype=np.int8)))
+    verticalt = np.vstack((np.diff(notboundary.astype(np.int8), axis=0), np.zeros((1,shape[1]), dtype=np.int8)))
+    verticalb = np.vstack((np.diff(boundary.astype(np.int8), axis=0), np.zeros((1,shape[1]), dtype=np.int8)))
+
+    pixr = (horizontalr == 1)
+    pixl = (horizontall == 1)
+    pixt = (verticalt == 1)
+    pixb = (verticalb == 1)
+
+    # plt.imshow((pixrl | pixlr | pixtb | pixbt))
+
+    #Quicker, convolve (FFT) and take mask * etc.
+
+    lidxs_out = np.where(pixl.ravel())[0]
+    ridxs_out = np.where(pixr.ravel())[0] + 1
+    tidxs_out = np.where(pixt.ravel())[0]
+    bidxs_out = np.where(pixb.ravel())[0] + shape[1]
+    lidxs_int = np.where(pixl.ravel())[0] + 1
+    ridxs_int = np.where(pixr.ravel())[0]
+    tidxs_int = np.where(pixt.ravel())[0] + shape[1]
+    bidxs_int = np.where(pixb.ravel())[0]
+
+    return lidxs_out, ridxs_out, tidxs_out, bidxs_out, lidxs_int, ridxs_int, tidxs_int, bidxs_int
 def dImage_wrt_2dVerts_bnd_new(observed, visible, visibility, barycentric, image_width, image_height, num_verts, f, bnd_bool):
     """Construct a sparse jacobian that relates 2D projected vertex positions
     (in the columns) to pixel values (in the rows). This can be done
@@ -80,34 +108,11 @@ def dImage_wrt_2dVerts_bnd_new(observed, visible, visibility, barycentric, image
     #Add them to IJs.
 
     background = visibility == 4294967295
-    notbackground = np.logical_not(background)
-    horizontall = np.hstack((np.diff(notbackground.astype(np.int8),axis=1), np.zeros((shape[0],1), dtype=np.int8)))
-    horizontalr = np.hstack((np.diff(background.astype(np.int8),axis=1), np.zeros((shape[0],1), dtype=np.int8)))
-    verticalt = np.vstack((np.diff(notbackground.astype(np.int8), axis=0), np.zeros((1,shape[1]), dtype=np.int8)))
-    verticalb = np.vstack((np.diff(background.astype(np.int8), axis=0), np.zeros((1,shape[1]), dtype=np.int8)))
 
-
-    pixr = (horizontalr == 1)
-    pixl = (horizontall == 1)
-    pixt = (verticalt == 1)
-    pixb = (verticalb == 1)
-
-    # plt.imshow((pixrl | pixlr | pixtb | pixbt))
-
-    #Quicker, convolve (FFT) and take mask * etc.
-
-    lidxs_out = np.where(pixl.ravel())[0]
-    ridxs_out = np.where(pixr.ravel())[0]+1
-    tidxs_out = np.where(pixt.ravel())[0]
-    bidxs_out = np.where(pixb.ravel())[0] + shape[1]
-    lidxs_int = np.where(pixl.ravel())[0]+1
-    ridxs_int = np.where(pixr.ravel())[0]
-    tidxs_int = np.where(pixt.ravel())[0] + shape[1]
-    bidxs_int = np.where(pixb.ravel())[0]
+    lidxs_int, ridxs_int, tidxs_int, bidxs_int = boundary_neighborhood(bnd_bool)
 
     visibleidxs = np.zeros(shape).ravel().astype(np.uint32)
     visibleidxs[visible] = np.arange(visible.size)
-
 
     #2: Take the data and copy the corresponding dxs and dys to these new pixels.
 
