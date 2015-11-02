@@ -66,7 +66,6 @@ def nangradients(arr):
         # Use that to compute dr vc wrt normal * dr normal wrt x
     # 2 Idx * dxdu
 
-
 def boundary_neighborhood(boundary):
     shape = boundary.shape
 
@@ -95,6 +94,7 @@ def boundary_neighborhood(boundary):
     bidxs_int = np.where(pixb.ravel())[0]
 
     return lidxs_out, ridxs_out, tidxs_out, bidxs_out, lidxs_int, ridxs_int, tidxs_int, bidxs_int
+
 def dImage_wrt_2dVerts_bnd_new(observed, visible, visibility, barycentric, image_width, image_height, num_verts, f, bnd_bool):
     """Construct a sparse jacobian that relates 2D projected vertex positions
     (in the columns) to pixel values (in the rows). This can be done
