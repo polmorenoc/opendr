@@ -131,7 +131,7 @@ class BaseRenderer(Ch):
             glfw.window_hint(glfw.DEPTH_BITS,32)
 
             glfw.window_hint(glfw.VISIBLE, GL.GL_FALSE)
-            self.win = glfw.create_window(self.frustum['width'], self.frustum['height'], "test",  None, None)
+            self.win = glfw.create_window(self.frustum['width'], self.frustum['height'], "test",  None, self.sharedWin)
             glfw.make_context_current(self.win)
 
         else:
@@ -861,7 +861,7 @@ class ColoredRenderer(BaseRenderer):
 
         if 'v' or 'f' in which:
             self.vbo_verts_face.set_array(np.array(self.verts_by_face).astype(np.float32))
-            self.vbo_verts.bind()
+            self.vbo_verts_face.bind()
             self.vbo_colors_face.set_array(np.array(self.vc_by_face).astype(np.float32))
             self.vbo_colors_face.bind()
 
