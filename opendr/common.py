@@ -411,6 +411,7 @@ def dImage_wrt_2dVerts_bnd(observed, visible, visibility, barycentric, image_wid
 
     ydiffnb, xdiffnb = nangradients(obs_nonbnd)
 
+
     observed = np.atleast_3d(observed)
     
     if observed.shape[2] > 1:

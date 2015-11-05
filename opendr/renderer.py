@@ -650,6 +650,8 @@ class BaseRenderer(Ch):
         if boundarybool_image is None:
             return result
 
+        return result
+
         rr = result.ravel()
         faces_to_draw = np.unique(rr[rr != 4294967295])
         if len(faces_to_draw)==0:
@@ -712,6 +714,8 @@ class BaseRenderer(Ch):
         without_overdraw = self.draw_barycentric_image_internal()
         if boundarybool_image is None:
             return without_overdraw
+
+        return without_overdraw
 
         GL.glPolygonMode(GL.GL_FRONT_AND_BACK, GL.GL_LINE)
         overdraw = self.draw_barycentric_image_internal()
@@ -950,7 +954,7 @@ class ColoredRenderer(BaseRenderer):
         no_overdraw = self.draw_color_image()
 
         #Pol: why do we add the lines edges in the final render?
-        return no_overdraw
+        # return no_overdraw
 
         if not self.overdraw:
             return no_overdraw
@@ -1183,8 +1187,22 @@ class TexturedRenderer(ColoredRenderer):
 
         no_overdraw = self.draw_color_image(with_vertex_colors=True, with_texture_on=True)
 
-        #Pol: why do we add the lines edges in the final render?
+        if not self.overdraw:
+            return no_overdraw
+
         return no_overdraw
+
+        GL.glPolygonMode(GL.GL_FRONT_AND_BACK, GL.GL_LINE)
+        overdraw = self.draw_color_image()
+        GL.glPolygonMode(GL.GL_FRONT_AND_BACK, GL.GL_FILL)
+
+        # return overdraw * np.atleast_3d(self.boundarybool_image)
+
+        boundarybool_image = self.boundarybool_image
+        if self.num_channels > 1:
+            boundarybool_image = np.atleast_3d(boundarybool_image)
+
+        return np.asarray((overdraw*boundarybool_image + no_overdraw*(1-boundarybool_image)), order='C')
 
     def image_mesh_bool(self, meshes):
         self.makeCurrentContext()
@@ -1292,10 +1310,10 @@ class TexturedRenderer(ColoredRenderer):
         self.draw_colored_primitives(self.vao_dyn, v, f, colors)
 
         #Pol: Why do we need this?
-        if boundarybool_image is not None:
-            GL.glPolygonMode(GL.GL_FRONT_AND_BACK, GL.GL_LINE)
-            self.draw_colored_primitives(self.vao_dyn, v, f, colors)
-            GL.glPolygonMode(GL.GL_FRONT_AND_BACK, GL.GL_FILL)
+        # if boundarybool_image is not None:
+        #     GL.glPolygonMode(GL.GL_FRONT_AND_BACK, GL.GL_LINE)
+        #     self.draw_colored_primitives(self.vao_dyn, v, f, colors)
+        #     GL.glPolygonMode(GL.GL_FRONT_AND_BACK, GL.GL_FILL)
 
         GL.glBindFramebuffer(GL.GL_FRAMEBUFFER, self.fbo)
 
