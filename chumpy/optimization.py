@@ -118,8 +118,10 @@ def minimize_sgdmom(obj, free_variables, lr=0.01, momentum=0.9, decay=0.9, tol=1
         k += 1
 
         pif('beginning iteration %d' % (k,))
-
-        dp = col(lr*J.toarray()) + momentum*dp
+        arrJ = J
+        if sp.issparse(J):
+            arrJ = J.toarray()
+        dp = col(lr*np.array(J)) + momentum*dp
 
         p_new = p - dp
 
@@ -254,7 +256,7 @@ def scipyGradCheck(fun, x0):
 
         scalar_jacfunc.J = result
         scalar_jacfunc.vs = vs
-        return result.ravel()
+        return np.squeeze(np.asarray(result.ravel()))
 
     def ns_jacfunc(vs,obj, obj_scalar, free_variables):
         if not hasattr(ns_jacfunc, 'vs'):
@@ -368,7 +370,7 @@ def minimize(fun, x0, method='dogleg', bounds=None, constraints=(), tol=None, ca
 
         scalar_jacfunc.J = result
         scalar_jacfunc.vs = vs
-        return result.ravel()
+        return np.squeeze(np.asarray(result.ravel()))
         
     def ns_jacfunc(vs,obj, obj_scalar, free_variables):
         if not hasattr(ns_jacfunc, 'vs'):

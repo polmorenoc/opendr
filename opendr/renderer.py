@@ -480,7 +480,6 @@ class BaseRenderer(Ch):
         shaders.glUseProgram(self.colorProgram)
         GL.glBindFramebuffer(GL.GL_FRAMEBUFFER, self.fbo)
 
-
         GL.glDepthMask(GL.GL_TRUE)
         GL.glEnable(GL.GL_DEPTH_TEST)
         GL.glDisable(GL.GL_CULL_FACE)
@@ -764,12 +763,11 @@ class BaseRenderer(Ch):
         view_mtx = self.camera.openglMat.dot(np.asarray(np.vstack((self.camera.view_matrix, np.array([0, 0, 0, 1]))),np.float32))
         GL.glUniformMatrix4fv(self.MVP_location, 1, GL.GL_TRUE, np.dot(self.projectionMatrix, view_mtx))
 
-        GL.glClear(GL.GL_COLOR_BUFFER_BIT | GL.GL_DEPTH_BUFFER_BIT)
-
         GL.glBindVertexArray(self.vao_static_face)
 
-
         GL.glBindFramebuffer(GL.GL_DRAW_FRAMEBUFFER, self.fbo)
+
+        GL.glClear(GL.GL_COLOR_BUFFER_BIT | GL.GL_DEPTH_BUFFER_BIT)
 
         GL.glDrawElements(GL.GL_TRIANGLES if self.f.shape[1]==3 else GL.GL_LINES, len(self.vbo_indices_range), GL.GL_UNSIGNED_INT, None)
 

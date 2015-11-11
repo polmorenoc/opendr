@@ -1548,7 +1548,7 @@ class A_extremum(Ch):
             idxs = np.arange(mtx.size).reshape(mtx.shape)
             mn = np.amin(idxs, axis=axis)
             stride = np.array(mtx.strides)
-            stride /= np.min(stride) # go from bytes to num elements
+            stride //= np.min(stride) # go from bytes to num elements
             stride = stride[axis]
         return mn, stride
 

@@ -591,6 +591,7 @@ def dImage_wrt_2dVerts(observed, visible, visibility, barycentric, image_width, 
 
     # Step 1: get the structure ready, ie the IS and the JS
     IS = np.tile(col(visible), (1, 2*f.shape[1])).ravel()
+
     JS = f[visibility.ravel()[visible]].reshape((-1,1))
     JS = np.hstack((JS*2, JS*2+1)).ravel()
 
