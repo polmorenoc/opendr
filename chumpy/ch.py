@@ -749,7 +749,10 @@ class Ch(object):
         if len(list(self._parents.keys())) != 1:
             self._cache['drs'][wrt] = result
 
-        return result
+        if not sp.issparse(result) and (result is not None):
+            return np.array(result)
+        else:
+            return result
 
 
     def __call__(self, **kwargs):
