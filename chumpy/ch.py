@@ -26,6 +26,7 @@ from functools import reduce
 from chumpy.utils import *
 import ipdb
 import warnings
+import pickle
 
 _props_for_dict = weakref.WeakKeyDictionary()
 def _props_for(cls):
