@@ -24,6 +24,7 @@ import scipy.optimize
 from scipy.sparse.linalg.interface import LinearOperator
 import collections
 import chumpy.minimize_ras as min_ras
+import probLineSearch as pls
 import ipdb
 
 
@@ -47,6 +48,63 @@ def hstack(x):
 # SLSQP
 # dogleg
 # trust-ncg
+
+def chFuncProb(fun, grad, var_f, var_df, args):
+    def funValues(X):
+        f = fun(X, *args)
+        df = grad(X, *args)
+
+        return f,df, var_f, var_df
+    return funValues
+
+
+
+def probLineSearchMin(x0, fun, grad, args, on_step=None, maxnumfuneval=None, verbose=0):
+
+    def call_cb():
+        if on_step is not None:
+            on_step(fun)
+
+    f = fun(x0, *args)
+    df = grad(x0, *args)
+
+    var_f = 1*np.ones(f.shape)
+    var_df = 1*np.ones(df.shape)
+
+    ff = chFuncProb(fun, grad, var_f, var_df, args)
+
+    # f,df, var_f, var_df = ff(x0)
+    paras = []
+    search_direction = - df   # search direction (not normalized)
+    xt               = x0     # current position
+    alpha0           = 0.01   # initial step size
+
+    outs = {}
+    outs['counter'] = 1 # counts # function evaluations
+
+    path            = [x0]
+    function_values = [f]
+
+    while outs['counter'] < maxnumfuneval:
+        [outs, alpha0, f, df, xt, var_f, var_df] = pls.probLineSearch(ff, xt, f, df, search_direction, alpha0, 0, outs, paras, var_f, var_df)
+
+        search_direction   = - df     # new search direction
+        print("x " + str(xt))
+        print("Shape x " + str(xt.shape))
+        print("df " + str(df))
+        print("Shape dfx " + str(df.shape))
+
+        path            = path + [xt]
+        function_values = function_values + [f]
+
+        call_cb()
+
+
+    fun(xt, *args)
+
+    return xt
+
+
 
 def minimize_sgdmom(obj, free_variables, lr=0.01, momentum=0.9, decay=0.9, tol=1e-5, on_step=None, maxiters=None):
 
@@ -390,6 +448,8 @@ def minimize(fun, x0, method='dogleg', bounds=None, constraints=(), tol=None, ca
         x1, fX, i = min_ras.minimize(np.concatenate([free_variable.r.ravel() for free_variable in free_variables]), residuals, scalar_jacfunc, args=(obj, obj_scalar, free_variables), on_step=callback, maxnumfuneval=maxiter)
     elif method == 'SGDMom':
         return minimize_sgdmom(obj=fun, free_variables=x0 , lr=options['lr'], momentum=options['momentum'], decay=options['decay'], on_step=callback, maxiters=maxiter)
+    elif method == 'probLineSearch':
+        x1 = probLineSearchMin(np.concatenate([free_variable.r.ravel() for free_variable in free_variables]), residuals, scalar_jacfunc, args=(obj, obj_scalar, free_variables), on_step=callback, maxnumfuneval=maxiter)
     else:
         x1 = scipy.optimize.minimize(
             method=method,

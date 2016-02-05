@@ -80,7 +80,7 @@ def minimize(X, f, grad, args, on_step=None, maxnumlinesearch=None, maxnumfuneva
 
     df0 = grad(X, *args)  
     fX = [f0]
-    i = i + (length<0)                                         # count epochs?!
+    i = i + (length<0)                                         # coun it epochs?!
     s = -df0; d0 = -dot(s,s)    # initial search direction (steepest) and slope
     x3 = red/(1.0-d0)                             # initial step is red/(|s|+1)
 
