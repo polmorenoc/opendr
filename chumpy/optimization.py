@@ -59,7 +59,7 @@ def chFuncProb(fun, grad, var_f, var_df, args):
 
 
 
-def probLineSearchMin(x0, fun, grad, args, on_step=None, maxnumfuneval=None, verbose=0):
+def probLineSearchMin(x0, fun, grad, args, df_vars, on_step=None, maxnumfuneval=None, verbose=0):
 
     def call_cb():
         if on_step is not None:
@@ -68,8 +68,8 @@ def probLineSearchMin(x0, fun, grad, args, on_step=None, maxnumfuneval=None, ver
     f = fun(x0, *args)
     df = grad(x0, *args)
 
-    var_f = 1*np.ones(f.shape)
-    var_df = 1*np.ones(df.shape)
+    var_f = 0.0001*np.ones(f.shape)
+    var_df = df_vars
 
     ff = chFuncProb(fun, grad, var_f, var_df, args)
 
@@ -84,21 +84,25 @@ def probLineSearchMin(x0, fun, grad, args, on_step=None, maxnumfuneval=None, ver
 
     path            = [x0]
     function_values = [f]
-
-    while outs['counter'] < maxnumfuneval:
+    oldf = np.inf
+    while outs['counter'] < maxnumfuneval and np.abs(oldf - f) > 10e-5:
+        oldf = f
         [outs, alpha0, f, df, xt, var_f, var_df] = pls.probLineSearch(ff, xt, f, df, search_direction, alpha0, 0, outs, paras, var_f, var_df)
-
+        # alpha0           = 0.05
         search_direction   = - df     # new search direction
-        print("x " + str(xt))
-        print("Shape x " + str(xt.shape))
-        print("df " + str(df))
-        print("Shape dfx " + str(df.shape))
+        # print("x " + str(xt))
+        # print("Shape x " + str(xt.shape))
+        # print("df " + str(df))
+        print("Value of function:" + str(f))
+        # print("Shape dfx " + str(df.shape))
+        # print("New alpha " + str(alpha0))
 
         path            = path + [xt]
         function_values = function_values + [f]
 
         call_cb()
 
+        print("COUNTER :::::: " + str(outs['counter']))
 
     fun(xt, *args)
 
@@ -449,7 +453,7 @@ def minimize(fun, x0, method='dogleg', bounds=None, constraints=(), tol=None, ca
     elif method == 'SGDMom':
         return minimize_sgdmom(obj=fun, free_variables=x0 , lr=options['lr'], momentum=options['momentum'], decay=options['decay'], on_step=callback, maxiters=maxiter)
     elif method == 'probLineSearch':
-        x1 = probLineSearchMin(np.concatenate([free_variable.r.ravel() for free_variable in free_variables]), residuals, scalar_jacfunc, args=(obj, obj_scalar, free_variables), on_step=callback, maxnumfuneval=maxiter)
+        x1 = probLineSearchMin(np.concatenate([free_variable.r.ravel() for free_variable in free_variables]), residuals, scalar_jacfunc, args=(obj, obj_scalar, free_variables), df_vars=options['df_vars'], on_step=callback, maxnumfuneval=maxiter)
     else:
         x1 = scipy.optimize.minimize(
             method=method,
