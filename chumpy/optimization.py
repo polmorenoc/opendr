@@ -68,7 +68,7 @@ def probLineSearchMin(x0, fun, grad, args, df_vars, on_step=None, maxnumfuneval=
     f = fun(x0, *args)
     df = grad(x0, *args)
 
-    var_f = 0.0001*np.ones(f.shape)
+    var_f = 0.001*np.ones(f.shape)
     var_df = df_vars
 
     ff = chFuncProb(fun, grad, var_f, var_df, args)
@@ -90,6 +90,10 @@ def probLineSearchMin(x0, fun, grad, args, df_vars, on_step=None, maxnumfuneval=
         [outs, alpha0, f, df, xt, var_f, var_df] = pls.probLineSearch(ff, xt, f, df, search_direction, alpha0, 0, outs, paras, var_f, var_df)
         # alpha0           = 0.05
         search_direction   = - df     # new search direction
+
+        if np.sqrt(np.sum(search_direction**2)) < 10e-4:
+            print("Stopping: Approximate Gradient is almost 0")
+            break
         # print("x " + str(xt))
         # print("Shape x " + str(xt.shape))
         # print("df " + str(df))
