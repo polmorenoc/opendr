@@ -2390,7 +2390,7 @@ class dot(Ch):
             raise NotImplementedError
 
     def compute_d2(self):
-        
+        ipdb.set_trace()
         # To stay consistent with numpy, we must upgrade 1D arrays to 2D
         ar = self.a.r.reshape((1,-1)) if len(self.a.r.shape)<2 else self.a.r.reshape((-1, self.a.r.shape[-1]))
         br = self.b.r.reshape((-1,1)) if len(self.b.r.shape)<2 else self.b.r.reshape((self.b.r.shape[0], -1))

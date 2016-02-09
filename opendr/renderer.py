@@ -418,6 +418,8 @@ class BaseRenderer(Ch):
     def tn(self):
         from opendr.geometry import TriNormals
         return TriNormals(self.v, self.f).r.reshape((-1,3))
+        # ipdb.set_trace()
+        # return self.vn
 
     @property
     def fpe(self):
@@ -626,6 +628,7 @@ class BaseRenderer(Ch):
         rays_to_verts = v.reshape((-1,3)) - row(campos)
         rays_to_faces = rays_to_verts.take(f[:,0],axis=0) +rays_to_verts.take(f[:,1],axis=0) +rays_to_verts.take(f[:,2],axis=0)
         # rays_to_faces = np.sum(rays_to_verts.take(f[:,:],axis=0), axis=1)
+
         faces_invisible = np.sum(rays_to_faces * self.tn, axis=1)
 
         dps = faces_invisible.take(fpe[:,0]) * faces_invisible.take(fpe[:,1])
