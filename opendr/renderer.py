@@ -165,34 +165,36 @@ class BaseRenderer(Ch):
 
 
         #FBO_f
-        self.fbo_ms = GL.glGenFramebuffers(1)
 
-        GL.glDepthMask(GL.GL_TRUE)
+        if self.msaa and self.glMode == 'glfw':
+            self.fbo_ms = GL.glGenFramebuffers(1)
 
-        GL.glBindFramebuffer(GL.GL_FRAMEBUFFER, self.fbo_ms )
+            GL.glDepthMask(GL.GL_TRUE)
 
-        self.render_buf_ms = GL.glGenRenderbuffers(1)
-        GL.glBindRenderbuffer(GL.GL_RENDERBUFFER,self.render_buf_ms)
+            GL.glBindFramebuffer(GL.GL_FRAMEBUFFER, self.fbo_ms )
 
-        GL.glRenderbufferStorageMultisample(GL.GL_RENDERBUFFER,8, GL.GL_RGB8, self.frustum['width'], self.frustum['height'])
-        GL.glFramebufferRenderbuffer(GL.GL_DRAW_FRAMEBUFFER, GL.GL_COLOR_ATTACHMENT0, GL.GL_RENDERBUFFER, self.render_buf_ms)
+            self.render_buf_ms = GL.glGenRenderbuffers(1)
+            GL.glBindRenderbuffer(GL.GL_RENDERBUFFER,self.render_buf_ms)
 
-        self.z_buf_ms = GL.glGenRenderbuffers(1)
-        GL.glBindRenderbuffer(GL.GL_RENDERBUFFER, self.z_buf_ms)
-        GL.glRenderbufferStorageMultisample(GL.GL_RENDERBUFFER,8 , GL.GL_DEPTH_COMPONENT, self.frustum['width'], self.frustum['height'])
-        GL.glFramebufferRenderbuffer(GL.GL_FRAMEBUFFER, GL.GL_DEPTH_ATTACHMENT, GL.GL_RENDERBUFFER, self.z_buf_ms)
+            GL.glRenderbufferStorageMultisample(GL.GL_RENDERBUFFER,8, GL.GL_RGB8, self.frustum['width'], self.frustum['height'])
+            GL.glFramebufferRenderbuffer(GL.GL_DRAW_FRAMEBUFFER, GL.GL_COLOR_ATTACHMENT0, GL.GL_RENDERBUFFER, self.render_buf_ms)
 
-        GL.glEnable(GL.GL_DEPTH_TEST)
-        GL.glPolygonMode(GL.GL_FRONT_AND_BACK, GL.GL_FILL)
-        GL.glDisable(GL.GL_CULL_FACE)
+            self.z_buf_ms = GL.glGenRenderbuffers(1)
+            GL.glBindRenderbuffer(GL.GL_RENDERBUFFER, self.z_buf_ms)
+            GL.glRenderbufferStorageMultisample(GL.GL_RENDERBUFFER,8 , GL.GL_DEPTH_COMPONENT, self.frustum['width'], self.frustum['height'])
+            GL.glFramebufferRenderbuffer(GL.GL_FRAMEBUFFER, GL.GL_DEPTH_ATTACHMENT, GL.GL_RENDERBUFFER, self.z_buf_ms)
 
-        GL.glClear(GL.GL_COLOR_BUFFER_BIT)
-        GL.glClear(GL.GL_DEPTH_BUFFER_BIT)
+            GL.glEnable(GL.GL_DEPTH_TEST)
+            GL.glPolygonMode(GL.GL_FRONT_AND_BACK, GL.GL_FILL)
+            GL.glDisable(GL.GL_CULL_FACE)
 
-        print ("FRAMEBUFFER ERR: " + str(GL.glCheckFramebufferStatus(GL.GL_FRAMEBUFFER)))
-        assert (GL.glCheckFramebufferStatus(GL.GL_FRAMEBUFFER) == GL.GL_FRAMEBUFFER_COMPLETE)
+            GL.glClear(GL.GL_COLOR_BUFFER_BIT)
+            GL.glClear(GL.GL_DEPTH_BUFFER_BIT)
 
-        GL.glBindFramebuffer(GL.GL_FRAMEBUFFER,0)
+            print ("FRAMEBUFFER ERR: " + str(GL.glCheckFramebufferStatus(GL.GL_FRAMEBUFFER)))
+            assert (GL.glCheckFramebufferStatus(GL.GL_FRAMEBUFFER) == GL.GL_FRAMEBUFFER_COMPLETE)
+
+            GL.glBindFramebuffer(GL.GL_FRAMEBUFFER,0)
 
         self.fbo_noms = GL.glGenFramebuffers(1)
 
