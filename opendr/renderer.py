@@ -25,7 +25,6 @@ from opendr.topology import get_vertices_per_edge, get_faces_per_edge
 
 import OpenGL.GL as GL
 import OpenGL.GL.shaders as shaders
-import glfw
 from OpenGL.arrays import vbo
 from PIL import Image
 import ipdb
@@ -42,6 +41,7 @@ class BaseRenderer(Ch):
     dterms = ['camera', 'v']
     def makeCurrentContext(self):
         if self.glMode == 'glfw':
+            import glfw
             glfw.make_context_current(self.win)
         else:
             from OpenGL import arrays
@@ -120,6 +120,7 @@ class BaseRenderer(Ch):
             return
 
         if self.glMode == 'glfw':
+            import glfw
             glfw.init()
             print("Initializing GLFW.")
 
@@ -1060,6 +1061,7 @@ class TexturedRenderer(ColoredRenderer):
             self.release_textures()
 
             if self.glMode == 'glfw':
+                import glfw
                 glfw.make_context_current(self.win)
 
             GL.glDeleteProgram(self.colorTextureProgram)
