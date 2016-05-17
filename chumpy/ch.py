@@ -724,7 +724,7 @@ class Ch(object):
 
         else:
             if not np.any([isinstance(a, LinearOperator) for a in drs]):
-                result = reduce(lambda x, y: x+y, drs)
+                result = reduce(lambda x, y: sp.csc_matrix(x)+sp.csc_matrix(y), drs)
             else:
                 result = LinearOperator(drs[0].shape, lambda x : reduce(lambda a, b: a.dot(x)+b.dot(x),drs))
 
