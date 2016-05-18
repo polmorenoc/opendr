@@ -459,6 +459,7 @@ def minimize(fun, x0, method='dogleg', bounds=None, constraints=(), tol=None, ca
     elif method == 'probLineSearch':
         x1 = probLineSearchMin(np.concatenate([free_variable.r.ravel() for free_variable in free_variables]), residuals, scalar_jacfunc, args=(obj, obj_scalar, free_variables), df_vars=options['df_vars'], on_step=callback, maxnumfuneval=maxiter)
     else:
+        # ipdb.set_trace()
         x1 = scipy.optimize.minimize(
             method=method,
             fun=residuals,
