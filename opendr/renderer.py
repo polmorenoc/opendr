@@ -152,7 +152,7 @@ class BaseRenderer(Ch):
 
         GL.glDepthMask(GL.GL_TRUE)
 
-        GL.glBindFramebuffer(GL.GL_FRAMEBUFFER, self.fbo )
+        GL.glBindFramebuffer(GL.GL_FRAMEBUFFER, self.fbo)
 
         self.render_buf = GL.glGenRenderbuffers(1)
         GL.glBindRenderbuffer(GL.GL_RENDERBUFFER,self.render_buf)
@@ -359,6 +359,8 @@ class BaseRenderer(Ch):
         self.vbo_colors_ub.bind()
         GL.glEnableVertexAttribArray(color_location) # from 'location = 0' in shader
         GL.glVertexAttribPointer(color_location, 3, GL.GL_UNSIGNED_BYTE, GL.GL_TRUE, 0, None)
+
+        self.initialized = True
 
         print('glValidateProgram: ' + str(GL.glValidateProgram(self.colorProgram)))
         print('glGetProgramInfoLog ' + str(GL.glGetProgramInfoLog(self.colorProgram)))
@@ -1333,6 +1335,9 @@ class TexturedRenderer(ColoredRenderer):
 
 
     def draw_texcoord_image(self, v, f, ft, boundarybool_image=None):
+
+        ipdb.set_trace()
+
         # gl = glf
         # gl.Disable(GL_TEXTURE_2D)
         # gl.DisableClientState(GL_TEXTURE_COORD_ARR
@@ -1347,6 +1352,8 @@ class TexturedRenderer(ColoredRenderer):
 
         #use the third channel to identify the corresponding textures.
         color3 = np.vstack([np.ones([self.ft_list[mesh].shape[0],1])*mesh for mesh in range(len(self.ft_list))]).astype(np.float32) / len(self.ft_list)
+
+        ipdb.set_trace()
 
         colors = np.asarray(np.hstack((colors, color3)), np.float64, order='C')
         self.draw_colored_primitives(self.vao_dyn, v, f, colors)
@@ -1374,7 +1381,6 @@ class TexturedRenderer(ColoredRenderer):
             cim = sp.spdiags(row(cim), [0], cim.size, cim.size)
             result = cim.dot(result)
         elif wrt is self.texture_stack:
-
             IS = np.nonzero(self.visibility_image.ravel() != 4294967295)[0]
             texcoords, texidx = self.texcoord_image_quantized
             vis_texidx = texidx.ravel()[IS]
@@ -1395,7 +1401,6 @@ class TexturedRenderer(ColoredRenderer):
 
             IS = np.concatenate((IS*3, IS*3+1, IS*3+2))
             JS = np.concatenate((JS*3, JS*3+1, JS*3+2))
-
 
             return sp.csc_matrix((data, (IS, JS)), shape=(self.r.size, wrt.r.size))
 
@@ -1425,7 +1430,6 @@ class TexturedRenderer(ColoredRenderer):
         if 'texture_stack' in which:
             # gl = self.glf
             # texture_data = np.array(self.texture_image*255., dtype='uint8', order='C')
-            tmp = np.zeros(2, dtype=np.uint32)
 
             # self.release_textures()
             #
@@ -1453,18 +1457,39 @@ class TexturedRenderer(ColoredRenderer):
 
             # gl.GenTextures(1, tmp) # TODO: free after done
             # self.textureID = tmp[0]
+            if self.initialized:
+                textureCoordIdx = 0
+                for mesh in range(len(self.f_list)):
+                    for polygons in range(len(self.f_list[mesh])):
+                        texture = None
 
-            # Pol: fix this on modern OpenGL:
+                        if self.haveUVs_list[mesh][polygons]:
+                            texture = self.textureID_mesh_list[mesh][polygons]
 
-            # self.textureID = GL.glGenTextures(1)
-            # GL.glBindTexture(GL.GL_TEXTURE_2D, self.textureID)
-            # GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MIN_FILTER, GL.GL_LINEAR)
-            # GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MAG_FILTER, GL.GL_LINEAR)
-            #
-            # GL.glTexImage2D(GL.GL_TEXTURE_2D, 0, GL.GL_RGB, texture_data.shape[1], texture_data.shape[0], 0, GL.GL_BGR_EXT, texture_data.ravel())
-            # gl.TexImage2Dub(GL.GL_TEXTURE_2D, 0, GL.GL_RGB, texture_data.shape[1], texture_data.shape[0], 0, GL.GL_BGR, texture_data.ravel())
-            # #gl.Hint(GL_GENERATE_MIPMAP_HINT, GL_NICEST) # must be GL_FASTEST, GL_NICEST or GL_DONT_CARE
-            # gl.GenerateMipmap(GL.GL_TEXTURE_2D)
+                            GL.glBindTexture(GL.GL_TEXTURE_2D, texture)
+
+                            #Update the OpenGL textures with all the textures. (Inefficient as many might not have changed).
+                            image = np.array(np.flipud((self.textures_list[mesh][polygons] * 255.0)), order='C', dtype=np.uint8)
+                            self.textures_list[mesh][polygons] = self.texture_stack[textureCoordIdx:image.size].reshape(image.shape)
+
+                            textureCoordIdx = textureCoordIdx + image.size
+                            image = np.array(np.flipud((self.textures_list[mesh][polygons] * 255.0)), order='C', dtype=np.uint8)
+
+                            GL.glTexSubImage2D(GL.GL_TEXTURE_2D, 0, 0, 0, image.shape[1], image.shape[0], GL.GL_RGB, GL.GL_UNSIGNED_BYTE,
+                                               image.reshape([image.shape[1], image.shape[0], -1]).ravel().tostring())
+
+
+                # Pol: fix this on modern OpenGL:
+
+                # self.textureID = GL.glGenTextures(1)
+                # GL.glBindTexture(GL.GL_TEXTURE_2D, self.textureID)
+                # GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MIN_FILTER, GL.GL_LINEAR)
+                # GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MAG_FILTER, GL.GL_LINEAR)
+                #
+                # GL.glTexImage2D(GL.GL_TEXTURE_2D, 0, GL.GL_RGB, texture_data.shape[1], texture_data.shape[0], 0, GL.GL_BGR_EXT, texture_data.ravel())
+                # gl.TexImage2Dub(GL.GL_TEXTURE_2D, 0, GL.GL_RGB, texture_data.shape[1], texture_data.shape[0], 0, GL.GL_BGR, texture_data.ravel())
+                # #gl.Hint(GL_GENERATE_MIPMAP_HINT, GL_NICEST) # must be GL_FASTEST, GL_NICEST or GL_DONT_CARE
+                # gl.GenerateMipmap(GL.GL_TEXTURE_2D)
 
     @depends_on('ft', 'textures')
     def mesh_tex_coords(self):
@@ -1595,12 +1620,16 @@ class TexturedRenderer(ColoredRenderer):
 
     @depends_on('ft', 'f', 'frustum', 'camera')
     def texcoord_image_quantized(self):
-        texcoord_image = self.texcoord_image[:,:2].copy()
+
+        texcoord_image = self.texcoord_image[:,:, :2].copy()
+        #Temprary:
+        self.texture_image = self.textures_list[0][0].r.copy()
         texcoord_image[:,:,0] *= self.texture_image.shape[1]-1
         texcoord_image[:,:,1] *= self.texture_image.shape[0]-1
-        texture_idx = self.texcoord_image[:,2]*len(self.ft_list).astype(np.uint32)
+        texture_idx = (self.texcoord_image[:,:,2]*len(self.ft_list)).astype(np.uint32)
         texcoord_image = np.round(texcoord_image)
         texcoord_image = texcoord_image[:,:,0] + texcoord_image[:,:,1]*self.texture_image.shape[1]
+        ipdb.set_trace()
         return texcoord_image, texture_idx
 
     def checkBufferNum(self):
