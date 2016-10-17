@@ -134,7 +134,7 @@ class BaseRenderer(Ch):
             self.win = glfw.create_window(self.frustum['width'], self.frustum['height'], "test",  None, self.sharedWin)
             glfw.make_context_current(self.win)
 
-        else:
+        else: #Mesa
             from OpenGL import arrays
             from OpenGL.raw.osmesa import mesa
 
@@ -456,7 +456,6 @@ class BaseRenderer(Ch):
 
         GL.glBindVertexArray(self.vao_static)
 
-
         self.vbo_colors.set_array(vc.astype(np.float32))
         self.vbo_colors.bind()
 
@@ -559,12 +558,9 @@ class BaseRenderer(Ch):
                 self.vbo_colors_ub.bind()
             else:
                 raise Exception('Unknown color type for fc')
-
         else:
             self.vbo_colors.set_array(np.zeros_like(verts_by_face, dtype=np.float32))
             self.vbo_colors.bind()
-
-
         if f.shape[1]==2:
             primtype = GL.GL_LINES
         else:
@@ -1039,7 +1035,7 @@ class ColoredRenderer(BaseRenderer):
 
 
 class TexturedRenderer(ColoredRenderer):
-    terms = 'f', 'frustum', 'vt', 'ft', 'background_image', 'overdraw', 'ft_list', 'haveUVs_list', 'textures_list', 'vc_list'
+    terms = 'f', 'frustum', 'vt', 'ft', 'background_image', 'overdraw', 'ft_list', 'haveUVs_list', 'textures_list', 'vc_list' , 'imageGT' , 'useShaderErrors'
     dterms = 'vc', 'camera', 'bgcolor', 'texture_stack', 'v'
 
     def clear(self):
@@ -1110,14 +1106,47 @@ class TexturedRenderer(ColoredRenderer):
 
         self.colorTextureProgram = shaders.compileProgram(VERTEX_SHADER,FRAGMENT_SHADER)
 
+        if self.useShaderErrors:
+            ERRORS_FRAGMENT_SHADER = shaders.compileShader("""#version 410 core
+            #extension GL_EXT_shader_image_load_store : enable
+
+            // Interpolated values from the vertex shaders
+            in vec3 theColor;
+            in vec2 UV;
+            uniform sampler2D myTextureSampler;
+            coherent restrict uniform layout(size4x32) image2D image;
+
+            // Ouput data
+            layout(location = 0) out vec3 color;
+            layout(location = 1) out vec3 E;
+            layout(location = 2) out vec3 dEdx;
+            layout(location = 3) out vec3 dEdy;
+
+            void main(){
+                color = interpolateAtSample(theColor, gl_SampleID) * texture2D( myTextureSampler, interpolateAtSample(UV, gl_SampleID) ).rgb;
+
+                ivec2 coord = ivec2(gl_FragCoord.xy);
+                imgColor = imageLoad(image, coord);
+
+                float dx = dFdxFine(interpolateAtSample(gl_FragCoord, gl_SampleID)).x
+                float dy = dFdyFine(interpolateAtSample(gl_FragCoord, gl_SampleID)).y
+
+                vec3 dfdx = dFdxFine(interpolateAtSample(theColor, gl_SampleID) * texture2D( myTextureSampler, interpolateAtSample(UV, gl_SampleID) ).rgb);
+                vec3 dfdy = dFdyFine(interpolateAtSample(theColor, gl_SampleID) * texture2D( myTextureSampler, interpolateAtSample(UV, gl_SampleID) ).rgb);
+
+                vec3 Res = color - imgColor;
+                vec3 E =  Res**2;
+
+                vec3 dEdx = 2*Res*dfdx/(1. - dx);
+                vec3 dEdy = 2*Res*dfdy/(1. - dy);
+
+            }""")
+
+            self.errorTextureProgram = shaders.compileProgram(VERTEX_SHADER, ERRORS_FRAGMENT_SHADER)
+
         #Define the other VAO/VBOs and shaders.
         #Text VAO and bind color, vertex indices AND uvbuffer:
 
-        self.vbo_indices_mesh_list = []
-        self.vbo_colors_mesh = []
-        self.vbo_verts_mesh = []
-        self.vao_tex_mesh_list = []
-        self.vbo_uvs_mesh = []
 
         position_location = GL.glGetAttribLocation(self.colorTextureProgram, 'position')
         color_location = GL.glGetAttribLocation(self.colorTextureProgram, 'color')
@@ -1125,8 +1154,29 @@ class TexturedRenderer(ColoredRenderer):
         # color_location_ub = GL.glGetAttribLocation(self.colorProgram, 'color')
         self.MVP_texture_location = GL.glGetUniformLocation(self.colorTextureProgram, 'MVP')
 
+        if self.useShaderErrors:
+            self.textureGT = GL.GLuint(0)
+            # ipdb.set_trace()
+            GL.glGenTextures(1, self.textureGT)
+            GL.glBindTexture(GL.GL_TEXTURE_2D, self.textureGT)
+
+            self.textureGTLoc = GL.glGetUniformLocation(self.errorTextureProgram, "imageGT")
+            GL.glUniform1i(self.textureGTLoc, 0)
+
+            GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MIN_FILTER, GL.GL_LINEAR)
+            GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MAG_FILTER, GL.GL_LINEAR)
+            GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_WRAP_S, GL.GL_MIRRORED_REPEAT)
+            GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_WRAP_T, GL.GL_MIRRORED_REPEAT)
+
+            GL.glTexImage2D(GL.GL_TEXTURE_2D, 0, GL.GL_RGBA32F, self.imageGT.shape[1], self.imageGT.shape[0], 0, GL.GL_RGBA, GL.GL_FLOAT, self.imageGT)
+
         # ipdb.set_trace()
 
+        self.vbo_indices_mesh_list = []
+        self.vbo_colors_mesh = []
+        self.vbo_verts_mesh = []
+        self.vao_tex_mesh_list = []
+        self.vbo_uvs_mesh = []
         self.textureID_mesh_list = []
 
         for mesh in range(len(self.f_list)):
