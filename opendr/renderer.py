@@ -168,6 +168,9 @@ class BaseRenderer(Ch):
         #FBO_f
 
         if self.msaa and self.glMode == 'glfw':
+            if not self.nsamples:
+                self.nsamples = 8
+
             self.fbo_ms = GL.glGenFramebuffers(1)
 
             GL.glDepthMask(GL.GL_TRUE)
@@ -177,12 +180,12 @@ class BaseRenderer(Ch):
             self.render_buf_ms = GL.glGenRenderbuffers(1)
             GL.glBindRenderbuffer(GL.GL_RENDERBUFFER,self.render_buf_ms)
 
-            GL.glRenderbufferStorageMultisample(GL.GL_RENDERBUFFER,8, GL.GL_RGB8, self.frustum['width'], self.frustum['height'])
+            GL.glRenderbufferStorageMultisample(GL.GL_RENDERBUFFER, self.nsamples, GL.GL_RGB8, self.frustum['width'], self.frustum['height'])
             GL.glFramebufferRenderbuffer(GL.GL_DRAW_FRAMEBUFFER, GL.GL_COLOR_ATTACHMENT0, GL.GL_RENDERBUFFER, self.render_buf_ms)
 
             self.z_buf_ms = GL.glGenRenderbuffers(1)
             GL.glBindRenderbuffer(GL.GL_RENDERBUFFER, self.z_buf_ms)
-            GL.glRenderbufferStorageMultisample(GL.GL_RENDERBUFFER,8 , GL.GL_DEPTH_COMPONENT, self.frustum['width'], self.frustum['height'])
+            GL.glRenderbufferStorageMultisample(GL.GL_RENDERBUFFER, self.nsamples, GL.GL_DEPTH_COMPONENT, self.frustum['width'], self.frustum['height'])
             GL.glFramebufferRenderbuffer(GL.GL_FRAMEBUFFER, GL.GL_DEPTH_ATTACHMENT, GL.GL_RENDERBUFFER, self.z_buf_ms)
 
             GL.glEnable(GL.GL_DEPTH_TEST)
@@ -558,9 +561,12 @@ class BaseRenderer(Ch):
                 self.vbo_colors_ub.bind()
             else:
                 raise Exception('Unknown color type for fc')
+
         else:
             self.vbo_colors.set_array(np.zeros_like(verts_by_face, dtype=np.float32))
             self.vbo_colors.bind()
+
+
         if f.shape[1]==2:
             primtype = GL.GL_LINES
         else:
@@ -1035,7 +1041,7 @@ class ColoredRenderer(BaseRenderer):
 
 
 class TexturedRenderer(ColoredRenderer):
-    terms = 'f', 'frustum', 'vt', 'ft', 'background_image', 'overdraw', 'ft_list', 'haveUVs_list', 'textures_list', 'vc_list' , 'imageGT' , 'useShaderErrors'
+    terms = 'f', 'frustum', 'vt', 'ft', 'background_image', 'overdraw', 'ft_list', 'haveUVs_list', 'textures_list', 'vc_list' , 'imageGT' , 'useShaderErrors', 'nsamples'
     dterms = 'vc', 'camera', 'bgcolor', 'texture_stack', 'v'
 
     def clear(self):
@@ -1158,7 +1164,7 @@ class TexturedRenderer(ColoredRenderer):
             self.textureGT = GL.GLuint(0)
             # ipdb.set_trace()
             GL.glGenTextures(1, self.textureGT)
-            GL.glBindTexture(GL.GL_TEXTURE_2D, self.textureGT)
+            GL.glBindTexture(GL.gGL_TEXTURE_2D, self.textureGT)
 
             self.textureGTLoc = GL.glGetUniformLocation(self.errorTextureProgram, "imageGT")
             GL.glUniform1i(self.textureGTLoc, 0)
@@ -1169,6 +1175,54 @@ class TexturedRenderer(ColoredRenderer):
             GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_WRAP_T, GL.GL_MIRRORED_REPEAT)
 
             GL.glTexImage2D(GL.GL_TEXTURE_2D, 0, GL.GL_RGBA32F, self.imageGT.shape[1], self.imageGT.shape[0], 0, GL.GL_RGBA, GL.GL_FLOAT, self.imageGT)
+
+            #fbo_ms_errors
+            self.fbo_ms_errors = GL.glGenFramebuffers(1)
+
+            GL.glDepthMask(GL.GL_TRUE)
+
+            GL.glBindFramebuffer(GL.GL_FRAMEBUFFER, self.fbo_ms_errors)
+
+            self.render_buf_errors_color = GL.glGenRenderbuffers(1)
+            GL.glBindRenderbuffer(GL.GL_RENDERBUFFER, self.render_buf_ms_errors)
+
+            GL.glRenderbufferStorageMultisample(GL.GL_RENDERBUFFER, self.nsamples, GL.GL_RGB8, self.frustum['width'], self.frustum['height'])
+            GL.glFramebufferRenderbuffer(GL.GL_DRAW_FRAMEBUFFER, GL.GL_COLOR_ATTACHMENT0, GL.GL_RENDERBUFFER, self.render_buf_ms_errors)
+
+            GL.glRenderbufferStorageMultisample(GL.GL_RENDERBUFFER, self.nsamples, GL.GL_RGB8, self.frustum['width'], self.frustum['height'])
+            GL.glFramebufferRenderbuffer(GL.GL_DRAW_FRAMEBUFFER, GL.GL_COLOR_ATTACHMENT1, GL.GL_RENDERBUFFER, self.render_buf_ms_errors)
+
+            self.render_buf_errors_e = GL.glGenRenderbuffers(1)
+            GL.glBindRenderbuffer(GL.GL_RENDERBUFFER, self.render_buf_errors_e)
+            GL.glRenderbufferStorageMultisample(GL.GL_RENDERBUFFER, self.nsamples, GL.GL_RGBA32F, self.frustum['width'], self.frustum['height'])
+            GL.glFramebufferRenderbuffer(GL.GL_DRAW_FRAMEBUFFER, GL.GL_COLOR_ATTACHMENT1, GL.GL_RENDERBUFFER, self.render_buf_errors_e)
+
+            self.render_buf_errors_dedx = GL.glGenRenderbuffers(1)
+            GL.glBindRenderbuffer(GL.GL_RENDERBUFFER, self.render_buf_errors_dedx)
+            GL.glRenderbufferStorageMultisample(GL.GL_RENDERBUFFER, self.nsamples, GL.GL_RGBA32F, self.frustum['width'], self.frustum['height'])
+            GL.glFramebufferRenderbuffer(GL.GL_DRAW_FRAMEBUFFER, GL.GL_COLOR_ATTACHMENT2, GL.GL_RENDERBUFFER, self.render_buf_errors_dedx)
+
+            self.render_buf_errors_dedy = GL.glGenRenderbuffers(1)
+            GL.glBindRenderbuffer(GL.GL_RENDERBUFFER, self.render_buf_errors_dedy)
+            GL.glRenderbufferStorageMultisample(GL.GL_RENDERBUFFER, self.nsamples, GL.GL_RGBA32F, self.frustum['width'], self.frustum['height'])
+            GL.glFramebufferRenderbuffer(GL.GL_DRAW_FRAMEBUFFER, GL.GL_COLOR_ATTACHMENT3, GL.GL_RENDERBUFFER, self.render_buf_errors_dedy)
+
+            self.z_buf_ms_errors = GL.glGenRenderbuffers(1)
+            GL.glBindRenderbuffer(GL.GL_RENDERBUFFER, self.z_buf_ms_errors)
+            GL.glRenderbufferStorageMultisample(GL.GL_RENDERBUFFER, self.nsamples, GL.GL_DEPTH_COMPONENT, self.frustum['width'], self.frustum['height'])
+            GL.glFramebufferRenderbuffer(GL.GL_FRAMEBUFFER, GL.GL_DEPTH_ATTACHMENT, GL.GL_RENDERBUFFER, self.z_buf_ms_errors)
+
+            GL.glEnable(GL.GL_DEPTH_TEST)
+            GL.glPolygonMode(GL.GL_FRONT_AND_BACK, GL.GL_FILL)
+            GL.glDisable(GL.GL_CULL_FACE)
+
+            GL.glClear(GL.GL_COLOR_BUFFER_BIT)
+            GL.glClear(GL.GL_DEPTH_BUFFER_BIT)
+
+            print("FRAMEBUFFER ERR: " + str(GL.glCheckFramebufferStatus(GL.GL_FRAMEBUFFER)))
+            assert (GL.glCheckFramebufferStatus(GL.GL_FRAMEBUFFER) == GL.GL_FRAMEBUFFER_COMPLETE)
+
+            GL.glBindFramebuffer(GL.GL_FRAMEBUFFER, 0)
 
         # ipdb.set_trace()
 
@@ -1401,8 +1455,6 @@ class TexturedRenderer(ColoredRenderer):
         #use the third channel to identify the corresponding textures.
         color3 = np.vstack([np.ones([self.ft_list[mesh].shape[0],1])*mesh for mesh in range(len(self.ft_list))]).astype(np.float32) / len(self.ft_list)
 
-        ipdb.set_trace()
-
         colors = np.asarray(np.hstack((colors, color3)), np.float64, order='C')
         self.draw_colored_primitives(self.vao_dyn, v, f, colors)
 
@@ -1593,6 +1645,17 @@ class TexturedRenderer(ColoredRenderer):
             GL.glBindFramebuffer(GL.GL_DRAW_FRAMEBUFFER, self.fbo_ms)
         else:
             GL.glBindFramebuffer(GL.GL_DRAW_FRAMEBUFFER, self.fbo_noms)
+
+        if self.useShaderErrors:
+            GL.glBindFramebuffer(GL.GL_DRAW_FRAMEBUFFER, self.fbo_ms_errors)
+
+            drawingBuffers = [GL.GL_COLOR_ATTACHMENT0, GL.GL_COLOR_ATTACHMENT1, GL.GL_COLOR_ATTACHMENT2, GL.GL_COLOR_ATTACHMENT3]
+            GL.glDrawBuffers(4, drawingBuffers)
+
+            GL.glActiveTexture(GL.GL_TEXTURE0)
+            GL.glBindTexture(GL.GL_TEXTURE_2D, self.textureGT)
+            GL.glUniform1i(self.textureGTLoc, 0)
+
         GL.glClear(GL.GL_COLOR_BUFFER_BIT | GL.GL_DEPTH_BUFFER_BIT)
         view_mtx = self.camera.openglMat.dot(np.asarray(np.vstack((self.camera.view_matrix, np.array([0, 0, 0, 1]))),np.float32))
         MVP = np.dot(self.projectionMatrix, view_mtx)
@@ -1646,13 +1709,46 @@ class TexturedRenderer(ColoredRenderer):
             GL.glBindFramebuffer(GL.GL_READ_FRAMEBUFFER, self.fbo_ms)
         else:
             GL.glBindFramebuffer(GL.GL_READ_FRAMEBUFFER, self.fbo_noms)
+        if self.useShaderErrors:
+            GL.glBindFramebuffer(GL.GL_READ_FRAMEBUFFER, self.fbo_ms_errors)
 
-        GL.glBindFramebuffer(GL.GL_DRAW_FRAMEBUFFER, self.fbo)
-        GL.glBlitFramebuffer(0, 0, self.frustum['width'], self.frustum['height'], 0, 0, self.frustum['width'], self.frustum['height'], GL.GL_COLOR_BUFFER_BIT, GL.GL_LINEAR)
-        GL.glBindFramebuffer(GL.GL_FRAMEBUFFER, self.fbo)
-        GL.glReadBuffer(GL.GL_COLOR_ATTACHMENT0)
+        if not self.useShaderErrors:
+            GL.glBindFramebuffer(GL.GL_DRAW_FRAMEBUFFER, self.fbo)
+            GL.glBlitFramebuffer(0, 0, self.frustum['width'], self.frustum['height'], 0, 0, self.frustum['width'], self.frustum['height'], GL.GL_COLOR_BUFFER_BIT, GL.GL_LINEAR)
+            GL.glBindFramebuffer(GL.GL_FRAMEBUFFER, self.fbo)
+            GL.glReadBuffer(GL.GL_COLOR_ATTACHMENT0)
 
-        result = np.flipud(np.frombuffer(GL.glReadPixels( 0,0, self.frustum['width'], self.frustum['height'], GL.GL_RGB, GL.GL_UNSIGNED_BYTE), np.uint8).reshape(self.frustum['height'],self.frustum['height'],3).astype(np.float64))/255.0
+            result = np.flipud(np.frombuffer(GL.glReadPixels( 0,0, self.frustum['width'], self.frustum['height'], GL.GL_RGB, GL.GL_UNSIGNED_BYTE), np.uint8).reshape(self.frustum['height'],self.frustum['height'],3).astype(np.float64))/255.0
+        else:
+
+            GL.glBindFramebuffer(GL.GL_READ_FRAMEBUFFER, self.fbo_ms_errors)
+            GL.glBindFramebuffer(GL.GL_DRAW_FRAMEBUFFER, self.fbo)
+
+            GL.glReadBuffer(GL.GL_COLOR_ATTACHMENT0)
+            GL.glDrawBuffer(GL.GL_COLOR_ATTACHMENT0)
+            GL.glBlitFramebuffer(0, 0, self.frustum['width'], self.frustum['height'], 0, 0, self.frustum['width'], self.frustum['height'],GL.GL_COLOR_BUFFER_BIT, GL.GL_LINEAR)
+            GL.glBindFramebuffer(GL.GL_FRAMEBUFFER, self.fbo)
+            result = np.flipud(np.frombuffer(GL.glReadPixels(0, 0, self.frustum['width'], self.frustum['height'], GL.GL_RGB, GL.GL_UNSIGNED_BYTE), np.uint8).reshape(self.frustum['height'], self.frustum['height'], 3).astype(np.float64)) / 255.0
+
+            GL.glBindFramebuffer(GL.GL_READ_FRAMEBUFFER, self.fbo_ms_errors)
+            GL.glReadBuffer(GL.GL_COLOR_ATTACHMENT1)
+            GL.glDrawBuffer(GL.GL_COLOR_ATTACHMENT0)
+            GL.glBlitFramebuffer(0, 0, self.frustum['width'], self.frustum['height'], 0, 0, self.frustum['width'], self.frustum['height'],GL.GL_COLOR_BUFFER_BIT, GL.GL_LINEAR)
+            errors = np.flipud(np.frombuffer(GL.glReadPixels(0, 0, self.frustum['width'], self.frustum['height'], GL.GL_RGBA, GL.GL_FLOAT), np.float32)[:,:,0:3].reshape(self.frustum['height'], self.frustum['height'], 3).astype(np.float64)) / 255.0
+
+            GL.glBindFramebuffer(GL.GL_READ_FRAMEBUFFER, self.fbo_ms_errors)
+            GL.glReadBuffer(GL.GL_COLOR_ATTACHMENT2)
+            GL.glDrawBuffer(GL.GL_COLOR_ATTACHMENT0)
+            GL.glBlitFramebuffer(0, 0, self.frustum['width'], self.frustum['height'], 0, 0, self.frustum['width'], self.frustum['height'],GL.GL_COLOR_BUFFER_BIT, GL.GL_LINEAR)
+            GL.glReadBuffer(GL.GL_COLOR_ATTACHMENT0)
+            dEdx = np.flipud(np.frombuffer(GL.glReadPixels(0, 0, self.frustum['width'], self.frustum['height'], GL.GL_RGBA, GL.GL_FLOAT), np.float32)[:,:,0:3].reshape(self.frustum['height'], self.frustum['height'], 3).astype(np.float64)) / 255.0
+
+            GL.glBindFramebuffer(GL.GL_READ_FRAMEBUFFER, self.fbo_ms_errors)
+            GL.glReadBuffer(GL.GL_COLOR_ATTACHMENT3)
+            GL.glDrawBuffer(GL.GL_COLOR_ATTACHMENT0)
+            GL.glBlitFramebuffer(0, 0, self.frustum['width'], self.frustum['height'], 0, 0, self.frustum['width'], self.frustum['height'],GL.GL_COLOR_BUFFER_BIT, GL.GL_LINEAR)
+            GL.glReadBuffer(GL.GL_COLOR_ATTACHMENT0)
+            dEdY = np.flipud(np.frombuffer(GL.glReadPixels(0, 0, self.frustum['width'], self.frustum['height'], GL.GL_RGBA, GL.GL_FLOAT), np.float32)[:,:,0:3].reshape(self.frustum['height'], self.frustum['height'], 3).astype(np.float64)) / 255.0
 
 
         GL.glBindFramebuffer(GL.GL_DRAW_FRAMEBUFFER, self.fbo)
