@@ -1234,7 +1234,7 @@ class TexturedRenderer(ColoredRenderer):
         if not self.overdraw:
             return no_overdraw
 
-        return no_overdraw
+        # return no_overdraw
 
         GL.glPolygonMode(GL.GL_FRONT_AND_BACK, GL.GL_LINE)
         overdraw = self.draw_color_image()
@@ -1335,8 +1335,6 @@ class TexturedRenderer(ColoredRenderer):
 
 
     def draw_texcoord_image(self, v, f, ft, boundarybool_image=None):
-
-        ipdb.set_trace()
 
         # gl = glf
         # gl.Disable(GL_TEXTURE_2D)
