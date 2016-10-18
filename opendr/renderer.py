@@ -1113,7 +1113,7 @@ class TexturedRenderer(ColoredRenderer):
         self.colorTextureProgram = shaders.compileProgram(VERTEX_SHADER,FRAGMENT_SHADER)
 
         if self.useShaderErrors:
-            ERRORS_FRAGMENT_SHADER = shaders.compileShader("""#version 410 core
+            ERRORS_FRAGMENT_SHADER = shaders.compileShader("""#version 450 core
             #extension GL_EXT_shader_image_load_store : enable
 
             // Interpolated values from the vertex shaders
@@ -1134,8 +1134,8 @@ class TexturedRenderer(ColoredRenderer):
                 ivec2 coord = ivec2(gl_FragCoord.xy);
                 imgColor = imageLoad(image, coord);
 
-                float dx = dFdxFine(interpolateAtSample(gl_FragCoord, gl_SampleID)).x
-                float dy = dFdyFine(interpolateAtSample(gl_FragCoord, gl_SampleID)).y
+                //float dx = dFdxFine(interpolateAtSample(gl_FragCoord, gl_SampleID)).x;
+                //float dy = dFdyFine(interpolateAtSample(gl_FragCoord, gl_SampleID)).y;
 
                 vec3 dfdx = dFdxFine(interpolateAtSample(theColor, gl_SampleID) * texture2D( myTextureSampler, interpolateAtSample(UV, gl_SampleID) ).rgb);
                 vec3 dfdy = dFdyFine(interpolateAtSample(theColor, gl_SampleID) * texture2D( myTextureSampler, interpolateAtSample(UV, gl_SampleID) ).rgb);
@@ -1143,10 +1143,12 @@ class TexturedRenderer(ColoredRenderer):
                 vec3 Res = color - imgColor;
                 vec3 E =  Res**2;
 
-                vec3 dEdx = 2*Res*dfdx/(1. - dx);
-                vec3 dEdy = 2*Res*dfdy/(1. - dy);
+                vec3 dEdx = 2*Res*dfdx;
+                //(1. - dx);
+                vec3 dEdy = 2*Res*dfdy;
+                //(1. - dy);
 
-            }""")
+            }""", GL.GL_FRAGMENT_SHADER)
 
             self.errorTextureProgram = shaders.compileProgram(VERTEX_SHADER, ERRORS_FRAGMENT_SHADER)
 
@@ -1734,21 +1736,21 @@ class TexturedRenderer(ColoredRenderer):
             GL.glReadBuffer(GL.GL_COLOR_ATTACHMENT1)
             GL.glDrawBuffer(GL.GL_COLOR_ATTACHMENT0)
             GL.glBlitFramebuffer(0, 0, self.frustum['width'], self.frustum['height'], 0, 0, self.frustum['width'], self.frustum['height'],GL.GL_COLOR_BUFFER_BIT, GL.GL_LINEAR)
-            errors = np.flipud(np.frombuffer(GL.glReadPixels(0, 0, self.frustum['width'], self.frustum['height'], GL.GL_RGBA, GL.GL_FLOAT), np.float32)[:,:,0:3].reshape(self.frustum['height'], self.frustum['height'], 3).astype(np.float64)) / 255.0
+            self.errors = np.flipud(np.frombuffer(GL.glReadPixels(0, 0, self.frustum['width'], self.frustum['height'], GL.GL_RGBA, GL.GL_FLOAT), np.float32)[:,:,0:3].reshape(self.frustum['height'], self.frustum['height'], 3).astype(np.float64)) / 255.0
 
             GL.glBindFramebuffer(GL.GL_READ_FRAMEBUFFER, self.fbo_ms_errors)
             GL.glReadBuffer(GL.GL_COLOR_ATTACHMENT2)
             GL.glDrawBuffer(GL.GL_COLOR_ATTACHMENT0)
             GL.glBlitFramebuffer(0, 0, self.frustum['width'], self.frustum['height'], 0, 0, self.frustum['width'], self.frustum['height'],GL.GL_COLOR_BUFFER_BIT, GL.GL_LINEAR)
             GL.glReadBuffer(GL.GL_COLOR_ATTACHMENT0)
-            dEdx = np.flipud(np.frombuffer(GL.glReadPixels(0, 0, self.frustum['width'], self.frustum['height'], GL.GL_RGBA, GL.GL_FLOAT), np.float32)[:,:,0:3].reshape(self.frustum['height'], self.frustum['height'], 3).astype(np.float64)) / 255.0
+            self.dEdx = np.flipud(np.frombuffer(GL.glReadPixels(0, 0, self.frustum['width'], self.frustum['height'], GL.GL_RGBA, GL.GL_FLOAT), np.float32)[:,:,0:3].reshape(self.frustum['height'], self.frustum['height'], 3).astype(np.float64)) / 255.0
 
             GL.glBindFramebuffer(GL.GL_READ_FRAMEBUFFER, self.fbo_ms_errors)
             GL.glReadBuffer(GL.GL_COLOR_ATTACHMENT3)
             GL.glDrawBuffer(GL.GL_COLOR_ATTACHMENT0)
             GL.glBlitFramebuffer(0, 0, self.frustum['width'], self.frustum['height'], 0, 0, self.frustum['width'], self.frustum['height'],GL.GL_COLOR_BUFFER_BIT, GL.GL_LINEAR)
             GL.glReadBuffer(GL.GL_COLOR_ATTACHMENT0)
-            dEdY = np.flipud(np.frombuffer(GL.glReadPixels(0, 0, self.frustum['width'], self.frustum['height'], GL.GL_RGBA, GL.GL_FLOAT), np.float32)[:,:,0:3].reshape(self.frustum['height'], self.frustum['height'], 3).astype(np.float64)) / 255.0
+            self.dEdY = np.flipud(np.frombuffer(GL.glReadPixels(0, 0, self.frustum['width'], self.frustum['height'], GL.GL_RGBA, GL.GL_FLOAT), np.float32)[:,:,0:3].reshape(self.frustum['height'], self.frustum['height'], 3).astype(np.float64)) / 255.0
 
 
         GL.glBindFramebuffer(GL.GL_DRAW_FRAMEBUFFER, self.fbo)
