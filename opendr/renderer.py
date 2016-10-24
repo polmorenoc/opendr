@@ -1589,23 +1589,23 @@ class SQErrorRenderer(TexturedRenderer):
                 ivec2 coord = ivec2(gl_FragCoord.xy);
                 vec3 imgColor = texture2D(imageGT, gl_FragCoord.xy/vec2(ww,wh)).rgb;
 
-                float dx = dFdx(gl_SamplePosition.x);
-                float dy = dFdy(gl_SamplePosition.y);
+                float dx = dFdxFine(gl_SamplePosition.x);
+                float dy = dFdyFine(gl_SamplePosition.y);
 
                 bool boolx = dx > 0.1;
                 bool booly = dy > 0.1;
                 int x = int(boolx && booly);
                 gl_SampleMask[0] ^= (-x ^ gl_SampleMask[0]) & (1 << gl_SampleID);
 
-                vec3 dfdx = dFdxFine(interpolateAtSample(theColor, gl_SampleID) * texture2D( myTextureSampler, interpolateAtSample(UV, gl_SampleID)).rgb) ;
-                vec3 dfdy = dFdyFine(interpolateAtSample(theColor, gl_SampleID) * texture2D( myTextureSampler, interpolateAtSample(UV, gl_SampleID)).rgb);
+                vec3 dfdx = -dFdxFine(interpolateAtSample(theColor, gl_SampleID));
+                vec3 dfdy = -dFdyFine(interpolateAtSample(theColor, gl_SampleID));
 
                 vec3 Res = imgColor - interpolateAtSample(theColor, gl_SampleID);
-                E =  pow(Res,vec3(2,2,2));
+                E =  pow(Res,vec3(2.0,2.0,2.0));
 
-                dEdx = 2*Res*dfdx/(1-dx);
+                dEdx = -2.0*Res*dfdx/(1.0-dx);
 
-                dEdy = 2*Res*dfdy/(1-dy);
+                dEdy = -2.0*Res*dfdy/(1.0-dy);
             }""", GL.GL_FRAGMENT_SHADER)
 
         self.errorTextureProgram = shaders.compileProgram(VERTEX_SHADER, ERRORS_FRAGMENT_SHADER)
@@ -1953,13 +1953,14 @@ class SQErrorRenderer(TexturedRenderer):
                 return self.dErrors_wrt_2dVerts(color, dEdx, dEdy, visible, visibility, barycentric, self.frustum['width'], self.frustum['height'], self.v.r.size/3, self.f)
 
         elif wrt is self.bgcolor:
-            return common.dr_wrt_bgcolor(visibility, self.frustum, num_channels=self.num_channels)
+            return 2. * (self.imageGT.r - self.render_image).ravel() * common.dr_wrt_bgcolor(visibility, self.frustum, num_channels=self.num_channels)
 
         elif wrt is self.vc:
             result = common.dr_wrt_vc(visible, visibility, self.f, barycentric, self.frustum, self.vc.size, num_channels=self.num_channels)
-            cim = self.renderWithoutColor.ravel()
+            cim = -2. * (self.imageGT.r - self.render_image).ravel() * self.renderWithoutColor.ravel()
             cim = sp.spdiags(row(cim), [0], cim.size, cim.size)
-            return cim.dot(result)
+
+            return  cim.dot(result)
 
         elif wrt is self.texture_stack:
             IS = np.nonzero(self.visibility_image.ravel() != 4294967295)[0]
@@ -1968,7 +1969,7 @@ class SQErrorRenderer(TexturedRenderer):
             vis_texcoords = texcoords.ravel()[IS]
             JS = vis_texcoords *  np.tile(col(vis_texidx), [1,2]).ravel()
 
-            clr_im = self.renderWithoutTexture
+            clr_im = -2. * (self.imageGT.r - self.render_image) * self.renderWithoutTexture
 
             if False:
                 cv2.imshow('clr_im', clr_im)
