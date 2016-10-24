@@ -1558,7 +1558,7 @@ class SQErrorRenderer(TexturedRenderer):
         }""", GL.GL_VERTEX_SHADER)
 
         ERRORS_FRAGMENT_SHADER = shaders.compileShader("""#version 450 core
-            #extension GL_EXT_shader_image_load_store : enable
+            //#extension GL_EXT_shader_image_load_store : enable
             layout(early_fragment_tests) in;
 
             // Interpolated values from the vertex shaders
@@ -1592,25 +1592,29 @@ class SQErrorRenderer(TexturedRenderer):
                 float dx = dFdxFine(gl_SamplePosition.x);
                 float dy = dFdyFine(gl_SamplePosition.y);
 
-                bool boolx = dx > 0.1;
-                bool booly = dy > 0.1;
-                int x = int(boolx && booly);
-                gl_SampleMask[0] ^= (-x ^ gl_SampleMask[0]) & (1 << gl_SampleID);
+                //bool boolx = (1.0-dx) > 0.1;
+                //bool booly = (1.0-dy) > 0.1;
+                //int x = int(boolx && booly);
+                //gl_SampleMask[0] ^= (-x ^ gl_SampleMask[0]) & (1 << gl_SampleID);
 
-                vec3 dfdx = -dFdxFine(interpolateAtSample(theColor, gl_SampleID));
-                vec3 dfdy = -dFdyFine(interpolateAtSample(theColor, gl_SampleID));
+                vec3 dfdx = -dFdxFine(theColor)/dFdxFine(1.0-gl_SamplePosition.x);
+                vec3 dfdy = -dFdyFine(theColor)/dFdyFine(1.0-gl_SamplePosition.y);
 
-                vec3 Res = imgColor - interpolateAtSample(theColor, gl_SampleID);
+                vec3 Res = imgColor - theColor;
                 E =  pow(Res,vec3(2.0,2.0,2.0));
 
-                dEdx = -2.0*Res*dfdx/(1.0-dx);
+                dEdx = 2.0*Res*dfdx;
+                //dEdx = -dFdxFine(E)/(1.0-dx);
 
-                dEdy = -2.0*Res*dfdy/(1.0-dy);
+                //dEdy = -2.0*Res*dfdy/(1.0-dy);
+                //dEdy = -dFdyFine(E)/(1.0-dy);
+                dEdy = 2.0*Res*dfdy;
             }""", GL.GL_FRAGMENT_SHADER)
 
         self.errorTextureProgram = shaders.compileProgram(VERTEX_SHADER, ERRORS_FRAGMENT_SHADER)
 
         GL.glEnable(GL.GL_MULTISAMPLE)
+        # GL.glHint(GL.GL_MULTISAMPLE_FILTER_HINT_NV, GL.GL_NICEST);
         GL.glEnable(GL.GL_SAMPLE_SHADING)
         GL.glMinSampleShading(1.0)
 
@@ -1947,10 +1951,17 @@ class SQErrorRenderer(TexturedRenderer):
 
         barycentric = self.barycentric_image
 
+
         if wrt is self.camera:
-                dEdx = self.render_dedx
-                dEdy = self.render_dedy
-                return self.dErrors_wrt_2dVerts(color, dEdx, dEdy, visible, visibility, barycentric, self.frustum['width'], self.frustum['height'], self.v.r.size/3, self.f)
+            dEdx = self.render_dedx
+            dEdy = self.render_dedy
+
+            dEdxtilde = 2*(self.imageGT.r - self.render_image)*np.gradient(self.render_image)[0]
+            dEdytilde = 2 * (self.imageGT.r - self.render_image) * np.gradient(self.render_image)[1]
+            z = self.dErrors_wrt_2dVerts(color, dEdxtilde, dEdytilde, visible, visibility, barycentric, self.frustum['width'], self.frustum['height'],self.v.r.size / 3, self.f)
+
+            ipdb.set_trace()
+            return self.dErrors_wrt_2dVerts(color, dEdx, dEdy, visible, visibility, barycentric, self.frustum['width'], self.frustum['height'], self.v.r.size/3, self.f)
 
         elif wrt is self.bgcolor:
             return 2. * (self.imageGT.r - self.render_image).ravel() * common.dr_wrt_bgcolor(visibility, self.frustum, num_channels=self.num_channels)
