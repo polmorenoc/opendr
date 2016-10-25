@@ -1603,7 +1603,7 @@ class SQErrorRenderer(TexturedRenderer):
                 vec3 Res = imgColor - theColor;
                 E =  pow(Res,vec3(2.0,2.0,2.0));
 
-                dEdx = 2.0*Res*dfdx;
+                dEdx = -2.0*Res*dfdx;
                 //dEdx = -dFdxFine(E)/(1.0-dx);
 
                 //dEdy = -2.0*Res*dfdy/(1.0-dy);
@@ -1772,8 +1772,6 @@ class SQErrorRenderer(TexturedRenderer):
         GL.glVertexAttribPointer(uvs_location, 2, GL.GL_FLOAT, GL.GL_FALSE, 0, None)
 
         GL.glBindVertexArray(0)
-
-
 
     def render_errors(self):
 
@@ -1956,11 +1954,11 @@ class SQErrorRenderer(TexturedRenderer):
             dEdx = self.render_dedx
             dEdy = self.render_dedy
 
-            dEdxtilde = 2*(self.imageGT.r - self.render_image)*np.gradient(self.render_image)[0]
-            dEdytilde = 2 * (self.imageGT.r - self.render_image) * np.gradient(self.render_image)[1]
-            z = self.dErrors_wrt_2dVerts(color, dEdxtilde, dEdytilde, visible, visibility, barycentric, self.frustum['width'], self.frustum['height'],self.v.r.size / 3, self.f)
+            # dEdxtilde = 2*(self.imageGT.r - self.render_image)*np.gradient(self.render_image)[0]
+            # dEdytilde = 2 * (self.imageGT.r - self.render_image) * np.gradient(self.render_image)[1]
 
-            ipdb.set_trace()
+            # z = self.dErrors_wrt_2dVerts(color, dEdxtilde, dEdytilde, visible, visibility, barycentric, self.frustum['width'], self.frustum['height'],self.v.r.size / 3, self.f)
+
             return self.dErrors_wrt_2dVerts(color, dEdx, dEdy, visible, visibility, barycentric, self.frustum['width'], self.frustum['height'], self.v.r.size/3, self.f)
 
         elif wrt is self.bgcolor:
@@ -2058,6 +2056,8 @@ class SQErrorRenderer(TexturedRenderer):
         """Construct a sparse jacobian that relates 2D projected vertex positions
         (in the columns) to pixel values (in the rows). This can be done
         in two steps."""
+
+        ipdb.set_trace()
 
         xdiff = dEdx
         ydiff = dEdy
