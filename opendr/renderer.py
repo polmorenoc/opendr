@@ -124,8 +124,8 @@ class BaseRenderer(Ch):
             glfw.init()
             print("Initializing GLFW.")
 
-            glfw.window_hint(glfw.CONTEXT_VERSION_MAJOR, 4)
-            glfw.window_hint(glfw.CONTEXT_VERSION_MINOR, 5)
+            glfw.window_hint(glfw.CONTEXT_VERSION_MAJOR, 3)
+            glfw.window_hint(glfw.CONTEXT_VERSION_MINOR, 3)
             # glfw.window_hint(glfw.OPENGL_FORWARD_COMPAT, GL.GL_TRUE)
             glfw.window_hint(glfw.OPENGL_PROFILE, glfw.OPENGL_CORE_PROFILE)
             glfw.window_hint(glfw.DEPTH_BITS,32)
@@ -726,7 +726,7 @@ class BaseRenderer(Ch):
         if boundarybool_image is None:
             return without_overdraw
 
-        return without_overdraw
+        # return without_overdraw
 
         GL.glPolygonMode(GL.GL_FRONT_AND_BACK, GL.GL_LINE)
         overdraw = self.draw_barycentric_image_internal()
@@ -1557,13 +1557,17 @@ class SQErrorRenderer(TexturedRenderer):
             UV = vertexUV;
         }""", GL.GL_VERTEX_SHADER)
 
-        ERRORS_FRAGMENT_SHADER = shaders.compileShader("""#version 450 core
+        ERRORS_FRAGMENT_SHADER = shaders.compileShader("""#version 330 core
             //#extension GL_EXT_shader_image_load_store : enable
-            layout(early_fragment_tests) in;
+
+            #extension GL_ARB_explicit_uniform_location : enable
+            #extension GL_ARB_explicit_attrib_location : enable
+
+            //layout(early_fragment_tests) in;
 
             // Interpolated values from the vertex shaders
-            sample in vec3 theColor;
-            sample in vec2 UV;
+            in vec3 theColor;
+            in vec2 UV;
             layout(location = 3) uniform sampler2D myTextureSampler;
             layout(location = 4) uniform sampler2D imageGT;
             //readonly uniform layout(binding=1, size4x32) image2D imageGT;
@@ -1578,7 +1582,7 @@ class SQErrorRenderer(TexturedRenderer):
             layout(location = 3) out vec3 E;
             layout(location = 4) out vec3 dEdx;
             layout(location = 5) out vec3 dEdy;
-            out int gl_SampleMask[];
+            //out int gl_SampleMask[];
             const int all_sample_mask = 0xffff;
 
             void main(){
@@ -1589,26 +1593,26 @@ class SQErrorRenderer(TexturedRenderer):
                 ivec2 coord = ivec2(gl_FragCoord.xy);
                 vec3 imgColor = texture2D(imageGT, gl_FragCoord.xy/vec2(ww,wh)).rgb;
 
-                float dx = dFdxFine(gl_SamplePosition.x);
-                float dy = dFdyFine(gl_SamplePosition.y);
+                //float dx = dFdxFine(gl_SamplePosition.x);
+                //float dy = dFdyFine(gl_SamplePosition.y);
 
                 //bool boolx = (1.0-dx) > 0.1;
                 //bool booly = (1.0-dy) > 0.1;
                 //int x = int(boolx && booly);
                 //gl_SampleMask[0] ^= (-x ^ gl_SampleMask[0]) & (1 << gl_SampleID);
 
-                vec3 dfdx = -dFdxFine(theColor)/dFdxFine(1.0-gl_SamplePosition.x);
-                vec3 dfdy = -dFdyFine(theColor)/dFdyFine(1.0-gl_SamplePosition.y);
+                //vec3 dfdx = -dFdxFine(theColor)/dFdxFine(1.0-gl_SamplePosition.x);
+                //vec3 dfdy = -dFdyFine(theColor)/dFdyFine(1.0-gl_SamplePosition.y);
 
                 vec3 Res = imgColor - theColor;
                 E =  pow(Res,vec3(2.0,2.0,2.0));
 
-                dEdx = -2.0*Res*dfdx;
+                dEdx = -2.0*Res;
                 //dEdx = -dFdxFine(E)/(1.0-dx);
 
                 //dEdy = -2.0*Res*dfdy/(1.0-dy);
                 //dEdy = -dFdyFine(E)/(1.0-dy);
-                dEdy = 2.0*Res*dfdy;
+                dEdy = -2.0*Res;
             }""", GL.GL_FRAGMENT_SHADER)
 
         self.errorTextureProgram = shaders.compileProgram(VERTEX_SHADER, ERRORS_FRAGMENT_SHADER)
@@ -1696,8 +1700,8 @@ class SQErrorRenderer(TexturedRenderer):
         GL.glPolygonMode(GL.GL_FRONT_AND_BACK, GL.GL_FILL)
         GL.glDisable(GL.GL_CULL_FACE)
 
-        GL.glClear(GL.GL_COLOR_BUFFER_BIT)
-        GL.glClear(GL.GL_DEPTH_BUFFER_BIT)
+        # GL.glClear(GL.GL_COLOR_BUFFER_BIT)
+        # GL.glClear(GL.GL_DEPTH_BUFFER_BIT)
 
         print("FRAMEBUFFER ERR: " + str(GL.glCheckFramebufferStatus(GL.GL_FRAMEBUFFER)))
         assert (GL.glCheckFramebufferStatus(GL.GL_FRAMEBUFFER) == GL.GL_FRAMEBUFFER_COMPLETE)
@@ -1738,6 +1742,7 @@ class SQErrorRenderer(TexturedRenderer):
         GL.glBindRenderbuffer(GL.GL_RENDERBUFFER, render_buf_errors_dedy)
         GL.glRenderbufferStorage(GL.GL_RENDERBUFFER, GL.GL_RGB32F, self.frustum['width'], self.frustum['height'])
         GL.glFramebufferRenderbuffer(GL.GL_DRAW_FRAMEBUFFER, GL.GL_COLOR_ATTACHMENT5, GL.GL_RENDERBUFFER, render_buf_errors_dedy)
+
 
 
         print("FRAMEBUFFER ERR: " + str(GL.glCheckFramebufferStatus(GL.GL_FRAMEBUFFER)))
@@ -2057,10 +2062,38 @@ class SQErrorRenderer(TexturedRenderer):
         (in the columns) to pixel values (in the rows). This can be done
         in two steps."""
 
-        ipdb.set_trace()
+        # xdiff = dEdx
+        # ydiff = dEdy
+        nVisF = len(visibility.ravel()[visible])
+        projVertices = self.camera.r[f[visibility.ravel()[visible]].ravel()].reshape([nVisF,3, 2])
+        visTriVC = self.vc.r[f[visibility.ravel()[visible]].ravel()].reshape([nVisF,3, 3])
 
-        xdiff = dEdx
-        ydiff = dEdy
+        p1 = projVertices[:, 0, :]
+        p2 = projVertices[:, 1, :]
+        p3 = projVertices[:, 2, :]
+
+        u1 = projVertices[:,0,0]
+        v1 = projVertices[:,0,1]
+        u2 = projVertices[:,1,0]
+        v2 = projVertices[:,1,1]
+        u3 = projVertices[:,2,0]
+        v3 = projVertices[:,2,1]
+
+        D = np.linalg.det(np.concatenate([(p3-p1).reshape([nVisF, 1, 2]), (p1-p2).reshape([nVisF, 1, 2])], axis=1))
+        dBar1dx = (v2 -v3)/D
+        dBar2dx = (v3 - v1)/D
+        dBar3dx = (v1 - v2)/D
+
+        dBar1dy = (u3 - u2)/D
+        dBar2dy = (u1 - u3)/D
+        dBar3dy = (u2 - u1)/D
+
+        dEVis = dEdx.reshape([-1,3])[visible]
+
+        visTriVC = dEVis[:,None] * visTriVC
+
+        xdiff = dEdx.reshape([-1,3])[visible] * (visTriVC[:,0,:] * dBar1dx[:,None] + visTriVC[:,1,:]* dBar2dx[:,None] + visTriVC[:,2,:]* dBar3dx[:,None])
+        ydiff = dEdy.reshape([-1,3])[visible] * (visTriVC[:, 0, :] * dBar1dy[:, None] + visTriVC[:, 1, :] * dBar2dy[:, None] + visTriVC[:, 2, :] * dBar3dy[:, None])
 
         n_channels = np.atleast_3d(observed).shape[2]
         shape = visibility.shape
@@ -2085,15 +2118,19 @@ class SQErrorRenderer(TexturedRenderer):
         bc0 = col(barycentric[pys, pxs, 0])
         bc1 = col(barycentric[pys, pxs, 1])
         bc2 = col(barycentric[pys, pxs, 2])
-        for k in range(n_channels):
-            dxs = xdiff[pys, pxs, k]
-            dys = ydiff[pys, pxs, k]
-            if f.shape[1] == 3:
-                datas.append(np.hstack((col(dxs)*bc0,col(dys)*bc0,col(dxs)*bc1,col(dys)*bc1,col(dxs)*bc2,col(dys)*bc2)).ravel())
-            else:
-                datas.append(np.hstack((col(dxs)*bc0,col(dys)*bc0,col(dxs)*bc1,col(dys)*bc1)).ravel())
+        # for k in range(n_channels):
+            # dxs = xdiff[pys, pxs, k]
+            # dys = ydiff[pys, pxs, k]
+            # if f.shape[1] == 3:
+            # datas.append(np.hstack((col(visTriVC[:,0,:] * dBar1dx[:,None]),col(visTriVC[:, 0, :] * dBar1dy[:, None]), col(visTriVC[:,1,:]* dBar2dx[:,None]),col(visTriVC[:, 1, :] * dBar2dy[:, None]),col(visTriVC[:,2,:]* dBar3dx[:,None]),col(visTriVC[:, 2, :] * dBar3dy[:, None]))).ravel())
+                # datas.append(np.hstack((col(dxs)*bc0,col(dys)*bc0,col(dxs)*bc1,col(dys)*bc1,col(dxs)*bc2,col(dys)*bc2)).ravel())
+            # else:
+                # datas.append(np.hstack((col(dxs)*bc0,col(dys)*bc0,col(dxs)*bc1,col(dys)*bc1)).ravel())
+                # datas.append(np.hstack((col(dxs)*bc0,col(dys)*bc0,col(dxs)*bc1,col(dys)*bc1)).ravel())
 
-        data = np.concatenate(datas)
+
+        data = np.hstack((col(visTriVC[:,0,:] * dBar1dx[:,None]),col(visTriVC[:, 0, :] * dBar1dy[:, None]), col(visTriVC[:,1,:]* dBar2dx[:,None]),col(visTriVC[:, 1, :] * dBar2dy[:, None]),col(visTriVC[:,2,:]* dBar3dx[:,None]),col(visTriVC[:, 2, :] * dBar3dy[:, None]))).swapaxes(0,1).ravel()
+        # data = np.concatenate(datas)
 
         ij = np.vstack((IS.ravel(), JS.ravel()))
 
