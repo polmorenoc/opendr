@@ -167,8 +167,14 @@ class BaseRenderer(Ch):
 
         #FBO_f
         if self.msaa and self.glMode == 'glfw':
-            if not self.nsamples:
+            try:
+                self.nsamples
+            except:
                 self.nsamples = 8
+            try:
+                self.overdraw
+            except:
+                self.overdraw = True
 
             self.fbo_ms = GL.glGenFramebuffers(1)
 
@@ -656,6 +662,7 @@ class BaseRenderer(Ch):
         # gl.Disable(GL_TEXTURE_2D)
         # gl.DisableClientState(GL_TEXTURE_COORD_ARR
         shaders.glUseProgram(self.colorProgram)
+        self.makeCurrentContext()
 
         result = self.draw_visibility_image_internal(v, f)
         if boundarybool_image is None:
@@ -950,10 +957,16 @@ class TexturedRenderer(ColoredRenderer):
     terms = 'f', 'frustum', 'vt', 'ft', 'background_image', 'ft_list', 'haveUVs_list', 'textures_list', 'vc_list'
     dterms = 'vc', 'camera', 'bgcolor', 'texture_stack', 'v'
 
-    def __init__(self):
-        self.overdraw = True
-        self.nsamples = 8
-
+    # def __init__(self):
+        # try:
+        #     self.overdraw
+        # except:
+        #     self.overdraw = True
+        #
+        # try:
+        #     self.nsamples
+        # except:
+        #     self.nsamples = 8
 
     def clear(self):
         try:
@@ -1700,15 +1713,15 @@ class SQErrorRenderer(TexturedRenderer):
         GL.glPolygonMode(GL.GL_FRONT_AND_BACK, GL.GL_FILL)
         GL.glDisable(GL.GL_CULL_FACE)
 
-        # GL.glClear(GL.GL_COLOR_BUFFER_BIT)
-        # GL.glClear(GL.GL_DEPTH_BUFFER_BIT)
+        GL.glClear(GL.GL_COLOR_BUFFER_BIT)
+        GL.glClear(GL.GL_DEPTH_BUFFER_BIT)
 
         print("FRAMEBUFFER ERR: " + str(GL.glCheckFramebufferStatus(GL.GL_FRAMEBUFFER)))
         assert (GL.glCheckFramebufferStatus(GL.GL_FRAMEBUFFER) == GL.GL_FRAMEBUFFER_COMPLETE)
 
         GL.glBindFramebuffer(GL.GL_FRAMEBUFFER, 0)
 
-                #FBO_f
+        #FBO_f
         self.fbo_errors_nonms = GL.glGenFramebuffers(1)
 
         GL.glBindFramebuffer(GL.GL_FRAMEBUFFER, self.fbo_errors_nonms)
@@ -1743,10 +1756,13 @@ class SQErrorRenderer(TexturedRenderer):
         GL.glRenderbufferStorage(GL.GL_RENDERBUFFER, GL.GL_RGB32F, self.frustum['width'], self.frustum['height'])
         GL.glFramebufferRenderbuffer(GL.GL_DRAW_FRAMEBUFFER, GL.GL_COLOR_ATTACHMENT5, GL.GL_RENDERBUFFER, render_buf_errors_dedy)
 
+        GL.glClear(GL.GL_COLOR_BUFFER_BIT)
+        GL.glClear(GL.GL_DEPTH_BUFFER_BIT)
 
 
         print("FRAMEBUFFER ERR: " + str(GL.glCheckFramebufferStatus(GL.GL_FRAMEBUFFER)))
         assert (GL.glCheckFramebufferStatus(GL.GL_FRAMEBUFFER) == GL.GL_FRAMEBUFFER_COMPLETE)
+
 
         GL.glBindFramebuffer(GL.GL_FRAMEBUFFER, 0)
 
@@ -2057,7 +2073,7 @@ class SQErrorRenderer(TexturedRenderer):
 
         return self.render
 
-    def dErrors_wrt_2dVerts(self, dEdx, dEdy, observed, visible, visibility, barycentric, image_width, image_height, num_verts, f):
+    def dErrors_wrt_2dVerts(self, observed, dEdx, dEdy, visible, visibility, barycentric, image_width, image_height, num_verts, f):
         """Construct a sparse jacobian that relates 2D projected vertex positions
         (in the columns) to pixel values (in the rows). This can be done
         in two steps."""
@@ -2090,13 +2106,14 @@ class SQErrorRenderer(TexturedRenderer):
 
         dEVis = dEdx.reshape([-1,3])[visible]
 
-        visTriVC = dEVis[:,None] * visTriVC
+        visTriVC = -dEVis[:,None] * visTriVC
 
-        xdiff = dEdx.reshape([-1,3])[visible] * (visTriVC[:,0,:] * dBar1dx[:,None] + visTriVC[:,1,:]* dBar2dx[:,None] + visTriVC[:,2,:]* dBar3dx[:,None])
-        ydiff = dEdy.reshape([-1,3])[visible] * (visTriVC[:, 0, :] * dBar1dy[:, None] + visTriVC[:, 1, :] * dBar2dy[:, None] + visTriVC[:, 2, :] * dBar3dy[:, None])
+        # xdiff = (visTriVC[:,0,:] * dBar1dx[:,None] + visTriVC[:,1,:]* dBar2dx[:,None] + visTriVC[:,2,:]* dBar3dx[:,None])
+        # ydiff = (visTriVC[:, 0, :] * dBar1dy[:, None] + visTriVC[:, 1, :] * dBar2dy[:, None] + visTriVC[:, 2, :] * dBar3dy[:, None])
 
         n_channels = np.atleast_3d(observed).shape[2]
         shape = visibility.shape
+
 
         #2: Take the data and copy the corresponding dxs and dys to these new pixels.
 
@@ -2115,9 +2132,9 @@ class SQErrorRenderer(TexturedRenderer):
         datas = []
 
         # The data is weighted according to barycentric coordinates
-        bc0 = col(barycentric[pys, pxs, 0])
-        bc1 = col(barycentric[pys, pxs, 1])
-        bc2 = col(barycentric[pys, pxs, 2])
+        # bc0 = col(barycentric[pys, pxs, 0])
+        # bc1 = col(barycentric[pys, pxs, 1])
+        # bc2 = col(barycentric[pys, pxs, 2])
         # for k in range(n_channels):
             # dxs = xdiff[pys, pxs, k]
             # dys = ydiff[pys, pxs, k]
@@ -2129,7 +2146,7 @@ class SQErrorRenderer(TexturedRenderer):
                 # datas.append(np.hstack((col(dxs)*bc0,col(dys)*bc0,col(dxs)*bc1,col(dys)*bc1)).ravel())
 
 
-        data = np.hstack((col(visTriVC[:,0,:] * dBar1dx[:,None]),col(visTriVC[:, 0, :] * dBar1dy[:, None]), col(visTriVC[:,1,:]* dBar2dx[:,None]),col(visTriVC[:, 1, :] * dBar2dy[:, None]),col(visTriVC[:,2,:]* dBar3dx[:,None]),col(visTriVC[:, 2, :] * dBar3dy[:, None]))).swapaxes(0,1).ravel()
+        data = np.concatenate(((visTriVC[:,0,:] * dBar1dx[:,None])[:,:,None],(visTriVC[:, 0, :] * dBar1dy[:, None])[:,:,None], (visTriVC[:,1,:]* dBar2dx[:,None])[:,:,None], (visTriVC[:, 1, :] * dBar2dy[:, None])[:,:,None],(visTriVC[:,2,:]* dBar3dx[:,None])[:,:,None],(visTriVC[:, 2, :] * dBar3dy[:, None])[:,:,None]),axis=2).swapaxes(0,1).ravel()
         # data = np.concatenate(datas)
 
         ij = np.vstack((IS.ravel(), JS.ravel()))
