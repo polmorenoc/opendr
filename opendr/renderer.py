@@ -934,10 +934,7 @@ class ColoredRenderer(BaseRenderer):
 
         no_overdraw = self.draw_color_image()
 
-        #Pol: why do we add the lines edges in the final render?
-        # return no_overdraw
-
-        if not self.overdraw:
+        if not self.overdraw or self.msaa:
             return no_overdraw
 
         GL.glPolygonMode(GL.GL_FRONT_AND_BACK, GL.GL_LINE)
@@ -1142,6 +1139,7 @@ class TexturedRenderer(ColoredRenderer):
     def compute_r(self):
         return self.color_image # .reshape((self.frustum['height'], self.frustum['width'], -1)).squeeze()
 
+
     @depends_on(dterms+terms)
     def color_image(self):
         self._call_on_changed()
@@ -1150,10 +1148,9 @@ class TexturedRenderer(ColoredRenderer):
 
         no_overdraw = self.draw_color_image(with_vertex_colors=True, with_texture_on=True)
 
-        if not self.overdraw:
+        if not self.overdraw or self.msaa:
             return no_overdraw
 
-        # return no_overdraw
 
         GL.glPolygonMode(GL.GL_FRONT_AND_BACK, GL.GL_LINE)
         overdraw = self.draw_color_image()
@@ -1952,6 +1949,8 @@ class SQErrorRenderer(TexturedRenderer):
         GL.glClear(GL.GL_COLOR_BUFFER_BIT | GL.GL_DEPTH_BUFFER_BIT)
 
         GL.glClearColor(0.,0.,0., 1.)
+
+        GL.glDisable(GL.GL_MULTISAMPLE)
 
 
     def compute_dr_wrt(self, wrt):
