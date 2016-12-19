@@ -1969,7 +1969,6 @@ class SQErrorRenderer(TexturedRenderer):
 
         barycentric = self.barycentric_image
 
-
         if wrt is self.camera:
             dEdx = self.render_dedx
             dEdy = self.render_dedy
@@ -2113,7 +2112,6 @@ class SQErrorRenderer(TexturedRenderer):
         n_channels = np.atleast_3d(observed).shape[2]
         shape = visibility.shape
 
-
         #2: Take the data and copy the corresponding dxs and dys to these new pixels.
 
         # Step 1: get the structure ready, ie the IS and the JS
@@ -2143,8 +2141,6 @@ class SQErrorRenderer(TexturedRenderer):
             # else:
                 # datas.append(np.hstack((col(dxs)*bc0,col(dys)*bc0,col(dxs)*bc1,col(dys)*bc1)).ravel())
                 # datas.append(np.hstack((col(dxs)*bc0,col(dys)*bc0,col(dxs)*bc1,col(dys)*bc1)).ravel())
-
-
         data = np.concatenate(((visTriVC[:,0,:] * dBar1dx[:,None])[:,:,None],(visTriVC[:, 0, :] * dBar1dy[:, None])[:,:,None], (visTriVC[:,1,:]* dBar2dx[:,None])[:,:,None], (visTriVC[:, 1, :] * dBar2dy[:, None])[:,:,None],(visTriVC[:,2,:]* dBar3dx[:,None])[:,:,None],(visTriVC[:, 2, :] * dBar3dy[:, None])[:,:,None]),axis=2).swapaxes(0,1).ravel()
         # data = np.concatenate(datas)
 
