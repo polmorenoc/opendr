@@ -1,5 +1,5 @@
 # New OpenDR
-This code is based on the work of Matt Loper's OpenDR: (https://github.com/mattloper/opendr/wiki)[https://github.com/mattloper/opendr/wiki].
+This code is based on the work of Matt Loper's OpenDR: [https://github.com/mattloper/opendr/wiki].
 
 For my projects, I've had to update the implementation with:
 - Updated to be used with Python 3.4+
