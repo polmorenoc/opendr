@@ -9,9 +9,7 @@ For my [projects](https://github.com/polmorenoc/inversegraphics), I've had to up
 - Current work in progress:
     - Use modern OpenGL to implement analytic derivatives (see OpenDR's SQErrorRenderer class for an implementation of the squared error of an image and the OpenDR render).
     - Get derivatives wrt Texture units working.
-
-#Chumpy:
-Most of it is the same. Added some code for other optimization methods.
+- As for Chumpy: most of it is the same. Added some code for other optimization methods.
 
 I'll upload a simple demo asap! For a more complicated use-case see my [Overcoming Occlusion with Inverse Graphics project](https://github.com/polmorenoc/inversegraphics).
 
