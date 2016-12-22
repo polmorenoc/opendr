@@ -1,4 +1,4 @@
-# New OpenDR
+# Modern OpenDR
 This code is based on the work of Matt Loper's OpenDR: [https://github.com/mattloper/opendr/wiki].
 
 For my [projects](https://github.com/polmorenoc/inversegraphics), I've had to update the implementation with:
