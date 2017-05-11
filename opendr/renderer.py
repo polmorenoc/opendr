@@ -1823,17 +1823,17 @@ class SQErrorRenderer(TexturedRenderer):
         self.render_buffer_fetch_sample_render = GL.glGenRenderbuffers(1)
         GL.glBindRenderbuffer(GL.GL_RENDERBUFFER, self.render_buffer_fetch_sample_render)
         GL.glRenderbufferStorage(GL.GL_RENDERBUFFER, GL.GL_RGBA, self.frustum['width'], self.frustum['height'])
-        GL.glFramebufferRenderbuffer(GL.GL_DRAW_FRAMEBUFFER, GL.GL_COLOR_ATTACHMENT0, GL.GL_RENDERBUFFER, self.render_buffer_fetch_sample_render)
+        GL.glFramebufferRenderbuffer(GL.GL_FRAMEBUFFER, GL.GL_COLOR_ATTACHMENT0, GL.GL_RENDERBUFFER, self.render_buffer_fetch_sample_render)
 
         self.render_buffer_fetch_sample_position = GL.glGenRenderbuffers(1)
         GL.glBindRenderbuffer(GL.GL_RENDERBUFFER, self.render_buffer_fetch_sample_position)
         GL.glRenderbufferStorage(GL.GL_RENDERBUFFER, GL.GL_RGBA, self.frustum['width'], self.frustum['height'])
-        GL.glFramebufferRenderbuffer(GL.GL_DRAW_FRAMEBUFFER, GL.GL_COLOR_ATTACHMENT1, GL.GL_RENDERBUFFER, self.render_buffer_fetch_sample_position)
+        GL.glFramebufferRenderbuffer(GL.GL_FRAMEBUFFER, GL.GL_COLOR_ATTACHMENT1, GL.GL_RENDERBUFFER, self.render_buffer_fetch_sample_position)
 
         self.render_buffer_fetch_sample_face = GL.glGenRenderbuffers(1)
         GL.glBindRenderbuffer(GL.GL_RENDERBUFFER, self.render_buffer_fetch_sample_face)
         GL.glRenderbufferStorage(GL.GL_RENDERBUFFER, GL.GL_RGBA, self.frustum['width'], self.frustum['height'])
-        GL.glFramebufferRenderbuffer(GL.GL_DRAW_FRAMEBUFFER, GL.GL_COLOR_ATTACHMENT2, GL.GL_RENDERBUFFER, self.render_buffer_fetch_sample_face)
+        GL.glFramebufferRenderbuffer(GL.GL_FRAMEBUFFER, GL.GL_COLOR_ATTACHMENT2, GL.GL_RENDERBUFFER, self.render_buffer_fetch_sample_face)
         #
         # self.render_buf_errors_dedx = GL.glGenRenderbuffers(1)
         # GL.glBindRenderbuffer(GL.GL_RENDERBUFFER, self.render_buf_errors_dedx)
@@ -1870,37 +1870,37 @@ class SQErrorRenderer(TexturedRenderer):
         render_buf_errors_render = GL.glGenRenderbuffers(1)
         GL.glBindRenderbuffer(GL.GL_RENDERBUFFER, render_buf_errors_render)
         GL.glRenderbufferStorage(GL.GL_RENDERBUFFER, GL.GL_RGBA, self.frustum['width'], self.frustum['height'])
-        GL.glFramebufferRenderbuffer(GL.GL_DRAW_FRAMEBUFFER, GL.GL_COLOR_ATTACHMENT0, GL.GL_RENDERBUFFER, render_buf_errors_render)
+        GL.glFramebufferRenderbuffer(GL.GL_FRAMEBUFFER, GL.GL_COLOR_ATTACHMENT0, GL.GL_RENDERBUFFER, render_buf_errors_render)
 
         # render_buf_errors_nocolor = GL.glGenRenderbuffers(1)
         # GL.glBindRenderbuffer(GL.GL_RENDERBUFFER, render_buf_errors_nocolor)
         # GL.glRenderbufferStorage(GL.GL_RENDERBUFFER, GL.GL_RGBA, self.frustum['width'], self.frustum['height'])
-        # GL.glFramebufferRenderbuffer(GL.GL_DRAW_FRAMEBUFFER, GL.GL_COLOR_ATTACHMENT1, GL.GL_RENDERBUFFER, render_buf_errors_nocolor)
+        # GL.glFramebufferRenderbuffer(GL.GL_FRAMEBUFFER, GL.GL_COLOR_ATTACHMENT1, GL.GL_RENDERBUFFER, render_buf_errors_nocolor)
         #
         # render_buf_errors_notexture = GL.glGenRenderbuffers(1)
         # GL.glBindRenderbuffer(GL.GL_RENDERBUFFER, render_buf_errors_notexture)
         # GL.glRenderbufferStorage(GL.GL_RENDERBUFFER, GL.GL_RGBA, self.frustum['width'], self.frustum['height'])
-        # GL.glFramebufferRenderbuffer(GL.GL_DRAW_FRAMEBUFFER, GL.GL_COLOR_ATTACHMENT2, GL.GL_RENDERBUFFER, render_buf_errors_notexture)
+        # GL.glFramebufferRenderbuffer(GL.GL_FRAMEBUFFER, GL.GL_COLOR_ATTACHMENT2, GL.GL_RENDERBUFFER, render_buf_errors_notexture)
 
         render_buf_errors_sample_position = GL.glGenRenderbuffers(1)
         GL.glBindRenderbuffer(GL.GL_RENDERBUFFER, render_buf_errors_sample_position)
         GL.glRenderbufferStorage(GL.GL_RENDERBUFFER, GL.GL_RGBA, self.frustum['width'], self.frustum['height'])
-        GL.glFramebufferRenderbuffer(GL.GL_DRAW_FRAMEBUFFER, GL.GL_COLOR_ATTACHMENT1, GL.GL_RENDERBUFFER, render_buf_errors_sample_position)
+        GL.glFramebufferRenderbuffer(GL.GL_FRAMEBUFFER, GL.GL_COLOR_ATTACHMENT1, GL.GL_RENDERBUFFER, render_buf_errors_sample_position)
 
         render_buf_errors_sample_face = GL.glGenRenderbuffers(1)
         GL.glBindRenderbuffer(GL.GL_RENDERBUFFER, render_buf_errors_sample_face)
         GL.glRenderbufferStorage(GL.GL_RENDERBUFFER, GL.GL_RGBA, self.frustum['width'], self.frustum['height'])
-        GL.glFramebufferRenderbuffer(GL.GL_DRAW_FRAMEBUFFER, GL.GL_COLOR_ATTACHMENT2, GL.GL_RENDERBUFFER, render_buf_errors_sample_face)
+        GL.glFramebufferRenderbuffer(GL.GL_FRAMEBUFFER, GL.GL_COLOR_ATTACHMENT2, GL.GL_RENDERBUFFER, render_buf_errors_sample_face)
         #
         # render_buf_errors_dedx = GL.glGenRenderbuffers(1)
         # GL.glBindRenderbuffer(GL.GL_RENDERBUFFER, render_buf_errors_dedx)
         # GL.glRenderbufferStorage(GL.GL_RENDERBUFFER, GL.GL_RGBA, self.frustum['width'], self.frustum['height'])
-        # GL.glFramebufferRenderbuffer(GL.GL_DRAW_FRAMEBUFFER, GL.GL_COLOR_ATTACHMENT4, GL.GL_RENDERBUFFER, render_buf_errors_dedx)
+        # GL.glFramebufferRenderbuffer(GL.GL_FRAMEBUFFER, GL.GL_COLOR_ATTACHMENT4, GL.GL_RENDERBUFFER, render_buf_errors_dedx)
         #
         # render_buf_errors_dedy = GL.glGenRenderbuffers(1)
         # GL.glBindRenderbuffer(GL.GL_RENDERBUFFER, render_buf_errors_dedy)
         # GL.glRenderbufferStorage(GL.GL_RENDERBUFFER, GL.GL_RGBA, self.frustum['width'], self.frustum['height'])
-        # GL.glFramebufferRenderbuffer(GL.GL_DRAW_FRAMEBUFFER, GL.GL_COLOR_ATTACHMENT5, GL.GL_RENDERBUFFER, render_buf_errors_dedy)
+        # GL.glFramebufferRenderbuffer(GL.GL_FRAMEBUFFER, GL.GL_COLOR_ATTACHMENT5, GL.GL_RENDERBUFFER, render_buf_errors_dedy)
 
         GL.glClear(GL.GL_COLOR_BUFFER_BIT)
         GL.glClear(GL.GL_DEPTH_BUFFER_BIT)
@@ -1955,8 +1955,8 @@ class SQErrorRenderer(TexturedRenderer):
 
         GL.glBindFramebuffer(GL.GL_DRAW_FRAMEBUFFER, self.fbo_ms_errors)
 
-        drawingBuffers = [GL.GL_COLOR_ATTACHMENT0, GL.GL_COLOR_ATTACHMENT1, GL.GL_COLOR_ATTACHMENT2]
-        GL.glDrawBuffers(3, drawingBuffers)
+        drawingBuffers = [GL.GL_COLOR_ATTACHMENT0, GL.GL_COLOR_ATTACHMENT1]
+        GL.glDrawBuffers(2, drawingBuffers)
 
         # GL.glActiveTexture(GL.GL_TEXTURE1)
         # # GL.glBindImageTexture(1,self.textureGT, 0, GL.GL_FALSE, 0, GL.GL_READ_ONLY, GL.GL_RGBA8)
@@ -2026,12 +2026,21 @@ class SQErrorRenderer(TexturedRenderer):
 
         GL.glDrawElements(primtype, len(self.vbo_f_bgCube)*self.vbo_f_bgCube.data.shape[1], GL.GL_UNSIGNED_INT, None)
 
-
         GL.glUseProgram(self.fetchSamplesProgram)
+        # GL.glDisable(GL.GL_MULTISAMPLE)
 
         self.colorsLoc = GL.glGetUniformLocation(self.fetchSamplesProgram, "colors")
         self.sample_positionsLoc = GL.glGetUniformLocation(self.fetchSamplesProgram, "sample_positions")
         self.sample_facesLoc = GL.glGetUniformLocation(self.fetchSamplesProgram, "sample_faces")
+
+        GL.glBindFramebuffer(GL.GL_FRAMEBUFFER, 0)
+
+        GL.glBindFramebuffer(GL.GL_DRAW_FRAMEBUFFER, self.fbo_sample_fetch)
+        drawingBuffers = [GL.GL_COLOR_ATTACHMENT0, GL.GL_COLOR_ATTACHMENT1]
+
+        GL.glDrawBuffers(2, drawingBuffers)
+
+        GL.glClear(GL.GL_COLOR_BUFFER_BIT | GL.GL_DEPTH_BUFFER_BIT)
 
         GL.glActiveTexture(GL.GL_TEXTURE0)
         GL.glBindTexture(GL.GL_TEXTURE_2D_MULTISAMPLE, self.texture_errors_render)
@@ -2039,33 +2048,35 @@ class SQErrorRenderer(TexturedRenderer):
         GL.glActiveTexture(GL.GL_TEXTURE1)
         GL.glBindTexture(GL.GL_TEXTURE_2D_MULTISAMPLE, self.texture_errors_sample_position)
         GL.glUniform1i(self.sample_positionsLoc, 1)
-        GL.glActiveTexture(GL.GL_TEXTURE2)
-        GL.glBindTexture(GL.GL_TEXTURE_2D_MULTISAMPLE, self.texture_errors_sample_face)
-        GL.glUniform1i(self.sample_facesLoc, 2)
+        # GL.glActiveTexture(GL.GL_TEXTURE2)
+        # GL.glBindTexture(GL.GL_TEXTURE_2D_MULTISAMPLE, self.texture_errors_sample_face)
+        # GL.glUniform1i(self.sample_facesLoc, 2)
 
         wwLoc = GL.glGetUniformLocation(self.fetchSamplesProgram, 'ww')
         whLoc = GL.glGetUniformLocation(self.fetchSamplesProgram, 'wh')
         GL.glUniform1f(wwLoc, self.frustum['width'])
         GL.glUniform1f(whLoc, self.frustum['height'])
 
-        self.renders = np.array([self.nsamples, self.frustum['width'], self.frustum['height'],3])
-        self.renders_sample_pos = np.array([self.nsamples, self.frustum['width'], self.frustum['height'],3])
-        self.renders_faces = np.array([self.nsamples, self.frustum['width'], self.frustum['height'], 3])
+        self.renders = np.zeros([self.nsamples, self.frustum['width'], self.frustum['height'],3])
+        self.renders_sample_pos = np.zeros([self.nsamples, self.frustum['width'], self.frustum['height'],3])
+        self.renders_faces = np.zeros([self.nsamples, self.frustum['width'], self.frustum['height'], 3])
 
-        for sample in np.arange(self.nsamples)
+        # Background cube:
+        GL.glBindVertexArray(self.vao_bgCube)
+        texture = self.whitePixelTextureID
+        self.vbo_uvs_mesh[mesh].bind()
+
+        GL.glActiveTexture(GL.GL_TEXTURE3)
+        GL.glBindTexture(GL.GL_TEXTURE_2D, texture)
+        GL.glUniform1i(self.textureObjLoc, 3)
+        GL.glUniformMatrix4fv(self.MVP_texture_location, 1, GL.GL_TRUE, MVP)
+
+        for sample in np.arange(self.nsamples):
+
+            GL.glBindFramebuffer(GL.GL_DRAW_FRAMEBUFFER, self.fbo_sample_fetch)
+
             sampleLoc = GL.glGetUniformLocation(self.fetchSamplesProgram, 'sample')
             GL.glUniform1i(sampleLoc, sample)
-
-            # Background cube:
-            GL.glBindVertexArray(self.vao_bgCube)
-            texture = self.whitePixelTextureID
-            self.vbo_uvs_mesh[mesh].bind()
-
-            GL.glActiveTexture(GL.GL_TEXTURE3)
-            GL.glBindTexture(GL.GL_TEXTURE_2D, texture)
-            GL.glUniform1i(self.textureObjLoc, 3)
-
-            GL.glUniformMatrix4fv(self.MVP_texture_location, 1, GL.GL_TRUE, MVP)
 
             GL.glDrawElements(primtype, len(self.vbo_f_bgCube) * self.vbo_f_bgCube.data.shape[1], GL.GL_UNSIGNED_INT, None)
 
@@ -2073,24 +2084,25 @@ class SQErrorRenderer(TexturedRenderer):
 
             GL.glReadBuffer(GL.GL_COLOR_ATTACHMENT0)
             result = np.flipud(np.frombuffer(GL.glReadPixels(0, 0, self.frustum['width'], self.frustum['height'], GL.GL_RGB, GL.GL_FLOAT), np.float32).reshape(self.frustum['height'], self.frustum['height'], 3)[:,:,0:3].astype(np.float64))
+
             self.renders[sample] = result
-            GL.glClear(GL.GL_COLOR_BUFFER_BIT | GL.GL_DEPTH_BUFFER_BIT)
 
             GL.glReadBuffer(GL.GL_COLOR_ATTACHMENT1)
             result = np.flipud(np.frombuffer(GL.glReadPixels(0, 0, self.frustum['width'], self.frustum['height'], GL.GL_RGB, GL.GL_FLOAT), np.float32).reshape(self.frustum['height'], self.frustum['height'], 3)[:,:,0:3].astype(np.float64))
-            self.render_sample_pos[sample] = result
+            self.renders_sample_pos[sample] = result
+
             GL.glClear(GL.GL_COLOR_BUFFER_BIT | GL.GL_DEPTH_BUFFER_BIT)
 
-            GL.glReadBuffer(GL.GL_COLOR_ATTACHMENT2)
-            result = np.flipud(np.frombuffer(GL.glReadPixels(0, 0, self.frustum['width'], self.frustum['height'], GL.GL_RGB, GL.GL_FLOAT), np.float32).reshape(self.frustum['height'], self.frustum['height'], 3)[:,:,0:3].astype(np.float64))
-            self.render_faces[sample] = result
-            GL.glClear(GL.GL_COLOR_BUFFER_BIT | GL.GL_DEPTH_BUFFER_BIT)
+            # GL.glReadBuffer(GL.GL_COLOR_ATTACHMENT2)
+            # result = np.flipud(np.frombuffer(GL.glReadPixels(0, 0, self.frustum['width'], self.frustum['height'], GL.GL_RGB, GL.GL_FLOAT), np.float32).reshape(self.frustum['height'], self.frustum['height'], 3)[:,:,0:3].astype(np.float64))
+            # self.renders_faces[sample] = result
+
 
         self.render = np.mean(self.renders,0)
         ipdb.set_trace()
 
         # GL.glBindFramebuffer(GL.GL_READ_FRAMEBUFFER, self.fbo_ms_errors)
-        # GL.glReadBuffer(GL.GL_COLOR_ATTACHMENT4)
+        # GL.glReadBuffer(GL.GL_COLOR_ATTACHMENT0)
         # GL.glBindFramebuffer(GL.GL_DRAW_FRAMEBUFFER, self.fbo_errors_nonms)
         # GL.glDrawBuffer(GL.GL_COLOR_ATTACHMENT4)
         # GL.glBlitFramebuffer(0, 0, self.frustum['width'], self.frustum['height'], 0, 0, self.frustum['width'], self.frustum['height'],GL.GL_COLOR_BUFFER_BIT, GL.GL_LINEAR)
@@ -2099,6 +2111,7 @@ class SQErrorRenderer(TexturedRenderer):
         # self.dEdx = np.flipud(np.frombuffer(GL.glReadPixels(0, 0, self.frustum['width'], self.frustum['height'], GL.GL_RGB, GL.GL_FLOAT), np.float32).reshape(self.frustum['height'], self.frustum['height'], 3)[:,:,0:3].astype(np.float64))
         # GL.glClear(GL.GL_COLOR_BUFFER_BIT | GL.GL_DEPTH_BUFFER_BIT)
 
+        GL.glBindVertexArray(0)
 
         GL.glClearColor(0.,0.,0., 1.)
 
