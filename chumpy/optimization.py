@@ -24,7 +24,7 @@ import scipy.optimize
 from scipy.sparse.linalg.interface import LinearOperator
 import collections
 import chumpy.minimize_ras as min_ras
-import probLineSearch as pls
+# import probLineSearch as pls
 import ipdb
 
 
@@ -59,58 +59,58 @@ def chFuncProb(fun, grad, var_f, var_df, args):
 
 
 
-def probLineSearchMin(x0, fun, grad, args, df_vars, on_step=None, maxnumfuneval=None, verbose=0):
+# def probLineSearchMin(x0, fun, grad, args, df_vars, on_step=None, maxnumfuneval=None, verbose=0):
 
-    def call_cb():
-        if on_step is not None:
-            on_step(fun)
+#     def call_cb():
+#         if on_step is not None:
+#             on_step(fun)
 
-    f = fun(x0, *args)
-    df = grad(x0, *args)
+#     f = fun(x0, *args)
+#     df = grad(x0, *args)
 
-    var_f = 0.001*np.ones(f.shape)
-    var_df = df_vars
+#     var_f = 0.001*np.ones(f.shape)
+#     var_df = df_vars
 
-    ff = chFuncProb(fun, grad, var_f, var_df, args)
+#     ff = chFuncProb(fun, grad, var_f, var_df, args)
 
-    # f,df, var_f, var_df = ff(x0)
-    paras = []
-    search_direction = - df   # search direction (not normalized)
-    xt               = x0     # current position
-    alpha0           = 0.01   # initial step size
+#     # f,df, var_f, var_df = ff(x0)
+#     paras = []
+#     search_direction = - df   # search direction (not normalized)
+#     xt               = x0     # current position
+#     alpha0           = 0.01   # initial step size
 
-    outs = {}
-    outs['counter'] = 1 # counts # function evaluations
+#     outs = {}
+#     outs['counter'] = 1 # counts # function evaluations
 
-    path            = [x0]
-    function_values = [f]
-    oldf = np.inf
-    while outs['counter'] < maxnumfuneval and np.abs(oldf - f) > 10e-5:
-        oldf = f
-        [outs, alpha0, f, df, xt, var_f, var_df] = pls.probLineSearch(ff, xt, f, df, search_direction, alpha0, 0, outs, paras, var_f, var_df)
-        # alpha0           = 0.05
-        search_direction   = - df     # new search direction
+#     path            = [x0]
+#     function_values = [f]
+#     oldf = np.inf
+#     while outs['counter'] < maxnumfuneval and np.abs(oldf - f) > 10e-5:
+#         oldf = f
+#         [outs, alpha0, f, df, xt, var_f, var_df] = pls.probLineSearch(ff, xt, f, df, search_direction, alpha0, 0, outs, paras, var_f, var_df)
+#         # alpha0           = 0.05
+#         search_direction   = - df     # new search direction
 
-        if np.sqrt(np.sum(search_direction**2)) < 10e-4:
-            print("Stopping: Approximate Gradient is almost 0")
-            break
-        # print("x " + str(xt))
-        # print("Shape x " + str(xt.shape))
-        # print("df " + str(df))
-        print("Value of function:" + str(f))
-        # print("Shape dfx " + str(df.shape))
-        # print("New alpha " + str(alpha0))
+#         if np.sqrt(np.sum(search_direction**2)) < 10e-4:
+#             print("Stopping: Approximate Gradient is almost 0")
+#             break
+#         # print("x " + str(xt))
+#         # print("Shape x " + str(xt.shape))
+#         # print("df " + str(df))
+#         print("Value of function:" + str(f))
+#         # print("Shape dfx " + str(df.shape))
+#         # print("New alpha " + str(alpha0))
 
-        path            = path + [xt]
-        function_values = function_values + [f]
+#         path            = path + [xt]
+#         function_values = function_values + [f]
 
-        call_cb()
+#         call_cb()
 
-        print("COUNTER :::::: " + str(outs['counter']))
+#         print("COUNTER :::::: " + str(outs['counter']))
 
-    fun(xt, *args)
+#     fun(xt, *args)
 
-    return xt
+#     return xt
 
 
 
@@ -456,8 +456,8 @@ def minimize(fun, x0, method='dogleg', bounds=None, constraints=(), tol=None, ca
         x1, fX, i = min_ras.minimize(np.concatenate([free_variable.r.ravel() for free_variable in free_variables]), residuals, scalar_jacfunc, args=(obj, obj_scalar, free_variables), on_step=callback, maxnumfuneval=maxiter)
     elif method == 'SGDMom':
         return minimize_sgdmom(obj=fun, free_variables=x0 , lr=options['lr'], momentum=options['momentum'], decay=options['decay'], on_step=callback, maxiters=maxiter)
-    elif method == 'probLineSearch':
-        x1 = probLineSearchMin(np.concatenate([free_variable.r.ravel() for free_variable in free_variables]), residuals, scalar_jacfunc, args=(obj, obj_scalar, free_variables), df_vars=options['df_vars'], on_step=callback, maxnumfuneval=maxiter)
+    # elif method == 'probLineSearch':
+        # x1 = probLineSearchMin(np.concatenate([free_variable.r.ravel() for free_variable in free_variables]), residuals, scalar_jacfunc, args=(obj, obj_scalar, free_variables), df_vars=options['df_vars'], on_step=callback, maxnumfuneval=maxiter)
     else:
         # ipdb.set_trace()
         x1 = scipy.optimize.minimize(

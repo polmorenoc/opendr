@@ -426,12 +426,13 @@ class BaseRenderer(Ch):
         return np.asarray(np.tile(np.eye(3)[:self.f.shape[1], :], (self.verts_by_face.shape[0]/self.f.shape[1], 1)), dtype=np.float64, order='C')
 
 
-    @depends_on('f', 'v')
+    @depends_on('f', 'v', 'vn')
     def tn(self):
         from opendr.geometry import TriNormals
-        return TriNormals(self.v, self.f).r.reshape((-1,3))
+        # return TriNormals(self.v, self.f).r.reshape((-1,3))
         # ipdb.set_trace()
-        # return self.vn
+        tn = np.mean(self.vn.r[self.f.ravel()].reshape([-1, 3, 3]), 1)
+        return tn
 
     @property
     def fpe(self):
@@ -447,6 +448,7 @@ class BaseRenderer(Ch):
         #Make Projection matrix.
         self.projectionMatrix = np.array([[fx/cx, 0,0,0],   [0, fy/cy, 0,0],    [0,0, -(near + far)/(far - near), -2*near*far/(far-near)],   [0,0, -1, 0]], dtype=np.float32)
         # self.projectionMatrix = np.array([[fx/w, 0,0,0], [0, fy/cy, 0,0], [0,0, -(near + far)/(far - near), -2*near*far/(far-near)], [0,0,-1,1]], dtype=np.float64)
+
 
 
     def draw_colored_verts(self, vc):
@@ -512,7 +514,7 @@ class BaseRenderer(Ch):
             # GL.glEnable(GL.GL_DEPTH_TEST)
             GL.glEnable(GL.GL_POLYGON_OFFSET_FILL)
             #Pol change it to a smaller number to avoid double edges in my teapot.
-            GL.glPolygonOffset(1.0, 1.0)
+            GL.glPolygonOffset(10.0, 1.0)
             # delta = -0.0
             # self.projectionMatrix[2,2] += delta
             # GL.glPolygonMode(GL.GL_FRONT_AND_BACK, GL.GL_FILL)
@@ -618,7 +620,7 @@ class BaseRenderer(Ch):
         dps = faces_invisible.take(fpe[:,0]) * faces_invisible.take(fpe[:,1])
         # dps = faces_invisible0 * faces_invisible1
         # idxs = (dps<=0) & (faces_invisible.take(fpe[:,0]) + faces_invisible.take(fpe[:,1]) > 0.0)
-        silhouette_edges = np.asarray(np.nonzero(dps<=0)[0], np.uint32)
+        silhouette_edges = np.asarray(np.nonzero(dps<=1e-5)[0], np.uint32)
 
         return silhouette_edges, faces_invisible < 0
 
@@ -677,6 +679,7 @@ class BaseRenderer(Ch):
             result = np.ones((self.frustum['height'], self.frustum['width'])).astype(np.uint32)*4294967295
             return result
         GL.glPolygonMode(GL.GL_FRONT_AND_BACK, GL.GL_LINE)
+        # ipdb.set_trace()
         result2 = self.draw_visibility_image_internal(v, f[faces_to_draw])
         GL.glPolygonMode(GL.GL_FRONT_AND_BACK, GL.GL_FILL)
         bbi = boundarybool_image
@@ -685,8 +688,10 @@ class BaseRenderer(Ch):
         idxs = result2 != 4294967295
         result2[idxs] = faces_to_draw[result2[idxs]]
 
+        #Pol: changed to be outside the 'if'
+        result2[result2 == 4294967295] = 0
+
         if False:
-            result2[result2==4294967295] = 0
             import matplotlib.pyplot as plt
             result2 = result2.reshape(result.shape[:2])
             plt.figure()
@@ -694,6 +699,7 @@ class BaseRenderer(Ch):
             plt.imshow(result.squeeze())
             plt.subplot(122)
             plt.imshow(result2.squeeze())
+            plt.show()
 
         result2 = result2.reshape(result.shape[:2])
 
@@ -765,8 +771,18 @@ class BaseRenderer(Ch):
         # return np.array(im.transpose(Image.FLIP_TOP_BOTTOM), np.float64)/255.0
         return np.flipud(np.frombuffer(GL.glReadPixels( 0,0, self.frustum['width'], self.frustum['height'], GL.GL_RGB, GL.GL_UNSIGNED_BYTE), np.uint8).reshape(self.frustum['height'],self.frustum['height'],3).astype(np.float64))/255.0
 
+    def setup_camera(self, camera):
 
-    def setup_camera(self, camera, frustum):
+        near = 0.01
+        far = 10
+        fx = camera.f.r[0]
+        fy = camera.f.r[1]
+        cx = camera.c.r[0]
+        cy = camera.c.r[1]
+        self.projectionMatrix = np.array([[fx / cx, 0, 0, 0], [0, fy / cy, 0, 0], [0, 0, -(near + far) / (far - near), -2 * near * far / (far - near)], [0, 0, -1, 0]], dtype=np.float32)
+        # self.projectionMatrix = np.array([[camera.f.r[0], 0, camera.c.r[0], 0], [0, camera.f.r[1], camera.c.r[1], 0], [0, 0, 1, 0], [0, 0, 1, 0]], dtype=np.float32, order='F')
+
+    def setup_camera_old(self, camera, frustum):
         self._setup_camera(camera.c.r[0], camera.c.r[1],
                   camera.f.r[0], camera.f.r[1],
                   frustum['width'], frustum['height'],
@@ -835,7 +851,7 @@ class ColoredRenderer(BaseRenderer):
             h = self.frustum['height']
 
         if 'frustum' in which or 'camera' in which:
-            self.setup_camera(self.camera, self.frustum)
+            self.setup_camera(self.camera)
             # setup_camera(self.glf, self.camera, self.frustum)
 
         if not hasattr(self, 'num_channels'):
@@ -1111,8 +1127,6 @@ class TexturedRenderer(ColoredRenderer):
 
         self.textureID  = GL.glGetUniformLocation(self.colorTextureProgram, "myTextureSampler")
 
-
-
     # def __del__(self):
     #     pass
     #     # self.release_textures()
@@ -1153,6 +1167,7 @@ class TexturedRenderer(ColoredRenderer):
 
 
         GL.glPolygonMode(GL.GL_FRONT_AND_BACK, GL.GL_LINE)
+        GL.glLineWidth(1.)
         overdraw = self.draw_color_image()
         GL.glPolygonMode(GL.GL_FRONT_AND_BACK, GL.GL_FILL)
 
@@ -1567,7 +1582,75 @@ class SQErrorRenderer(TexturedRenderer):
             UV = vertexUV;
         }""", GL.GL_VERTEX_SHADER)
 
-        ERRORS_FRAGMENT_SHADER = shaders.compileShader("""#version 330 core
+        ERRORS_FRAGMENT_SHADER = shaders.compileShader("""#version 420 core 
+            //#extension GL_EXT_shader_image_load_store : enable
+            #extension GL_EXT_shader_image_load_store : enable 
+            #extension GL_ARB_explicit_uniform_location : enable
+            #extension GL_ARB_explicit_attrib_location : enable
+
+            //layout(early_fragment_tests) in;
+
+            // Interpolated values from the vertex shaders
+            in vec3 theColor;
+            in vec2 UV;
+            layout(location = 3) uniform sampler2D myTextureSampler;
+            layout(location = 4) uniform sampler2D imageGT;
+            layout(location = 5) uniform sampler2D primitive_id;
+            
+            //readonly uniform layout(binding=1, size4x32) image2D imageGT;
+
+            uniform float ww;
+            uniform float wh;
+    
+            // Ouput data
+            layout(location = 0) out vec3 color;
+            layout(location = 1) out vec3 render_nocolor;
+            layout(location = 2) out vec3 render_notexture;
+            layout(location = 3) out vec3 E;
+            layout(location = 4) out vec3 dEdx;
+            layout(location = 5) out vec3 dEdy;
+            
+            layout(location = 6) out vec3 color_sample_i;
+            layout(location = 7) out vec3 pos_id_sample_i;
+
+            //out int gl_SampleMask[];
+            const int all_sample_mask = 0xffff;
+
+            void main(){
+                color = theColor * texture2D( myTextureSampler, UV).rgb;
+                render_nocolor = texture2D( myTextureSampler, UV).rgb;
+                render_notexture = theColor;
+
+                ivec2 coord = ivec2(gl_FragCoord.xy);
+                vec3 imgColor = texture2D(imageGT, gl_FragCoord.xy/vec2(ww,wh)).rgb;
+
+                //float dx = dFdxFine(gl_SamplePosition.x);
+                //float dy = dFdyFine(gl_SamplePosition.y);
+
+                //bool boolx = (1.0-dx) > 0.1;
+                //bool booly = (1.0-dy) > 0.1;
+                //int x = int(boolx && booly);
+                //gl_SampleMask[0] ^= (-x ^ gl_SampleMask[0]) & (1 << gl_SampleID);
+
+                //vec3 dfdx = -dFdxFine(theColor)/dFdxFine(1.0-gl_SamplePosition.x);
+                //vec3 dfdy = -dFdyFine(theColor)/dFdyFine(1.0-gl_SamplePosition.y);
+
+                vec3 Res = imgColor - theColor;
+                E =  pow(Res,vec3(2.0,2.0,2.0));
+
+                dEdx = -2.0*Res;
+                //dEdx = -dFdxFine(E)/(1.0-dx);
+
+                //dEdy = -2.0*Res*dfdy/(1.0-dy);
+                //dEdy = -dFdyFine(E)/(1.0-dy);
+                dEdy = -2.0*Res;
+                
+                
+            }""", GL.GL_FRAGMENT_SHADER)
+
+        self.errorTextureProgram = shaders.compileProgram(VERTEX_SHADER, ERRORS_FRAGMENT_SHADER)
+
+        SAMPLES_FRAGMENT_SHADER = shaders.compileShader("""#version 330 core
             //#extension GL_EXT_shader_image_load_store : enable
 
             #extension GL_ARB_explicit_uniform_location : enable
@@ -1587,11 +1670,10 @@ class SQErrorRenderer(TexturedRenderer):
 
             // Ouput data
             layout(location = 0) out vec3 color;
-            layout(location = 1) out vec3 render_nocolor;
-            layout(location = 2) out vec3 render_notexture;
-            layout(location = 3) out vec3 E;
-            layout(location = 4) out vec3 dEdx;
-            layout(location = 5) out vec3 dEdy;
+            layout(location = 1) out vec3 pos;
+
+
+            
             //out int gl_SampleMask[];
             const int all_sample_mask = 0xffff;
 
@@ -1624,8 +1706,6 @@ class SQErrorRenderer(TexturedRenderer):
                 //dEdy = -dFdyFine(E)/(1.0-dy);
                 dEdy = -2.0*Res;
             }""", GL.GL_FRAGMENT_SHADER)
-
-        self.errorTextureProgram = shaders.compileProgram(VERTEX_SHADER, ERRORS_FRAGMENT_SHADER)
 
         GL.glEnable(GL.GL_MULTISAMPLE)
         # GL.glHint(GL.GL_MULTISAMPLE_FILTER_HINT_NV, GL.GL_NICEST);
