@@ -1721,7 +1721,7 @@ class SQErrorRenderer(TexturedRenderer):
             void main(){
                 ivec2 texcoord = ivec2(gl_FragCoord.xy/vec2(ww,wh));
                 color = texelFetch(colors, texcoord, sample).rgb;
-                sample_pos = texelFetch(sample_positions, texcoord, sample).rgb;              
+                sample_pos = vec3(texelFetch(sample_positions, texcoord, sample).xy,1);              
                 sample_face = texelFetch(sample_faces, texcoord, sample).rgb;              
 
             }""", GL.GL_FRAGMENT_SHADER)
@@ -1777,7 +1777,7 @@ class SQErrorRenderer(TexturedRenderer):
 
         self.texture_errors_render = GL.glGenTextures(1)
         GL.glBindTexture(GL.GL_TEXTURE_2D_MULTISAMPLE, self.texture_errors_render)
-        GL.glTexImage2DMultisample(GL.GL_TEXTURE_2D_MULTISAMPLE, self.nsamples, GL.GL_RGB32F, self.frustum['width'], self.frustum['height'], False)
+        GL.glTexImage2DMultisample(GL.GL_TEXTURE_2D_MULTISAMPLE, self.nsamples, GL.GL_RGB, self.frustum['width'], self.frustum['height'], False)
         # GL.glTexParameteri(GL.GL_TEXTURE_2D_MULTISAMPLE, GL.GL_TEXTURE_MIN_FILTER, GL.GL_NEAREST)
         # GL.glTexParameteri(GL.GL_TEXTURE_2D_MULTISAMPLE, GL.GL_TEXTURE_MAG_FILTER, GL.GL_NEAREST)
         # GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MIN_FILTER, GL.GL_LINEAR)
@@ -1785,7 +1785,7 @@ class SQErrorRenderer(TexturedRenderer):
 
         self.texture_errors_sample_position = GL.glGenTextures(1)
         GL.glBindTexture(GL.GL_TEXTURE_2D_MULTISAMPLE, self.texture_errors_sample_position)
-        GL.glTexImage2DMultisample(GL.GL_TEXTURE_2D_MULTISAMPLE, self.nsamples, GL.GL_RGB32F, self.frustum['width'], self.frustum['height'], False)
+        GL.glTexImage2DMultisample(GL.GL_TEXTURE_2D_MULTISAMPLE, self.nsamples, GL.GL_RG32F, self.frustum['width'], self.frustum['height'], False)
         # GL.glTexParameteri(GL.GL_TEXTURE_2D_MULTISAMPLE, GL.GL_TEXTURE_MIN_FILTER, GL.GL_NEAREST)
         # GL.glTexParameteri(GL.GL_TEXTURE_2D_MULTISAMPLE, GL.GL_TEXTURE_MAG_FILTER, GL.GL_NEAREST)
         # GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MIN_FILTER, GL.GL_LINEAR)
@@ -2047,29 +2047,29 @@ class SQErrorRenderer(TexturedRenderer):
 
         GL.glDrawElements(primtype, len(self.vbo_f_bgCube)*self.vbo_f_bgCube.data.shape[1], GL.GL_UNSIGNED_INT, None)
 
-        GL.glBindFramebuffer(GL.GL_READ_FRAMEBUFFER, self.fbo_ms_errors)
-        GL.glFramebufferTexture2D(GL.GL_READ_FRAMEBUFFER, GL.GL_COLOR_ATTACHMENT0, GL.GL_TEXTURE_2D_MULTISAMPLE, self.texture_errors_render, 0)
-        GL.glReadBuffer(GL.GL_COLOR_ATTACHMENT0)
-        GL.glBindFramebuffer(GL.GL_DRAW_FRAMEBUFFER, self.fbo_errors_nonms)
-        GL.glDrawBuffer(GL.GL_COLOR_ATTACHMENT0)
-        GL.glBlitFramebuffer(0, 0, self.frustum['width'], self.frustum['height'], 0, 0, self.frustum['width'], self.frustum['height'],GL.GL_COLOR_BUFFER_BIT, GL.GL_NEAREST)
-        GL.glBindFramebuffer(GL.GL_READ_FRAMEBUFFER, self.fbo_errors_nonms)
-        GL.glReadBuffer(GL.GL_COLOR_ATTACHMENT0)
-        result = np.flipud(np.frombuffer(GL.glReadPixels(0, 0, self.frustum['width'], self.frustum['height'], GL.GL_RGB, GL.GL_FLOAT), np.float32).reshape(self.frustum['height'], self.frustum['height'], 3)[:,:,0:3].astype(np.float64))
-        plt.imsave('result.png', result)
-
-        GL.glBindFramebuffer(GL.GL_READ_FRAMEBUFFER, self.fbo_ms_errors)
-        GL.glFramebufferTexture2D(GL.GL_READ_FRAMEBUFFER, GL.GL_COLOR_ATTACHMENT1, GL.GL_TEXTURE_2D_MULTISAMPLE, self.texture_errors_sample_position, 0)
-        GL.glReadBuffer(GL.GL_COLOR_ATTACHMENT1)
-        GL.glBindFramebuffer(GL.GL_DRAW_FRAMEBUFFER, self.fbo_errors_nonms)
-        GL.glDrawBuffer(GL.GL_COLOR_ATTACHMENT1)
-        GL.glBlitFramebuffer(0, 0, self.frustum['width'], self.frustum['height'], 0, 0, self.frustum['width'], self.frustum['height'],GL.GL_COLOR_BUFFER_BIT, GL.GL_NEAREST)
-        GL.glBindFramebuffer(GL.GL_READ_FRAMEBUFFER, self.fbo_errors_nonms)
-        GL.glReadBuffer(GL.GL_COLOR_ATTACHMENT1)
-        result_pos = np.flipud(np.frombuffer(GL.glReadPixels(0, 0, self.frustum['width'], self.frustum['height'], GL.GL_RGB, GL.GL_FLOAT), np.float32).reshape(self.frustum['height'], self.frustum['height'], 3)[:,:,0:3].astype(np.float64))
-
-        plt.imsave('pos0.png', result_pos[:,:,0]/255.0)
-        plt.imsave('pos1.png', result_pos[:,:,1]/255.0)
+        # GL.glBindFramebuffer(GL.GL_READ_FRAMEBUFFER, self.fbo_ms_errors)
+        # GL.glFramebufferTexture2D(GL.GL_READ_FRAMEBUFFER, GL.GL_COLOR_ATTACHMENT0, GL.GL_TEXTURE_2D_MULTISAMPLE, self.texture_errors_render, 0)
+        # GL.glReadBuffer(GL.GL_COLOR_ATTACHMENT0)
+        # GL.glBindFramebuffer(GL.GL_DRAW_FRAMEBUFFER, self.fbo_errors_nonms)
+        # GL.glDrawBuffer(GL.GL_COLOR_ATTACHMENT0)
+        # GL.glBlitFramebuffer(0, 0, self.frustum['width'], self.frustum['height'], 0, 0, self.frustum['width'], self.frustum['height'],GL.GL_COLOR_BUFFER_BIT, GL.GL_NEAREST)
+        # GL.glBindFramebuffer(GL.GL_READ_FRAMEBUFFER, self.fbo_errors_nonms)
+        # GL.glReadBuffer(GL.GL_COLOR_ATTACHMENT0)
+        # result = np.flipud(np.frombuffer(GL.glReadPixels(0, 0, self.frustum['width'], self.frustum['height'], GL.GL_RGB, GL.GL_FLOAT), np.float32).reshape(self.frustum['height'], self.frustum['height'], 3)[:,:,0:3].astype(np.float64))
+        # plt.imsave('result.png', result)
+        #
+        # GL.glBindFramebuffer(GL.GL_READ_FRAMEBUFFER, self.fbo_ms_errors)
+        # GL.glFramebufferTexture2D(GL.GL_READ_FRAMEBUFFER, GL.GL_COLOR_ATTACHMENT1, GL.GL_TEXTURE_2D_MULTISAMPLE, self.texture_errors_sample_position, 0)
+        # GL.glReadBuffer(GL.GL_COLOR_ATTACHMENT1)
+        # GL.glBindFramebuffer(GL.GL_DRAW_FRAMEBUFFER, self.fbo_errors_nonms)
+        # GL.glDrawBuffer(GL.GL_COLOR_ATTACHMENT1)
+        # GL.glBlitFramebuffer(0, 0, self.frustum['width'], self.frustum['height'], 0, 0, self.frustum['width'], self.frustum['height'],GL.GL_COLOR_BUFFER_BIT, GL.GL_NEAREST)
+        # GL.glBindFramebuffer(GL.GL_READ_FRAMEBUFFER, self.fbo_errors_nonms)
+        # GL.glReadBuffer(GL.GL_COLOR_ATTACHMENT1)
+        # result_pos = np.flipud(np.frombuffer(GL.glReadPixels(0, 0, self.frustum['width'], self.frustum['height'], GL.GL_RGB, GL.GL_FLOAT), np.float32).reshape(self.frustum['height'], self.frustum['height'], 3)[:,:,0:3].astype(np.float64))
+        #
+        # plt.imsave('pos0.png', result_pos[:,:,0]/255.0)
+        # plt.imsave('pos1.png', result_pos[:,:,1]/255.0)
 
         GL.glBindFramebuffer(GL.GL_FRAMEBUFFER, 0)
 
@@ -2097,13 +2097,12 @@ class SQErrorRenderer(TexturedRenderer):
         self.renders_sample_pos = np.zeros([self.nsamples, self.frustum['width'], self.frustum['height'],3])
         self.renders_faces = np.zeros([self.nsamples, self.frustum['width'], self.frustum['height'], 3])
 
-        GL.glBindFramebuffer(GL.GL_DRAW_FRAMEBUFFER, self.fbo_sample_fetch)
-        drawingBuffers = [GL.GL_COLOR_ATTACHMENT0, GL.GL_COLOR_ATTACHMENT1]
-        GL.glDrawBuffers(2, drawingBuffers)
 
         for sample in np.arange(self.nsamples):
 
             GL.glBindFramebuffer(GL.GL_DRAW_FRAMEBUFFER, self.fbo_sample_fetch)
+            drawingBuffers = [GL.GL_COLOR_ATTACHMENT0, GL.GL_COLOR_ATTACHMENT1]
+            GL.glDrawBuffers(2, drawingBuffers)
 
             sampleLoc = GL.glGetUniformLocation(self.fetchSamplesProgram, 'sample')
             GL.glUniform1i(sampleLoc, sample)
