@@ -145,7 +145,7 @@ class BaseRenderer(Ch):
             self.win = self.ctx
             self.buf = arrays.GLubyteArray.zeros((self.frustum['height'], self.frustum['width'], 3))
             self.mesap = arrays.ArrayDatatype.dataPointer(self.buf)
-            # assert(mesa.OSMesaMakeCurrent(self.ctx, GL.GLuint(self.mesap), GL.GL_UNSIGNED_BYTE, self.frustum['width'], self.frustum['height']))
+            assert(mesa.OSMesaMakeCurrent(self.ctx, GL.GLuint(self.mesap), GL.GL_UNSIGNED_BYTE, self.frustum['width'], self.frustum['height']))
 
         GL.USE_ACCELERATE = True
 
