@@ -540,6 +540,8 @@ class BaseRenderer(Ch):
 
         raw = raw[:,:,0] + raw[:,:,1]*256 + raw[:,:,2]*256*256 - 1
 
+        GL.glClear(GL.GL_COLOR_BUFFER_BIT | GL.GL_DEPTH_BUFFER_BIT)
+
         return raw
 
 
