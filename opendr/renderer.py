@@ -423,8 +423,7 @@ class BaseRenderer(Ch):
 
     @depends_on('f', 'v')
     def vc_by_face(self):
-        ipdb.set_trace()
-        return np.asarray(np.tile(np.eye(3)[:self.f.shape[1], :], (self.verts_by_face.shape[0]/self.f.shape[1], 1)), dtype=np.float64, order='C')
+        return np.asarray(np.tile(np.eye(3)[:self.f.shape[1], :], (self.verts_by_face.shape[0]//self.f.shape[1], 1)), dtype=np.float64, order='C')
 
 
     @depends_on('f', 'v', 'vn')
