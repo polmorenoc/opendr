@@ -57,56 +57,65 @@ class BaseRenderer(Ch):
 
         if self.win:
 
-            print ("Clearing base renderer.")
-            self.makeCurrentContext()
-            self.vbo_indices.set_array(np.array([]))
-            self.vbo_indices.bind()
-            self.vbo_indices.unbind()
-            self.vbo_indices.delete()
-            self.vbo_indices_range.set_array(np.array([]))
-            self.vbo_indices_range.bind()
-            self.vbo_indices_range.unbind()
-            self.vbo_indices_range.delete()
-            self.vbo_indices_dyn.set_array(np.array([]))
-            self.vbo_indices_dyn.bind()
-            self.vbo_indices_dyn.unbind()
-            self.vbo_indices_dyn.delete()
-            self.vbo_verts.set_array(np.array([]))
-            self.vbo_verts.bind()
-            self.vbo_verts.unbind()
-            self.vbo_verts.delete()
-            self.vbo_verts_face.set_array(np.array([]))
-            self.vbo_verts_face.bind()
-            self.vbo_verts_face.unbind()
-            self.vbo_verts_face.delete()
-            self.vbo_verts_dyn.set_array(np.array([]))
-            self.vbo_verts_dyn.bind()
-            self.vbo_verts_dyn.unbind()
-            self.vbo_verts_dyn.delete()
-            self.vbo_colors.set_array(np.array([]))
-            self.vbo_colors.bind()
-            self.vbo_colors.unbind()
-            self.vbo_colors.delete()
-            self.vbo_colors_face.set_array(np.array([]))
-            self.vbo_colors_face.bind()
-            self.vbo_colors_face.unbind()
-            self.vbo_colors_face.delete()
+            try:
+                print ("Clearing base renderer.")
+                self.makeCurrentContext()
+                self.vbo_indices.set_array(np.array([]))
+                self.vbo_indices.bind()
+                self.vbo_indices.unbind()
+                self.vbo_indices.delete()
+                self.vbo_indices_range.set_array(np.array([]))
+                self.vbo_indices_range.bind()
+                self.vbo_indices_range.unbind()
+                self.vbo_indices_range.delete()
+                self.vbo_indices_dyn.set_array(np.array([]))
+                self.vbo_indices_dyn.bind()
+                self.vbo_indices_dyn.unbind()
+                self.vbo_indices_dyn.delete()
+                self.vbo_verts.set_array(np.array([]))
+                self.vbo_verts.bind()
+                self.vbo_verts.unbind()
+                self.vbo_verts.delete()
+                self.vbo_verts_face.set_array(np.array([]))
+                self.vbo_verts_face.bind()
+                self.vbo_verts_face.unbind()
+                self.vbo_verts_face.delete()
+                self.vbo_verts_dyn.set_array(np.array([]))
+                self.vbo_verts_dyn.bind()
+                self.vbo_verts_dyn.unbind()
+                self.vbo_verts_dyn.delete()
+                self.vbo_colors_ub.set_array(np.array([]))
+                self.vbo_colors_ub.bind()
+                self.vbo_colors_ub.unbind()
+                self.vbo_colors_ub.delete()
+                self.vbo_colors.set_array(np.array([]))
+                self.vbo_colors.bind()
+                self.vbo_colors.unbind()
+                self.vbo_colors.delete()
+                self.vbo_colors_face.set_array(np.array([]))
+                self.vbo_colors_face.bind()
+                self.vbo_colors_face.unbind()
+                self.vbo_colors_face.delete()
 
-            GL.glDeleteVertexArrays(1, [self.vao_static])
-            GL.glDeleteVertexArrays(1, [self.vao_static_face])
-            GL.glDeleteVertexArrays(1, [self.vao_dyn])
-            GL.glDeleteVertexArrays(1, [self.vao_dyn_ub])
+                GL.glDeleteVertexArrays(1, [self.vao_static.value])
+                GL.glDeleteVertexArrays(1, [self.vao_static_face.value])
+                GL.glDeleteVertexArrays(1, [self.vao_dyn.value])
+                GL.glDeleteVertexArrays(1, [self.vao_dyn_ub.value])
 
-            GL.glDeleteRenderbuffers(1, [int(self.render_buf)])
-            GL.glDeleteRenderbuffers(1, [int(self.z_buf)])
-            GL.glDeleteRenderbuffers(1, [int(self.render_buf_ms)])
-            GL.glDeleteRenderbuffers(1, [int(self.z_buf_ms)])
+                GL.glDeleteRenderbuffers(1, [int(self.render_buf)])
+                GL.glDeleteRenderbuffers(1, [int(self.z_buf)])
+                if self.msaa:
+                    GL.glDeleteRenderbuffers(1, [int(self.render_buf_ms)])
+                    GL.glDeleteRenderbuffers(1, [int(self.z_buf_ms)])
 
-            GL.glDeleteFramebuffers(1, [int(self.fbo)])
-            GL.glDeleteFramebuffers(1, [int(self.fbo_ms)])
-            GL.glDeleteFramebuffers(1, [int(self.fbo_noms)])
+                GL.glDeleteFramebuffers(1, [int(self.fbo)])
+                GL.glDeleteFramebuffers(1, [int(self.fbo_noms)])
+                if self.msaa:
+                    GL.glDeleteFramebuffers(1, [int(self.fbo_ms)])
 
-            GL.glDeleteProgram(self.colorProgram)
+                GL.glDeleteProgram(self.colorProgram)
+            except:
+                ipdb.set_trace()
 
     def initGL(self):
         try:
@@ -341,7 +350,6 @@ class BaseRenderer(Ch):
         GL.glBindVertexArray(self.vao_dyn)
 
         #Can arrays be empty?
-
 
         self.vbo_indices_dyn.bind()
 
@@ -995,17 +1003,20 @@ class TexturedRenderer(ColoredRenderer):
 
     def clear(self):
         try:
-            print ("Clearing textured renderer.")
-            [vbo.set_array([]) for sublist in self.vbo_indices_mesh_list for vbo in sublist]
+            # print ("Clearing textured renderer.")
+            # for msh in self.vbo_indices_mesh_list:
+            #     for vbo in msh:
+            #         vbo.set_array([])
+            [vbo.set_array(np.array([])) for sublist in self.vbo_indices_mesh_list for vbo in sublist]
             [vbo.bind() for sublist in self.vbo_indices_mesh_list for vbo in sublist]
             [vbo.unbind() for sublist in self.vbo_indices_mesh_list for vbo in sublist]
             [vbo.delete() for sublist in self.vbo_indices_mesh_list for vbo in sublist]
-            [vbo.set_array([]) for vbo in self.vbo_colors_mesh]
+            [vbo.set_array(np.array([])) for vbo in self.vbo_colors_mesh]
             [vbo.bind() for vbo in self.vbo_colors_mesh]
             [vbo.delete() for vbo in self.vbo_colors_mesh]
             [vbo.unbind() for vbo in self.vbo_colors_mesh]
             [vbo.delete() for vbo in self.vbo_verts_mesh]
-            [vbo.set_array([]) for vbo in self.vbo_uvs_mesh]
+            [vbo.set_array(np.array([])) for vbo in self.vbo_uvs_mesh]
             [vbo.bind() for vbo in self.vbo_uvs_mesh]
             [vbo.unbind() for vbo in self.vbo_uvs_mesh]
             [vbo.delete() for vbo in self.vbo_uvs_mesh]
@@ -1023,6 +1034,7 @@ class TexturedRenderer(ColoredRenderer):
             GL.glFlush()
             GL.glFinish()
         except:
+            ipdb.set_trace()
             print("Program had not been initialized")
 
     def initGLTexture(self):
