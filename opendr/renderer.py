@@ -137,8 +137,12 @@ class BaseRenderer(Ch):
         else: #Mesa
             from OpenGL import arrays
             from OpenGL.raw.osmesa import mesa
-
-            self.ctx = mesa.OSMesaCreateContext(GL.GL_RGBA, None)
+            try:
+                self.sharedWin
+            except:
+                self.sharedWin = None
+            self.ctx = mesa.OSMesaCreateContext(GL.GL_RGBA, self.sharedWin)
+            self.win = self.ctx
             self.buf = arrays.GLubyteArray.zeros((self.frustum['height'], self.frustum['width'], 3))
             self.mesap = arrays.ArrayDatatype.dataPointer(self.buf)
             assert(mesa.OSMesaMakeCurrent(self.ctx, GL.GLuint(self.mesap), GL.GL_UNSIGNED_BYTE, self.frustum['width'], self.frustum['height']))
