@@ -137,6 +137,7 @@ class BaseRenderer(Ch):
         else: #Mesa
             from OpenGL import arrays
             from OpenGL.raw.osmesa import mesa
+            ipdb.set_trace()
             try:
                 self.sharedWin
             except:
