@@ -25,7 +25,7 @@ from scipy.sparse.linalg.interface import LinearOperator
 import collections
 import chumpy.minimize_ras as min_ras
 # import probLineSearch as pls
-import ipdb
+# import ipdb
 
 
 def vstack(x):

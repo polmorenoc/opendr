@@ -27,7 +27,7 @@ import OpenGL.GL as GL
 import OpenGL.GL.shaders as shaders
 from OpenGL.arrays import vbo
 from PIL import Image
-import ipdb
+# import pdb
 import matplotlib.pyplot as plt
 from chumpy import *
 # from opendr.contexts._constants import *
@@ -48,17 +48,18 @@ class BaseRenderer(Ch):
             from OpenGL.raw.osmesa import mesa
             mesa.OSMesaMakeCurrent(self.ctx, GL.GLuint(self.mesap), GL.GL_UNSIGNED_BYTE, self.frustum['width'], self.frustum['height'])
     def clear(self):
-
         try:
             self.win
         except:
-            print ("Clearing when not initialized.")
+            # print ("Clearing when not initialized.")
             return
 
         if self.win:
-
             try:
-                print ("Clearing base renderer.")
+                # print ("Clearing base renderer.")
+
+                GL.glDeleteProgram(self.colorProgram)
+
                 self.makeCurrentContext()
                 self.vbo_indices.set_array(np.array([]))
                 self.vbo_indices.bind()
@@ -113,9 +114,10 @@ class BaseRenderer(Ch):
                 if self.msaa:
                     GL.glDeleteFramebuffers(1, [int(self.fbo_ms)])
 
-                GL.glDeleteProgram(self.colorProgram)
+                # print("Finished clearning base renderer")
+
             except:
-                ipdb.set_trace()
+                pdb.set_trace()
 
     def initGL(self):
         try:
@@ -144,6 +146,7 @@ class BaseRenderer(Ch):
             glfw.make_context_current(self.win)
 
         else: #Mesa
+
             from OpenGL import arrays
             from OpenGL.raw.osmesa import mesa
             try:
@@ -822,7 +825,7 @@ class ColoredRenderer(BaseRenderer):
         return 3
 
     def clear(self):
-        print ("Clearing color renderer.")
+        # print ("Clearing color renderer.")
         super().clear()
 
     @property
@@ -1003,6 +1006,8 @@ class TexturedRenderer(ColoredRenderer):
 
     def clear(self):
         try:
+            GL.glFlush()
+            GL.glFinish()
             # print ("Clearing textured renderer.")
             # for msh in self.vbo_indices_mesh_list:
             #     for vbo in msh:
@@ -1031,10 +1036,8 @@ class TexturedRenderer(ColoredRenderer):
             GL.glDeleteProgram(self.colorTextureProgram)
 
             super().clear()
-            GL.glFlush()
-            GL.glFinish()
         except:
-            ipdb.set_trace()
+            pdb.set_trace()
             print("Program had not been initialized")
 
     def initGLTexture(self):
@@ -2182,7 +2185,7 @@ class SQErrorRenderer(TexturedRenderer):
 
         self.render = np.mean(self.renders,0)
 
-        ipdb.set_trace()
+        pdb.set_trace()
 
         GL.glBindVertexArray(0)
 

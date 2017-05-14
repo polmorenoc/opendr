@@ -24,7 +24,7 @@ import collections
 from copy import deepcopy
 from functools import reduce
 from chumpy.utils import *
-import ipdb
+# import ipdb
 import warnings
 import pickle
 

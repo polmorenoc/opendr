@@ -16,7 +16,7 @@ from PIL import Image
 from chumpy.utils import row, col
 from opendr.contexts._constants import *
 import bottleneck as bn
-import ipdb
+# import ipdb
 import matplotlib.pyplot as plt
 import warnings
 
