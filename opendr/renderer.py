@@ -182,7 +182,8 @@ class BaseRenderer(Ch):
         GL.glFramebufferRenderbuffer(GL.GL_FRAMEBUFFER, GL.GL_DEPTH_ATTACHMENT, GL.GL_RENDERBUFFER, self.z_buf)
 
         #FBO_f
-        if self.msaa and self.glMode == 'glfw':
+        # if self.msaa and self.glMode == 'glfw':
+        if self.msaa:
             try:
                 self.nsamples
             except:

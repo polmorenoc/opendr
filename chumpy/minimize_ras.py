@@ -71,8 +71,10 @@ def minimize(X, f, grad, args, on_step=None, maxnumlinesearch=None, maxnumfuneva
             length = maxnumlinesearch
 
     def call_cb():
+        bounded = None
         if on_step is not None:
-            on_step(f)
+            bounded = on_step(f)
+        return bounded
 
     i = 0                                         # zero the run length counter
     ls_failed = 0                          # no previous line search has failed
@@ -86,7 +88,9 @@ def minimize(X, f, grad, args, on_step=None, maxnumlinesearch=None, maxnumfuneva
 
     while i < abs(length):                                 # while not finished
         i = i + (length>0)                                 # count iterations?!
-        call_cb()
+        bounded = call_cb()
+        if bounded is not None:
+            X = bounded
 
         X0 = X; F0 = f0; dF0 = df0              # make a copy of current values
         if length>0:
