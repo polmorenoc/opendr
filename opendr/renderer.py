@@ -1747,7 +1747,7 @@ class SQErrorRenderer(TexturedRenderer):
   
             layout(location = 2) uniform sampler2DMS colors;
             layout(location = 3) uniform sampler2DMS sample_positions;
-            //layout(location = 4) uniform sampler2DMS sample_faces;
+            layout(location = 4) uniform sampler2DMS sample_faces;
 
             uniform float ww;
             uniform float wh;
@@ -1756,7 +1756,7 @@ class SQErrorRenderer(TexturedRenderer):
             // Ouput data
             layout(location = 0) out vec3 colorFetchOut;
             layout(location = 1) out vec2 sample_pos;
-            //layout(location = 2) out vec3 sample_face;
+            layout(location = 2) out vec3 sample_face;
 
             //out int gl_SampleMask[];
             const int all_sample_mask = 0xffff;
@@ -1766,7 +1766,8 @@ class SQErrorRenderer(TexturedRenderer):
                 //colorFetchOut = vec3(1,0,0);
                 colorFetchOut = texelFetch(colors, texcoord, sample).xyz;
                 sample_pos = texelFetch(sample_positions, texcoord, sample).xy;        
-                //sample_face = texelFetch(sample_faces, texcoord, sample).rgb;              
+                //sample_pos = texelFetch(sample_faces, texcoord, sample).xy;
+                sample_face = texelFetch(sample_faces, texcoord, sample).rgb;
 
             }""", GL.GL_FRAGMENT_SHADER)
 
@@ -1797,7 +1798,15 @@ class SQErrorRenderer(TexturedRenderer):
         # except:
         #     pass
 
-        GL.glActiveTexture(GL.GL_TEXTURE0)
+        # GL.glGenTextures(1, self.textureEdges)
+        # GL.glBindTexture(GL.GL_TEXTURE_2D, self.textureEdges)
+        # GL.glPixelStorei(GL.GL_UNPACK_ALIGNMENT,1)
+        # GL.glTexParameterf(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MAG_FILTER, GL.GL_NEAREST)
+        # GL.glTexParameterf(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MIN_FILTER, GL.GL_NEAREST)
+        # GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_BASE_LEVEL, 0)
+        # GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MAX_LEVEL, 0)
+
+        # GL.glActiveTexture(GL.GL_TEXTURE0)
 
         whitePixel = np.ones([1,1,3])
         self.whitePixelTextureID = GL.GLuint(0)
@@ -1834,11 +1843,11 @@ class SQErrorRenderer(TexturedRenderer):
         # GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MIN_FILTER, GL.GL_LINEAR)
         GL.glFramebufferTexture2D(GL.GL_FRAMEBUFFER, GL.GL_COLOR_ATTACHMENT1, GL.GL_TEXTURE_2D_MULTISAMPLE, self.texture_errors_sample_position, 0)
 
-        # self.texture_errors_sample_face = GL.glGenTextures(1)
-        # GL.glBindTexture(GL.GL_TEXTURE_2D_MULTISAMPLE, self.texture_errors_sample_face)
-        # GL.glTexImage2DMultisample(GL.GL_TEXTURE_2D_MULTISAMPLE, self.nsamples, GL.GL_RGB, self.frustum['width'], self.frustum['height'], False)
-        # # GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MIN_FILTER, GL.GL_LINEAR)
-        # GL.glFramebufferTexture2D(GL.GL_FRAMEBUFFER, GL.GL_COLOR_ATTACHMENT2, GL.GL_TEXTURE_2D_MULTISAMPLE, self.texture_errors_sample_face, 0)
+        self.texture_errors_sample_face = GL.glGenTextures(1)
+        GL.glBindTexture(GL.GL_TEXTURE_2D_MULTISAMPLE, self.texture_errors_sample_face)
+        GL.glTexImage2DMultisample(GL.GL_TEXTURE_2D_MULTISAMPLE, self.nsamples, GL.GL_RGB8, self.frustum['width'], self.frustum['height'], False)
+        # GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MIN_FILTER, GL.GL_LINEAR)
+        GL.glFramebufferTexture2D(GL.GL_FRAMEBUFFER, GL.GL_COLOR_ATTACHMENT2, GL.GL_TEXTURE_2D_MULTISAMPLE, self.texture_errors_sample_face, 0)
         #
         # self.render_buf_errors_dedx = GL.glGenRenderbuffers(1)
         # GL.glBindRenderbuffer(GL.GL_RENDERBUFFER, self.render_buf_errors_dedx)
@@ -1892,10 +1901,10 @@ class SQErrorRenderer(TexturedRenderer):
         GL.glRenderbufferStorage(GL.GL_RENDERBUFFER, GL.GL_RG32F, self.frustum['width'], self.frustum['height'])
         GL.glFramebufferRenderbuffer(GL.GL_FRAMEBUFFER, GL.GL_COLOR_ATTACHMENT1, GL.GL_RENDERBUFFER, self.render_buffer_fetch_sample_position)
 
-        # self.render_buffer_fetch_sample_face = GL.glGenRenderbuffers(1)
-        # GL.glBindRenderbuffer(GL.GL_RENDERBUFFER, self.render_buffer_fetch_sample_face)
-        # GL.glRenderbufferStorage(GL.GL_RENDERBUFFER, GL.GL_RGB, self.frustum['width'], self.frustum['height'])
-        # GL.glFramebufferRenderbuffer(GL.GL_FRAMEBUFFER, GL.GL_COLOR_ATTACHMENT2, GL.GL_RENDERBUFFER, self.render_buffer_fetch_sample_face)
+        self.render_buffer_fetch_sample_face = GL.glGenRenderbuffers(1)
+        GL.glBindRenderbuffer(GL.GL_RENDERBUFFER, self.render_buffer_fetch_sample_face)
+        GL.glRenderbufferStorage(GL.GL_RENDERBUFFER, GL.GL_RGB8, self.frustum['width'], self.frustum['height'])
+        GL.glFramebufferRenderbuffer(GL.GL_FRAMEBUFFER, GL.GL_COLOR_ATTACHMENT2, GL.GL_RENDERBUFFER, self.render_buffer_fetch_sample_face)
         #
         # self.render_buf_errors_dedx = GL.glGenRenderbuffers(1)
         # GL.glBindRenderbuffer(GL.GL_RENDERBUFFER, self.render_buf_errors_dedx)
@@ -2030,6 +2039,14 @@ class SQErrorRenderer(TexturedRenderer):
         # self.textureGTLoc = GL.glGetUniformLocation(self.errorTextureProgram, "imageGT")
         # GL.glUniform1i(self.textureGTLoc, 1)
 
+        # GL.glActiveTexture(GL.GL_TEXTURE1)
+        # GL.glBindTexture(GL.GL_TEXTURE_2D, self.textureEdges)
+        # image = np.array(np.flipud((self.visibility_image.r)), order='C', dtype=np.uint32)
+        # GL.glTexStorage2D(GL.GL_TEXTURE_2D, 1, GL.GL_RGB, image.shape[1], image.shape[0])
+        # GL.glTexSubImage2D(GL.GL_TEXTURE_2D, 0, 0, 0, image.shape[1], image.shape[0], GL.GL_RGB, GL.GL_UNSIGNED_INT, image)
+        # self.textureEdgesloc = GL.glGetUniformLocation(self.errorTextureProgram, "edges")
+        # GL.glUniform1i(self.textureEdgesloc, 1)
+
         wwLoc = GL.glGetUniformLocation(self.errorTextureProgram, 'ww')
         whLoc = GL.glGetUniformLocation(self.errorTextureProgram, 'wh')
         GL.glUniform1f(wwLoc, self.frustum['width'])
@@ -2092,6 +2109,7 @@ class SQErrorRenderer(TexturedRenderer):
 
         GL.glDrawElements(primtype, len(self.vbo_f_bgCube)*self.vbo_f_bgCube.data.shape[1], GL.GL_UNSIGNED_INT, None)
 
+        self.draw_visibility_image_ms(self.v, self.f)
 
         GL.glBindFramebuffer(GL.GL_FRAMEBUFFER, 0)
 
@@ -2122,7 +2140,7 @@ class SQErrorRenderer(TexturedRenderer):
 
         self.colorsLoc = GL.glGetUniformLocation(self.fetchSamplesProgram, "colors")
         self.sample_positionsLoc = GL.glGetUniformLocation(self.fetchSamplesProgram, "sample_positions")
-        # self.sample_facesLoc = GL.glGetUniformLocation(self.fetchSamplesProgram, "sample_faces")
+        self.sample_facesLoc = GL.glGetUniformLocation(self.fetchSamplesProgram, "sample_faces")
 
         # GL.glClear(GL.GL_COLOR_BUFFER_BIT | GL.GL_DEPTH_BUFFER_BIT)
 
@@ -2144,8 +2162,8 @@ class SQErrorRenderer(TexturedRenderer):
         for sample in np.arange(self.nsamples):
 
             GL.glBindFramebuffer(GL.GL_DRAW_FRAMEBUFFER, self.fbo_sample_fetch)
-            drawingBuffers = [GL.GL_COLOR_ATTACHMENT0, GL.GL_COLOR_ATTACHMENT1]
-            GL.glDrawBuffers(2, drawingBuffers)
+            drawingBuffers = [GL.GL_COLOR_ATTACHMENT0, GL.GL_COLOR_ATTACHMENT1, GL.GL_COLOR_ATTACHMENT2]
+            GL.glDrawBuffers(3, drawingBuffers)
 
             sampleLoc = GL.glGetUniformLocation(self.fetchSamplesProgram, 'sample')
             GL.glUniform1i(sampleLoc, sample)
@@ -2153,10 +2171,14 @@ class SQErrorRenderer(TexturedRenderer):
             GL.glActiveTexture(GL.GL_TEXTURE0)
             GL.glBindTexture(GL.GL_TEXTURE_2D_MULTISAMPLE, self.texture_errors_render)
             GL.glUniform1i(self.colorsLoc, 0)
+
             GL.glActiveTexture(GL.GL_TEXTURE1)
             GL.glBindTexture(GL.GL_TEXTURE_2D_MULTISAMPLE, self.texture_errors_sample_position)
             GL.glUniform1i(self.sample_positionsLoc, 1)
 
+            GL.glActiveTexture(GL.GL_TEXTURE2)
+            GL.glBindTexture(GL.GL_TEXTURE_2D_MULTISAMPLE, self.texture_errors_sample_faces)
+            GL.glUniform1i(self.sample_facesLoc, 1)
 
             GL.glBindVertexArray(self.vao_quad)
             GL.glDrawArrays(GL.GL_POINTS, 0, 1)
@@ -2194,6 +2216,67 @@ class SQErrorRenderer(TexturedRenderer):
 
         GL.glEnable(GL.GL_DEPTH_TEST)
         GL.glDisable(GL.GL_MULTISAMPLE)
+
+
+    def draw_visibility_image_ms(self, v, f):
+        """Assumes camera is set up correctly in"""
+        GL.glUseProgram(self.visibilityProgram_ms)
+
+        v = np.asarray(v)
+
+        self.draw_visibility_image_ms(v, f)
+
+        #Attach FBO
+        GL.glClear(GL.GL_COLOR_BUFFER_BIT | GL.GL_DEPTH_BUFFER_BIT)
+
+        fc = np.arange(1, len(f)+1)
+        fc = np.tile(fc.reshape((-1,1)), (1, 3))
+        fc[:, 0] = fc[:, 0] & 255
+        fc[:, 1] = (fc[:, 1] >> 8 ) & 255
+        fc[:, 2] = (fc[:, 2] >> 16 ) & 255
+        fc = np.asarray(fc, dtype=np.uint8)
+
+        self.draw_colored_primitives_ms(self.vao_dyn_ub,  v, f, fc)
+
+    # this assumes that fc is either "by faces" or "verts by face", not "by verts"
+    def draw_colored_primitives_ms(self, vao, v, f, fc=None):
+
+        # gl.EnableClientState(GL_VERTEX_ARRAY)
+        verts_by_face = np.asarray(v.reshape((-1,3))[f.ravel()], dtype=np.float64, order='C')
+        # gl.VertexPointer(verts_by_face)
+        GL.glBindVertexArray(vao)
+
+        self.vbo_verts_dyn.set_array(verts_by_face.astype(np.float32))
+        self.vbo_verts_dyn.bind()
+
+        if fc is not None:
+            # gl.EnableClientState(GL_COLOR_ARRAY)
+            if fc.size == verts_by_face.size:
+                vc_by_face = fc
+            else:
+                vc_by_face = np.repeat(fc, f.shape[1], axis=0)
+
+            if vc_by_face.size != verts_by_face.size:
+                raise Exception('fc must have either rows=(#rows in faces) or rows=(# elements in faces)')
+
+            vc_by_face = np.asarray(vc_by_face, dtype=np.uint8, order='C')
+            self.vbo_colors_ub.set_array(vc_by_face)
+            self.vbo_colors_ub.bind()
+
+        primtype = GL.GL_TRIANGLES
+
+        self.vbo_indices_dyn.set_array(np.arange(f.size, dtype=np.uint32).ravel())
+        self.vbo_indices_dyn.bind()
+
+        GL.glBindFramebuffer(GL.GL_DRAW_FRAMEBUFFER, self.fbo_ms_errors)
+
+        drawingBuffers = [GL.GL_COLOR_ATTACHMENT2]
+        GL.glDrawBuffers(1, drawingBuffers)
+
+        view_mtx = self.camera.openglMat.dot(np.asarray(np.vstack((self.camera.view_matrix, np.array([0, 0, 0, 1]))),np.float32))
+        GL.glUniformMatrix4fv(self.MVP_location, 1, GL.GL_TRUE, np.dot(self.projectionMatrix, view_mtx))
+
+        GL.glDrawElements(primtype, len(self.vbo_indices_dyn), GL.GL_UNSIGNED_INT, None)
 
 
     def compute_dr_wrt(self, wrt):
