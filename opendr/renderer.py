@@ -1739,6 +1739,8 @@ class SQErrorRenderer(ColoredRenderer):
                 fc = np.asarray(fc, dtype=np.int32)
                 vbo_face_ids = vbo.VBO(fc)
                 vbo_face_ids.bind()
+                GL.glEnableVertexAttribArray(self.face_ids_location)  # from 'location = 0' in shader
+                GL.glVertexAttribIPointer(self.face_ids_location, 1, GL.GL_INT, 0, None)
 
                 flen += len(f)
 
@@ -2229,9 +2231,9 @@ class SQErrorRenderer(ColoredRenderer):
 
                 GL.glUniformMatrix4fv(self.MVP_texture_location, 1, GL.GL_TRUE, MVP)
 
-                vbo_f_ids.bind()
-                GL.glEnableVertexAttribArray(self.face_ids_location)  # from 'location = 0' in shader
-                GL.glVertexAttribPointer(self.face_ids_location, 1, GL.GL_INT, GL.GL_FALSE, 0, None)
+                # vbo_f_ids.bind()
+                # GL.glEnableVertexAttribArray(self.face_ids_location)  # from 'location = 0' in shader
+                # GL.glVertexAttribIPointer(self.face_ids_location, 1, GL.GL_INT, 0, None)
 
                 # GL.glDrawElements(primtype, len(vbo_f)*vbo_f.data.shape[1], GL.GL_UNSIGNED_INT, None)
                 GL.glDrawArrays(primtype, 0, len(vbo_f)*vbo_f.data.shape[1])
