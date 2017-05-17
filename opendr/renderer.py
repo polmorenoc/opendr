@@ -10,6 +10,7 @@ See LICENCE.txt for licensing and contact information.
 __all__ = ['ColoredRenderer', 'TexturedRenderer']
 
 import numpy as np
+import pdb
 import cv2
 import time
 import platform
@@ -694,7 +695,7 @@ class BaseRenderer(Ch):
             return result
         #
         # #Pol, remove all the rest as seems unnecessary?
-        # return result
+        return result
 
         rr = result.ravel()
         faces_to_draw = np.unique(rr[rr != 4294967295])
@@ -1195,6 +1196,7 @@ class TexturedRenderer(ColoredRenderer):
         if not self.overdraw:
             return no_overdraw
 
+        return no_overdraw
 
         GL.glPolygonMode(GL.GL_FRONT_AND_BACK, GL.GL_LINE)
         GL.glLineWidth(1.)
@@ -1436,6 +1438,8 @@ class TexturedRenderer(ColoredRenderer):
                                                image.reshape([image.shape[1], image.shape[0], -1]).ravel().tostring())
 
 
+
+
     @depends_on('ft', 'textures')
     def mesh_tex_coords(self):
         ftidxs = self.ft.ravel()
@@ -1580,7 +1584,7 @@ class TexturedRenderer(ColoredRenderer):
         return self.draw_texcoord_image(self.v.r, self.f, self.ft, self.boundarybool_image if self.overdraw else None)
 
 
-class SQErrorRenderer(TexturedRenderer):
+class SQErrorRenderer(ColoredRenderer):
 
     terms = 'f', 'frustum', 'vt', 'ft', 'background_image', 'overdraw', 'ft_list', 'haveUVs_list', 'textures_list', 'vc_list' , 'imageGT'
     dterms = 'vc', 'camera', 'bgcolor', 'texture_stack', 'v'
@@ -1588,8 +1592,55 @@ class SQErrorRenderer(TexturedRenderer):
     def __init__(self):
         super().__init__()
 
+
     def clear(self):
-        super().clear()
+        try:
+            GL.glFlush()
+            GL.glFinish()
+            # print ("Clearing textured renderer.")
+            # for msh in self.vbo_indices_mesh_list:
+            #     for vbo in msh:
+            #         vbo.set_array([])
+            [vbo.set_array(np.array([])) for sublist in self.vbo_indices_mesh_list for vbo in sublist]
+            [vbo.bind() for sublist in self.vbo_indices_mesh_list for vbo in sublist]
+            [vbo.unbind() for sublist in self.vbo_indices_mesh_list for vbo in sublist]
+            [vbo.delete() for sublist in self.vbo_indices_mesh_list for vbo in sublist]
+
+            [vbo.set_array(np.array([])) for sublist in self.vbo_colors_mesh for vbo in sublist]
+            [vbo.bind() for sublist in self.vbo_colors_mesh for vbo in sublist]
+            [vbo.unbind() for sublist in self.vbo_colors_mesh for vbo in sublist]
+            [vbo.delete() for sublist in self.vbo_colors_mesh for vbo in sublist]
+
+            [vbo.set_array(np.array([])) for sublist in self.vbo_verts_mesh for vbo in sublist]
+            [vbo.bind() for sublist in self.vbo_verts_mesh for vbo in sublist]
+            [vbo.unbind() for sublist in self.vbo_verts_mesh for vbo in sublist]
+            [vbo.delete() for sublist in self.vbo_verts_mesh for vbo in sublist]
+
+            [vbo.set_array(np.array([])) for sublist in self.vbo_uvs_mesh for vbo in sublist]
+            [vbo.bind() for sublist in self.vbo_uvs_mesh for vbo in sublist]
+            [vbo.unbind() for sublist in self.vbo_uvs_mesh for vbo in sublist]
+            [vbo.delete() for sublist in self.vbo_uvs_mesh for vbo in sublist]
+
+            [vbo.set_array(np.array([])) for sublist in self.vbo_face_ids_list for vbo in sublist]
+            [vbo.bind() for sublist in self.vbo_face_ids_list for vbo in sublist]
+            [vbo.unbind() for sublist in self.vbo_face_ids_list for vbo in sublist]
+            [vbo.delete() for sublist in self.vbo_face_ids_list for vbo in sublist]
+
+            [GL.glDeleteVertexArrays(1, [vao.value]) for sublist in self.vao_tex_mesh_list for vao in sublist]
+
+            self.release_textures()
+
+            if self.glMode == 'glfw':
+                import glfw
+                glfw.make_context_current(self.win)
+
+            GL.glDeleteProgram(self.colorTextureProgram)
+
+            super().clear()
+        except:
+            import pdb
+            pdb.set_trace()
+            print("Program had not been initialized")
 
     def initGLTexture(self):
         print("Initializing Texture OpenGL.")
@@ -1624,14 +1675,12 @@ class SQErrorRenderer(TexturedRenderer):
 
         self.colorTextureProgram = shaders.compileProgram(VERTEX_SHADER,FRAGMENT_SHADER)
 
-
         #Define the other VAO/VBOs and shaders.
         #Text VAO and bind color, vertex indices AND uvbuffer:
 
         position_location = GL.glGetAttribLocation(self.colorTextureProgram, 'position')
         color_location = GL.glGetAttribLocation(self.colorTextureProgram, 'color')
         uvs_location = GL.glGetAttribLocation(self.colorTextureProgram, 'vertexUV')
-        self.face_ids_location = GL.glGetAttribLocation(self.colorTextureProgram, 'face_id')
 
         # color_location_ub = GL.glGetAttribLocation(self.colorProgram, 'color')
         self.MVP_texture_location = GL.glGetUniformLocation(self.colorTextureProgram, 'MVP')
@@ -1644,7 +1693,7 @@ class SQErrorRenderer(TexturedRenderer):
         self.vbo_uvs_mesh = []
         self.textureID_mesh_list = []
 
-
+        flen = 0
         for mesh in range(len(self.f_list)):
 
             vaos_mesh = []
@@ -1664,7 +1713,7 @@ class SQErrorRenderer(TexturedRenderer):
                 vbo_verts = vbo.VBO(np.array(verts_by_face).astype(np.float32))
                 colors_by_face = np.asarray(self.vc_list[mesh].reshape((-1, 3))[f.ravel()], dtype=np.float32, order='C')
                 vbo_colors = vbo.VBO(np.array(colors_by_face).astype(np.float32))
-                uvs_by_face = np.asarray(self.ft_list[mesh].reshape((-1, 3))[f.ravel()], dtype=np.float32, order='C')
+                uvs_by_face = np.asarray(self.ft_list[mesh].reshape((-1, 2))[f.ravel()], dtype=np.float32, order='C')
                 vbo_uvs = vbo.VBO(np.array(uvs_by_face).astype(np.float32))
 
                 vbo_indices = vbo.VBO(np.array(self.f_list[mesh][polygons]).astype(np.uint32), target=GL.GL_ELEMENT_ARRAY_BUFFER)
@@ -1683,15 +1732,15 @@ class SQErrorRenderer(TexturedRenderer):
                     GL.glEnableVertexAttribArray(uvs_location) # from 'location = 0' in shader
                     GL.glVertexAttribPointer(uvs_location, 2, GL.GL_FLOAT, GL.GL_FALSE, 0, None)
 
-                fc = np.arange(1, len(f) + 1)
-                fc = np.tile(fc.reshape((-1, 1)), (1, 3))
-                fc[:, 0] = fc[:, 0] & 255
-                fc[:, 1] = (fc[:, 1] >> 8) & 255
-                fc[:, 2] = (fc[:, 2] >> 16) & 255
-                fc = np.asarray(fc, dtype=np.uint8)
-                vbo_face_ids = vbo.VBO(fc.astype(np.float32))
+                fc = np.arange(flen, flen + len(f))
+                # fc[:, 0] = fc[:, 0] & 255
+                # fc[:, 1] = (fc[:, 1] >> 8) & 255
+                # fc[:, 2] = (fc[:, 2] >> 16) & 255
+                fc = np.asarray(fc, dtype=np.int32)
+                vbo_face_ids = vbo.VBO(fc)
                 vbo_face_ids.bind()
 
+                flen += len(f)
 
                 #Textures:
                 texture = None
@@ -1747,17 +1796,14 @@ class SQErrorRenderer(TexturedRenderer):
         layout (location = 0) in vec3 position;
         layout (location = 1) in vec3 colorIn;
         layout(location = 2) in vec2 vertexUV;
-        layout(location = 3) in vec3 face_id;
-        //layout(location = 4) in vec3 edge_v1;
-        //layout(location = 5) in vec3 edge_v2;
+        layout(location = 3) in int face_id;
+
         uniform mat4 MVP;
         out vec3 theColor;
         out vec3 pos;
-        out vec3 face_out;
+        flat out int face_out;
         out vec2 UV;
-        //out vec3 face;
-        //out vec4 edge_v1;
-        //out vec4 edge_v2;
+        
         // Values that stay constant for the whole mesh.
         void main(){
             // Output position of the vertex, in clip space : MVP * position
@@ -1766,13 +1812,11 @@ class SQErrorRenderer(TexturedRenderer):
             pos =  pos4.xyz;
             theColor = colorIn;
             UV = vertexUV;
-            //vec4 face_out_4 = MVP* vec4(face,1);
             face_out = face_id;
         }""", GL.GL_VERTEX_SHADER)
 
         ERRORS_FRAGMENT_SHADER = shaders.compileShader("""#version 330 core 
-            //#extension GL_EXT_shader_image_load_store : enable
-            //#extension GL_EXT_shader_image_load_store : enable 
+
             #extension GL_ARB_explicit_uniform_location : enable
             #extension GL_ARB_explicit_attrib_location : enable
 
@@ -1781,19 +1825,10 @@ class SQErrorRenderer(TexturedRenderer):
             // Interpolated values from the vertex shaders
             in vec3 theColor;
             in vec2 UV;
-            in vec3 face_out;
+            flat in int face_out;
             in vec3 pos;
                         
             layout(location = 3) uniform sampler2D myTextureSampler;
-        
-            //in vec3 edge_v1;
-            //in vec3 edge_v2;
-                        
-            //layout(location = 4) uniform sampler2D edges;
-            //layout(location = 4) uniform sampler2D imageGT;
-            //layout(location = 5) uniform sampler2D primitive_id;
-            
-            //readonly uniform layout(binding=1, size4x32) image2D imageGT;
 
             uniform float ww;
             uniform float wh;
@@ -1801,57 +1836,16 @@ class SQErrorRenderer(TexturedRenderer):
             // Ouput data
             layout(location = 0) out vec3 color; 
             layout(location = 1) out vec2 sample_pos;
-            layout(location = 2) out vec3 sample_face;
+            layout(location = 2) out int sample_face;
             
-            //layout(location = 1) out vec3 render_nocolor;
-            //layout(location = 2) out vec3 render_notexture;
-            //layout(location = 3) out vec3 E;
-            //layout(location = 4) out vec3 dEdx;
-            //layout(location = 5) out vec3 dEdy;
-
-            //out int gl_SampleMask[];
-            //const int all_sample_mask = 0xffff;
-
             void main(){
                 vec3 finalColor = theColor * texture2D( myTextureSampler, UV).rgb;
                 color = finalColor.rgb;
-                //color = vec2(10.0,50.0) + 255.0 * theColor.xy * texture2D( myTextureSampler, UV).xy; 
-                
-                //sample_pos = gl_FragCoord.xy;
-                
+                                
                 sample_pos = pos.xy;
                 sample_face = face_out;
                 
-                //vec3(ww,wh,1);
-                
-                //sample_face = face_out;
-  
-                //render_nocolor = texture2D( myTextureSampler, UV).rgb;
-                //render_notexture = theColor;
-                                           
-                //ivec2 coord = ivec2(gl_FragCoord.xy);
-                //vec3 imgColor = texture2D(imageGT, gl_FragCoord.xy/vec2(ww,wh)).rgb;
-                                           
-                //vec2 edge_x1 = edge_v1.xy;
-                //vec2 edge_x2 = edge_v2.xy;
-                
-                //bool boolx = (1.0-dx) > 0.1;
-                //bool booly = (1.0-dy) > 0.1;
-                //int x = int(boolx && booly);
-                //gl_SampleMask[0] ^= (-x ^ gl_SampleMask[0]) & (1 << gl_SampleID);
-
-                //vec3 dfdx = -dFdxFine(theColor)/dFdxFine(1.0-gl_SamplePosition.x);
-                //vec3 dfdy = -dFdyFine(theColor)/dFdyFine(1.0-gl_SamplePosition.y);
-
-                //vec3 Res = imgColor - theColor;
-                //E =  pow(Res,vec3(2.0,2.0,2.0));
-
-                //dEdx = -2.0*Res;
-                //dEdx = -dFdxFine(E)/(1.0-dx);
-
-                //dEdy = -2.0*Res*dfdy/(1.0-dy);
-                //dEdy = -dFdyFine(E)/(1.0-dy);
-                //dEdy = -2.0*Res;
+            
             }""", GL.GL_FRAGMENT_SHADER)
 
         self.errorTextureProgram = shaders.compileProgram(VERTEX_SHADER, ERRORS_FRAGMENT_SHADER)
@@ -1883,14 +1877,8 @@ class SQErrorRenderer(TexturedRenderer):
 
         
         FETCH_FRAGMENT_SHADER = shaders.compileShader("""#version 330 core 
-            //#extension GL_EXT_shader_image_load_store : enable
-            //#extension GL_EXT_shader_image_load_store : enable 
             #extension GL_ARB_explicit_uniform_location : enable
             #extension GL_ARB_explicit_attrib_location : enable
-
-            //layout(early_fragment_tests) in;
-
-            // Interpolated values from the vertex shaders
   
             layout(location = 2) uniform sampler2DMS colors;
             layout(location = 3) uniform sampler2DMS sample_positions;
@@ -1903,18 +1891,16 @@ class SQErrorRenderer(TexturedRenderer):
             // Ouput data
             layout(location = 0) out vec3 colorFetchOut;
             layout(location = 1) out vec2 sample_pos;
-            layout(location = 2) out vec3 sample_face;
+            layout(location = 2) out int sample_face;
 
             //out int gl_SampleMask[];
             const int all_sample_mask = 0xffff;
 
             void main(){
                 ivec2 texcoord = ivec2(gl_FragCoord.xy);
-                //colorFetchOut = vec3(1,0,0);
                 colorFetchOut = texelFetch(colors, texcoord, sample).xyz;
                 sample_pos = texelFetch(sample_positions, texcoord, sample).xy;        
-                //sample_pos = texelFetch(sample_faces, texcoord, sample).xy;
-                sample_face = texelFetch(sample_faces, texcoord, sample).rgb;
+                sample_face = int(texelFetch(sample_faces, texcoord, sample).x);
 
             }""", GL.GL_FRAGMENT_SHADER)
 
@@ -1992,7 +1978,7 @@ class SQErrorRenderer(TexturedRenderer):
 
         self.texture_errors_sample_faces = GL.glGenTextures(1)
         GL.glBindTexture(GL.GL_TEXTURE_2D_MULTISAMPLE, self.texture_errors_sample_faces)
-        GL.glTexImage2DMultisample(GL.GL_TEXTURE_2D_MULTISAMPLE, self.nsamples, GL.GL_RGB, self.frustum['width'], self.frustum['height'], False)
+        GL.glTexImage2DMultisample(GL.GL_TEXTURE_2D_MULTISAMPLE, self.nsamples, GL.GL_R32I, self.frustum['width'], self.frustum['height'], False)
         # GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MIN_FILTER, GL.GL_LINEAR)
         GL.glFramebufferTexture2D(GL.GL_FRAMEBUFFER, GL.GL_COLOR_ATTACHMENT2, GL.GL_TEXTURE_2D_MULTISAMPLE, self.texture_errors_sample_faces, 0)
         #
@@ -2050,7 +2036,7 @@ class SQErrorRenderer(TexturedRenderer):
 
         self.render_buffer_fetch_sample_face = GL.glGenRenderbuffers(1)
         GL.glBindRenderbuffer(GL.GL_RENDERBUFFER, self.render_buffer_fetch_sample_face)
-        GL.glRenderbufferStorage(GL.GL_RENDERBUFFER, GL.GL_RGB, self.frustum['width'], self.frustum['height'])
+        GL.glRenderbufferStorage(GL.GL_RENDERBUFFER, GL.GL_R32I, self.frustum['width'], self.frustum['height'])
         GL.glFramebufferRenderbuffer(GL.GL_FRAMEBUFFER, GL.GL_COLOR_ATTACHMENT2, GL.GL_RENDERBUFFER, self.render_buffer_fetch_sample_face)
         #
         # self.render_buf_errors_dedx = GL.glGenRenderbuffers(1)
@@ -2107,7 +2093,7 @@ class SQErrorRenderer(TexturedRenderer):
 
         render_buf_errors_sample_face = GL.glGenRenderbuffers(1)
         GL.glBindRenderbuffer(GL.GL_RENDERBUFFER, render_buf_errors_sample_face)
-        GL.glRenderbufferStorage(GL.GL_RENDERBUFFER, GL.GL_RGB, self.frustum['width'], self.frustum['height'])
+        GL.glRenderbufferStorage(GL.GL_RENDERBUFFER, GL.GL_R32I, self.frustum['width'], self.frustum['height'])
         GL.glFramebufferRenderbuffer(GL.GL_FRAMEBUFFER, GL.GL_COLOR_ATTACHMENT2, GL.GL_RENDERBUFFER, render_buf_errors_sample_face)
         #
         # render_buf_errors_dedx = GL.glGenRenderbuffers(1)
@@ -2134,6 +2120,7 @@ class SQErrorRenderer(TexturedRenderer):
         position_location = GL.glGetAttribLocation(self.errorTextureProgram, 'position')
         color_location = GL.glGetAttribLocation(self.errorTextureProgram, 'colorIn')
         uvs_location = GL.glGetAttribLocation(self.errorTextureProgram, 'vertexUV')
+        self.face_ids_location = GL.glGetAttribLocation(self.errorTextureProgram, 'face_id')
 
         self.vbo_verts_cube= vbo.VBO(np.array(self.v_bgCube).astype(np.float32))
         self.vbo_colors_cube= vbo.VBO(np.array(self.vc_bgCube).astype(np.float32))
@@ -2177,8 +2164,8 @@ class SQErrorRenderer(TexturedRenderer):
 
         GL.glClear(GL.GL_COLOR_BUFFER_BIT | GL.GL_DEPTH_BUFFER_BIT)
 
-        drawingBuffers = [GL.GL_COLOR_ATTACHMENT0, GL.GL_COLOR_ATTACHMENT1]
-        GL.glDrawBuffers(2, drawingBuffers)
+        drawingBuffers = [GL.GL_COLOR_ATTACHMENT0, GL.GL_COLOR_ATTACHMENT1, GL.GL_COLOR_ATTACHMENT2]
+        GL.glDrawBuffers(3, drawingBuffers)
 
         # GL.glActiveTexture(GL.GL_TEXTURE1)
         # # GL.glBindImageTexture(1,self.textureGT, 0, GL.GL_FALSE, 0, GL.GL_READ_ONLY, GL.GL_RGBA8)
@@ -2228,10 +2215,6 @@ class SQErrorRenderer(TexturedRenderer):
 
                 assert(primtype == GL.GL_TRIANGLES)
 
-                vbo_f_ids.bind()
-                GL.glEnableVertexAttribArray(self.face_ids_location)  # from 'location = 0' in shader
-                GL.glVertexAttribPointer(self.face_ids_location, 2, GL.GL_UNSIGNED_INT, GL.GL_FALSE, 0, None)
-
                 # GL.glUseProgram(self.errorTextureProgram)
                 if self.haveUVs_list[mesh][polygons]:
                     texture =  self.textureID_mesh_list[mesh][polygons]
@@ -2245,6 +2228,10 @@ class SQErrorRenderer(TexturedRenderer):
                 GL.glUniform1i(self.textureObjLoc, 0)
 
                 GL.glUniformMatrix4fv(self.MVP_texture_location, 1, GL.GL_TRUE, MVP)
+
+                vbo_f_ids.bind()
+                GL.glEnableVertexAttribArray(self.face_ids_location)  # from 'location = 0' in shader
+                GL.glVertexAttribPointer(self.face_ids_location, 1, GL.GL_INT, GL.GL_FALSE, 0, None)
 
                 # GL.glDrawElements(primtype, len(vbo_f)*vbo_f.data.shape[1], GL.GL_UNSIGNED_INT, None)
                 GL.glDrawArrays(primtype, 0, len(vbo_f)*vbo_f.data.shape[1])
@@ -2308,7 +2295,7 @@ class SQErrorRenderer(TexturedRenderer):
 
         self.renders = np.zeros([self.nsamples, self.frustum['width'], self.frustum['height'],3])
         self.renders_sample_pos = np.zeros([self.nsamples, self.frustum['width'], self.frustum['height'],2])
-        self.renders_faces = np.zeros([self.nsamples, self.frustum['width'], self.frustum['height'], 3]).astype(np.int32)
+        self.renders_faces = np.zeros([self.nsamples, self.frustum['width'], self.frustum['height']]).astype(np.int32)
 
         GL.glDisable(GL.GL_DEPTH_TEST)
 
@@ -2354,7 +2341,7 @@ class SQErrorRenderer(TexturedRenderer):
             self.renders_sample_pos[sample] = result
 
             GL.glReadBuffer(GL.GL_COLOR_ATTACHMENT2)
-            result = np.flipud(np.frombuffer(GL.glReadPixels(0, 0, self.frustum['width'], self.frustum['height'], GL.GL_RGB, GL.GL_UNSIGNED_INT), np.uint32).reshape(self.frustum['height'], self.frustum['height'], 3)[:,:,0:2].astype(np.uint32))
+            result = np.flipud(np.frombuffer(GL.glReadPixels(0, 0, self.frustum['width'], self.frustum['height'], GL.GL_RED_INTEGER, GL.GL_INT), np.int32).reshape(self.frustum['height'], self.frustum['height'])[:,:].astype(np.int32))
             self.renders_faces[sample] = result
 
             # GL.glClear(GL.GL_COLOR_BUFFER_BIT | GL.GL_DEPTH_BUFFER_BIT)
@@ -2363,6 +2350,7 @@ class SQErrorRenderer(TexturedRenderer):
             # result = np.flipud(np.frombuffer(GL.glReadPixels(0, 0, self.frustum['width'], self.frustum['height'], GL.GL_RGB, GL.GL_FLOAT), np.float32).reshape(self.frustum['height'], self.frustum['height'], 3)[:,:,0:3].astype(np.float64))
             # self.renders_faces[sample] = result
 
+        self.renders_faces[0]
         self.render = np.mean(self.renders,0)
 
         import pdb; pdb.set_trace()
@@ -2502,21 +2490,6 @@ class SQErrorRenderer(TexturedRenderer):
 
         return None
 
-    def on_changed(self, which):
-
-        super().on_changed(which)
-
-        if 'imageGT' in which:
-
-            GL.glActiveTexture(GL.GL_TEXTURE1)
-            GL.glBindTexture(GL.GL_TEXTURE_2D, self.textureGT)
-            image = np.array(np.flipud((self.imageGT.r)), order='C', dtype=np.float32)
-            # GL.glTexStorage2D(GL.GL_TEXTURE_2D, 1, GL.GL_RGBA, image.shape[1], image.shape[0])
-            GL.glTexSubImage2D(GL.GL_TEXTURE_2D, 0, 0, 0, image.shape[1], image.shape[0], GL.GL_RGB, GL.GL_FLOAT, image)
-
-        if 'v' or 'f' or 'vc' or 'ft' or 'camera' or 'texture_stack' or 'imageGT' in which:
-            self.render_errors()
-
     def compute_r(self):
         return self.render_sqerrors
 
@@ -2524,7 +2497,12 @@ class SQErrorRenderer(TexturedRenderer):
     def render_sqerrors(self):
         self._call_on_changed()
 
-        return self.errors
+        try:
+            return self.render
+        except:
+            self.render_errors()
+
+        return self.render
 
 
     @depends_on(dterms+terms)
@@ -2539,17 +2517,6 @@ class SQErrorRenderer(TexturedRenderer):
 
         return self.render_notexture
 
-    @depends_on(dterms+terms)
-    def render_dedx(self):
-        self._call_on_changed()
-
-        return self.dEdx
-
-    @depends_on(dterms+terms)
-    def render_dedy(self):
-        self._call_on_changed()
-
-        return self.dEdy
 
     @depends_on(dterms+terms)
     def render_image(self):
@@ -2635,6 +2602,413 @@ class SQErrorRenderer(TexturedRenderer):
         result = sp.csc_matrix((data, ij), shape=(image_width*image_height*n_channels, num_verts*2))
 
         return result
+
+    def on_changed(self, which):
+        super().on_changed(which)
+
+        if 'v' in which:
+            for mesh in range(len(self.f_list)):
+                for polygons in range(len(self.f_list[mesh])):
+                    f = self.f_list[mesh][polygons]
+                    verts_by_face = np.asarray(self.v_list[mesh].reshape((-1, 3))[f.ravel()], dtype=np.float32, order='C')
+                    self.vbo_verts_mesh[mesh][polygons].set_array(verts_by_face.astype(np.float32))
+                    self.vbo_verts_mesh[mesh][polygons].bind()
+
+        if 'vc' in which:
+            for mesh in range(len(self.f_list)):
+                for polygons in range(len(self.f_list[mesh])):
+                    f = self.f_list[mesh][polygons]
+                    colors_by_face = np.asarray(self.vc_list[mesh].reshape((-1, 3))[f.ravel()], dtype=np.float32, order='C')
+                    self.vbo_colors_mesh[mesh][polygons].set_array(colors_by_face.astype(np.float32))
+                    self.vbo_colors_mesh[mesh][polygons].bind()
+
+        if 'f' in which:
+            self.vbo_indices.set_array(self.f.astype(np.uint32))
+            self.vbo_indices.bind()
+
+            self.vbo_indices_range.set_array(np.arange(self.f.size, dtype=np.uint32).ravel())
+            self.vbo_indices_range.bind()
+            flen = 0
+            for mesh in range(len(self.f_list)):
+                for polygons in range(len(self.f_list[mesh])):
+                    f = self.f_list[mesh][polygons]
+
+                    fc = np.arange(flen, flen + len(f))
+                    # fc[:, 0] = fc[:, 0] & 255
+                    # fc[:, 1] = (fc[:, 1] >> 8) & 255
+                    # fc[:, 2] = (fc[:, 2] >> 16) & 255
+                    fc = np.asarray(fc, dtype=np.int32)
+                    self.vbo_face_ids_list[mesh][polygons].set_array(fc)
+                    self.vbo_face_ids_list[mesh][polygons].bind()
+
+                    flen += len(f)
+
+                    self.vbo_indices_mesh_list[mesh][polygons].set_array(np.array(self.f_list[mesh][polygons]).astype(np.uint32))
+                    self.vbo_indices_mesh_list[mesh][polygons].bind()
+
+        if 'texture_stack' in which:
+            # gl = self.glf
+            # texture_data = np.array(self.texture_image*255., dtype='uint8', order='C')
+
+            # self.release_textures()
+            #
+            # for mesh in range(len(self.f_list)):
+            #     textureIDs = []
+            #     for polygons in range(len(self.f_list[mesh])):
+            #         texture = None
+            #         if self.haveUVs_list[mesh][polygons]:
+            #             texture = GL.GLuint(0)
+            #             GL.glGenTextures( 1, texture )
+            #             GL.glPixelStorei(GL.GL_UNPACK_ALIGNMENT,1)
+            #             GL.glTexParameterf(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MAG_FILTER, GL.GL_LINEAR)
+            #             GL.glTexParameterf(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MIN_FILTER, GL.GL_LINEAR_MIPMAP_LINEAR)
+            #             GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_BASE_LEVEL, 0)
+            #             GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MAX_LEVEL, 0)
+            #             GL.glTexParameterf(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_WRAP_S, GL.GL_REPEAT)
+            #             GL.glTexParameterf(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_WRAP_T, GL.GL_REPEAT)
+            #             GL.glBindTexture(GL.GL_TEXTURE_2D, texture)
+            #             #Send texture.
+            #             #Pol: Check if textures are float or uint from Blender import.
+            #             image = (self.textures_list[mesh][polygons]*255.0).astype(np.uint8)
+            #             GL.glTexImage2D(GL.GL_TEXTURE_2D, 0, GL.GL_RGB8, image.shape[1], image.shape[0], 0, GL.GL_RGB, GL.GL_UNSIGNED_BYTE, image)
+            #         textureIDs = textureIDs + [texture]
+            #     self.textureID_mesh_list = self.textureID_mesh_list + [textureIDs]
+
+            # gl.GenTextures(1, tmp) # TODO: free after done
+            # self.textureID = tmp[0]
+            if self.initialized:
+                textureCoordIdx = 0
+                for mesh in range(len(self.f_list)):
+                    for polygons in range(len(self.f_list[mesh])):
+                        texture = None
+
+                        if self.haveUVs_list[mesh][polygons]:
+                            texture = self.textureID_mesh_list[mesh][polygons]
+
+                            GL.glBindTexture(GL.GL_TEXTURE_2D, texture)
+
+                            #Update the OpenGL textures with all the textures. (Inefficient as many might not have changed).
+                            image = np.array(np.flipud((self.textures_list[mesh][polygons] * 255.0)), order='C', dtype=np.uint8)
+                            self.textures_list[mesh][polygons] = self.texture_stack[textureCoordIdx:image.size].reshape(image.shape)
+
+                            textureCoordIdx = textureCoordIdx + image.size
+                            image = np.array(np.flipud((self.textures_list[mesh][polygons] * 255.0)), order='C', dtype=np.uint8)
+
+                            GL.glTexSubImage2D(GL.GL_TEXTURE_2D, 0, 0, 0, image.shape[1], image.shape[0], GL.GL_RGB, GL.GL_UNSIGNED_BYTE,
+                                               image.reshape([image.shape[1], image.shape[0], -1]).ravel().tostring())
+
+        if 'imageGT' in which:
+
+            GL.glActiveTexture(GL.GL_TEXTURE1)
+            GL.glBindTexture(GL.GL_TEXTURE_2D, self.textureGT)
+            image = np.array(np.flipud((self.imageGT.r)), order='C', dtype=np.float32)
+            # GL.glTexStorage2D(GL.GL_TEXTURE_2D, 1, GL.GL_RGBA, image.shape[1], image.shape[0])
+            GL.glTexSubImage2D(GL.GL_TEXTURE_2D, 0, 0, 0, image.shape[1], image.shape[0], GL.GL_RGB, GL.GL_FLOAT, image)
+
+        if 'v' or 'f' or 'vc' or 'ft' or 'camera' or 'texture_stack' or 'imageGT' in which:
+            self.render_errors()
+
+
+    def release_textures(self):
+        if hasattr(self, 'textureID_mesh_list'):
+            if self.textureID_mesh_list != []:
+                for texture_mesh in self.textureID_mesh_list:
+                    if texture_mesh != []:
+                        for texture in texture_mesh:
+                            if texture != None:
+                                GL.glDeleteTextures(1, [texture.value])
+
+        self.textureID_mesh_list = []
+
+    @depends_on(dterms+terms)
+    def color_image(self):
+        self._call_on_changed()
+
+        GL.glPolygonMode(GL.GL_FRONT_AND_BACK, GL.GL_FILL)
+
+        no_overdraw = self.draw_color_image(with_vertex_colors=True, with_texture_on=True)
+
+        if not self.overdraw:
+            return no_overdraw
+
+
+        GL.glPolygonMode(GL.GL_FRONT_AND_BACK, GL.GL_LINE)
+        GL.glLineWidth(1.)
+        overdraw = self.draw_color_image()
+        GL.glPolygonMode(GL.GL_FRONT_AND_BACK, GL.GL_FILL)
+
+        # return overdraw * np.atleast_3d(self.boundarybool_image)
+
+        boundarybool_image = self.boundarybool_image
+        if self.num_channels > 1:
+            boundarybool_image = np.atleast_3d(boundarybool_image)
+
+        return np.asarray((overdraw*boundarybool_image + no_overdraw*(1-boundarybool_image)), order='C')
+
+
+    def image_mesh_bool(self, meshes):
+        self.makeCurrentContext()
+        self._call_on_changed()
+        GL.glPolygonMode(GL.GL_FRONT_AND_BACK, GL.GL_FILL)
+        self._call_on_changed()
+
+        GL.glClearColor(0.,0.,0., 1.)
+
+        # use face colors if given
+        # FIXME: this won't work for 2 channels
+        GL.glBindFramebuffer(GL.GL_DRAW_FRAMEBUFFER, self.fbo)
+        GL.glClear(GL.GL_COLOR_BUFFER_BIT | GL.GL_DEPTH_BUFFER_BIT)
+
+        GL.glUseProgram(self.colorProgram)
+        for mesh in meshes:
+            self.draw_index(mesh)
+
+        GL.glBindFramebuffer(GL.GL_FRAMEBUFFER, self.fbo)
+        GL.glReadBuffer(GL.GL_COLOR_ATTACHMENT0)
+        result = np.flipud(np.frombuffer(GL.glReadPixels( 0,0, self.frustum['width'], self.frustum['height'], GL.GL_RGB, GL.GL_UNSIGNED_BYTE), np.uint8).reshape(self.frustum['height'],self.frustum['height'],3).astype(np.uint32))[:,:,0]
+
+        GL.glBindFramebuffer(GL.GL_DRAW_FRAMEBUFFER, self.fbo)
+
+        return result!=0
+
+    @depends_on(dterms+terms)
+    def indices_image(self):
+        self._call_on_changed()
+        self.makeCurrentContext()
+        GL.glPolygonMode(GL.GL_FRONT_AND_BACK, GL.GL_FILL)
+        self._call_on_changed()
+
+        GL.glClearColor(0.,0.,0., 1.)
+
+        # use face colors if given
+        # FIXME: this won't work for 2 channels
+        GL.glBindFramebuffer(GL.GL_DRAW_FRAMEBUFFER, self.fbo)
+        GL.glClear(GL.GL_COLOR_BUFFER_BIT | GL.GL_DEPTH_BUFFER_BIT)
+
+        GL.glUseProgram(self.colorProgram)
+
+        for index in range(len(self.f_list)):
+            self.draw_index(index)
+
+        GL.glBindFramebuffer(GL.GL_FRAMEBUFFER, self.fbo)
+        GL.glReadBuffer(GL.GL_COLOR_ATTACHMENT0)
+        result = np.flipud(np.frombuffer(GL.glReadPixels( 0,0, self.frustum['width'], self.frustum['height'], GL.GL_RGB, GL.GL_UNSIGNED_BYTE), np.uint8).reshape(self.frustum['height'],self.frustum['height'],3).astype(np.uint32))[:,:,0]
+
+        GL.glBindFramebuffer(GL.GL_DRAW_FRAMEBUFFER, self.fbo)
+
+        return result
+
+    def draw_index(self, index):
+
+        mesh = index
+
+        vbo_color = self.vbo_colors_mesh[mesh]
+        vc = self.vc_list[mesh]
+        colors = np.array(np.ones_like(vc)*(index+1)/255.0, dtype=np.float32)
+
+        #Pol: Make a static zero vbo_color to make it more efficient?
+        vbo_color.set_array(colors)
+
+        view_mtx = self.camera.openglMat.dot(np.asarray(np.vstack((self.camera.view_matrix, np.array([0, 0, 0, 1]))),np.float32))
+        MVP = np.dot(self.projectionMatrix, view_mtx)
+
+        for polygons in np.arange(len(self.f_list[mesh])):
+
+            vao_mesh = self.vao_tex_mesh_list[mesh][polygons]
+            vbo_f = self.vbo_indices_mesh_list[mesh][polygons]
+
+            GL.glBindVertexArray(vao_mesh)
+            vbo_color.bind()
+
+            if self.f.shape[1]==2:
+                primtype = GL.GL_LINES
+            else:
+                primtype = GL.GL_TRIANGLES
+
+            GL.glUniformMatrix4fv(self.MVP_location, 1, GL.GL_TRUE, MVP)
+
+            GL.glDrawElements(primtype, len(vbo_f)*vbo_f.data.shape[1], GL.GL_UNSIGNED_INT, None)
+
+
+
+    def draw_texcoord_image(self, v, f, ft, boundarybool_image=None):
+
+        # gl = glf
+        # gl.Disable(GL_TEXTURE_2D)
+        # gl.DisableClientState(GL_TEXTURE_COORD_ARR
+        self.makeCurrentContext()
+        shaders.glUseProgram(self.colorProgram)
+
+        GL.glBindFramebuffer(GL.GL_DRAW_FRAMEBUFFER, self.fbo)
+        GL.glClear(GL.GL_COLOR_BUFFER_BIT | GL.GL_DEPTH_BUFFER_BIT)
+
+        # want vtc: texture-coordinates per vertex (not per element in vc)
+        colors = ft
+
+        #use the third channel to identify the corresponding textures.
+        color3 = np.vstack([np.ones([self.ft_list[mesh].shape[0],1])*mesh for mesh in range(len(self.ft_list))]).astype(np.float32) / len(self.ft_list)
+
+        colors = np.asarray(np.hstack((colors, color3)), np.float64, order='C')
+        self.draw_colored_primitives(self.vao_dyn, v, f, colors)
+
+        #Why do we need this?
+        if boundarybool_image is not None:
+            GL.glPolygonMode(GL.GL_FRONT_AND_BACK, GL.GL_LINE)
+            self.draw_colored_primitives(self.vao_dyn, v, f, colors)
+            GL.glPolygonMode(GL.GL_FRONT_AND_BACK, GL.GL_FILL)
+
+        GL.glBindFramebuffer(GL.GL_FRAMEBUFFER, self.fbo)
+
+        GL.glReadBuffer(GL.GL_COLOR_ATTACHMENT0)
+
+        result = np.flipud(np.frombuffer(GL.glReadPixels( 0,0, self.frustum['width'], self.frustum['height'], GL.GL_RGB, GL.GL_UNSIGNED_BYTE), np.uint8).reshape(self.frustum['height'],self.frustum['height'],3)[:,:,:3].astype(np.float64))/255.0
+
+        result[:,:,1] = 1. - result[:,:,1]
+        return result
+
+    @depends_on('ft', 'textures')
+    def mesh_tex_coords(self):
+        ftidxs = self.ft.ravel()
+        data = self.ft
+        # Pol: careful with this:
+        data[:,1] = 1.0 - 1.0*data[:,1]
+        return data
+
+    # Depends on 'f' because vpe/fpe depend on f
+    # Pol: Check that depends on works on other attributes that depend_on x, if x changes.
+    @depends_on( 'ft', 'f')
+    def wireframe_tex_coords(self):
+        print("wireframe_tex_coords is being computed!")
+        vvt = np.zeros((self.v.r.size/3,2), dtype=np.float64, order='C')
+        vvt[self.f.flatten()] = self.mesh_tex_coords
+        edata = np.zeros((self.vpe.size,2), dtype=np.float64, order='C')
+        edata = vvt[self.ma.ravel()]
+        return edata
+
+    # TODO: can this not be inherited from base? turning off texture mapping in that instead?
+    @depends_on(dterms+terms)
+    def boundaryid_image(self):
+        self._call_on_changed()
+
+        # self.texture_mapping_of
+        self.makeCurrentContext()
+        GL.glUseProgram(self.colorProgram)
+
+        result = self.draw_boundaryid_image(self.v.r, self.f, self.vpe, self.fpe, self.camera)
+
+        GL.glUseProgram(self.colorTextureProgram)
+        # self.texture_mapping_on(with_vertex_colors=True)
+
+        return result
+
+    def draw_color_image(self, with_vertex_colors=True, with_texture_on=True):
+        self.makeCurrentContext()
+        self._call_on_changed()
+
+        GL.glEnable(GL.GL_MULTISAMPLE)
+
+        if hasattr(self, 'bgcolor'):
+            GL.glClearColor(self.bgcolor.r[0], self.bgcolor.r[1%self.num_channels], self.bgcolor.r[2%self.num_channels], 1.)
+
+        # use face colors if given
+        # FIXME: this won't work for 2 channels
+        GL.glBindFramebuffer(GL.GL_DRAW_FRAMEBUFFER, self.fbo)
+        GL.glClear(GL.GL_COLOR_BUFFER_BIT | GL.GL_DEPTH_BUFFER_BIT)
+        if self.msaa:
+            GL.glBindFramebuffer(GL.GL_DRAW_FRAMEBUFFER, self.fbo_ms)
+        else:
+            GL.glBindFramebuffer(GL.GL_DRAW_FRAMEBUFFER, self.fbo_noms)
+
+        GL.glClear(GL.GL_COLOR_BUFFER_BIT | GL.GL_DEPTH_BUFFER_BIT)
+        view_mtx = self.camera.openglMat.dot(np.asarray(np.vstack((self.camera.view_matrix, np.array([0, 0, 0, 1]))),np.float32))
+        MVP = np.dot(self.projectionMatrix, view_mtx)
+
+        for mesh in range(len(self.f_list)):
+
+            vbo_color = self.vbo_colors_mesh[mesh]
+            vc = self.vc_list[mesh]
+            colors = None
+
+            if with_vertex_colors:
+                colors = vc.r.astype(np.float32)
+            else:
+                #Only texture.
+                colors = np.ones_like(vc).astype(np.float32)
+
+            #Pol: Make a static zero vbo_color to make it more efficient?
+            vbo_color.set_array(colors)
+
+            for polygons in np.arange(len(self.f_list[mesh])):
+
+                vao_mesh = self.vao_tex_mesh_list[mesh][polygons]
+                vbo_f = self.vbo_indices_mesh_list[mesh][polygons]
+
+                GL.glBindVertexArray(vao_mesh)
+                vbo_color.bind()
+
+                if self.f.shape[1]==2:
+                    primtype = GL.GL_LINES
+                else:
+                    primtype = GL.GL_TRIANGLES
+
+                    if with_texture_on and self.haveUVs_list[mesh][polygons]:
+                        GL.glUseProgram(self.colorTextureProgram)
+                        texture = self.textureID_mesh_list[mesh][polygons]
+
+                        GL.glActiveTexture(GL.GL_TEXTURE0)
+                        GL.glBindTexture(GL.GL_TEXTURE_2D, texture)
+                        GL.glUniform1i(self.textureID, 0)
+                    else:
+                        GL.glUseProgram(self.colorProgram)
+
+                GL.glUniformMatrix4fv(self.MVP_texture_location, 1, GL.GL_TRUE, MVP)
+
+                GL.glDrawElements(primtype, len(vbo_f)*vbo_f.data.shape[1], GL.GL_UNSIGNED_INT, None)
+
+        if self.msaa:
+            GL.glBindFramebuffer(GL.GL_READ_FRAMEBUFFER, self.fbo_ms)
+        else:
+            GL.glBindFramebuffer(GL.GL_READ_FRAMEBUFFER, self.fbo_noms)
+
+        GL.glBindFramebuffer(GL.GL_DRAW_FRAMEBUFFER, self.fbo)
+        GL.glBlitFramebuffer(0, 0, self.frustum['width'], self.frustum['height'], 0, 0, self.frustum['width'], self.frustum['height'], GL.GL_COLOR_BUFFER_BIT, GL.GL_LINEAR)
+        GL.glBindFramebuffer(GL.GL_FRAMEBUFFER, self.fbo)
+        GL.glReadBuffer(GL.GL_COLOR_ATTACHMENT0)
+
+        result = np.flipud(np.frombuffer(GL.glReadPixels( 0,0, self.frustum['width'], self.frustum['height'], GL.GL_RGB, GL.GL_UNSIGNED_BYTE), np.uint8).reshape(self.frustum['height'],self.frustum['height'],3).astype(np.float64))/255.0
+
+        GL.glBindFramebuffer(GL.GL_DRAW_FRAMEBUFFER, self.fbo)
+        GL.glDisable(GL.GL_MULTISAMPLE)
+        GL.glClearColor(0.,0.,0., 1.)
+
+        if hasattr(self, 'background_image'):
+            bg_px = np.tile(np.atleast_3d(self.visibility_image) == 4294967295, (1,1,3))
+            fg_px = 1 - bg_px
+            result = bg_px * self.background_image + fg_px * result
+
+        return result
+
+    @depends_on('ft', 'f', 'frustum', 'camera')
+    def texcoord_image_quantized(self):
+
+        texcoord_image = self.texcoord_image[:,:, :2].copy()
+        #Temprary:
+        self.texture_image = self.textures_list[0][0].r.copy()
+        texcoord_image[:,:,0] *= self.texture_image.shape[1]-1
+        texcoord_image[:,:,1] *= self.texture_image.shape[0]-1
+        texture_idx = (self.texcoord_image[:,:,2]*len(self.ft_list)).astype(np.uint32)
+        texcoord_image = np.round(texcoord_image)
+        texcoord_image = texcoord_image[:,:,0] + texcoord_image[:,:,1]*self.texture_image.shape[1]
+
+        return texcoord_image, texture_idx
+
+    def checkBufferNum(self):
+       GL.glGenBuffers(1)
+
+    @depends_on('ft', 'f', 'frustum', 'camera')
+    def texcoord_image(self):
+        return self.draw_texcoord_image(self.v.r, self.f, self.ft, self.boundarybool_image if self.overdraw else None)
+
 
 
 def main():
