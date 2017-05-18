@@ -285,6 +285,32 @@ class BaseRenderer(Ch):
 
         shaders.glUseProgram(self.colorProgram)
 
+        FRAGMENT_SHADER_NOPERSP = shaders.compileShader("""#version 330 core
+        // Interpolated values from the vertex shaders
+        in vec3 theColor;
+        //noperspective in vec3 theColor;
+        // Ouput data
+        out vec3 color;
+        void main(){
+            color = color.xyz;
+        }""", GL.GL_FRAGMENT_SHADER)
+
+        VERTEX_SHADER_NOPERSP = shaders.compileShader("""#version 330 core
+        // Input vertex data, different for all executions of this shader.
+        layout (location = 0) in vec3 position;
+        layout (location = 1) in vec3 color;
+        uniform mat4 MVP;
+        out vec3 theColor;
+        //noperspective out vec3 theColor;
+        // Values that stay constant for the whole mesh.
+        void main(){
+            // Output position of the vertex, in clip space : MVP * position
+            gl_Position =  MVP* vec4(position,1);
+            theColor = color;
+        }""", GL.GL_VERTEX_SHADER)
+
+        self.colorProgram_noperspective = shaders.compileProgram(VERTEX_SHADER_NOPERSP,FRAGMENT_SHADER_NOPERSP)
+
         # self.colorProgram = shaders.compileProgram(VERTEX_SHADER,FRAGMENT_SHADER)
 
         position_location = GL.glGetAttribLocation(self.colorProgram, 'position')
@@ -308,6 +334,7 @@ class BaseRenderer(Ch):
 
 
         self.vbo_verts_face = vbo.VBO(self.verts_by_face.astype(np.float32))
+
         self.vbo_verts_dyn = vbo.VBO(np.array(self.v, dtype=np.float32))
 
         self.vbo_colors =  vbo.VBO(np.array(self.vc, dtype=np.float32))
@@ -665,8 +692,10 @@ class BaseRenderer(Ch):
             GL.glClear(GL.GL_COLOR_BUFFER_BIT | GL.GL_DEPTH_BUFFER_BIT);
 
             silhouette_edges, faces_facing_camera = self.compute_vpe_boundary_idxs(v, f, camera, fpe)
+            self.silhouette_edges = silhouette_edges
 
             lines_e = vpe[silhouette_edges]
+            self.lines_e = lines_e
             lines_v = v
 
             if len(lines_e)==0:
@@ -1686,14 +1715,14 @@ class SQErrorRenderer(ColoredRenderer):
         self.MVP_texture_location = GL.glGetUniformLocation(self.colorTextureProgram, 'MVP')
 
         self.vbo_indices_mesh_list = []
-        self.vbo_face_ids_list = []
+
         self.vbo_colors_mesh = []
         self.vbo_verts_mesh = []
         self.vao_tex_mesh_list = []
         self.vbo_uvs_mesh = []
         self.textureID_mesh_list = []
 
-        flen = 0
+
         for mesh in range(len(self.f_list)):
 
             vaos_mesh = []
@@ -1732,18 +1761,6 @@ class SQErrorRenderer(ColoredRenderer):
                     GL.glEnableVertexAttribArray(uvs_location) # from 'location = 0' in shader
                     GL.glVertexAttribPointer(uvs_location, 2, GL.GL_FLOAT, GL.GL_FALSE, 0, None)
 
-                fc = np.arange(flen, flen + len(f))
-                # fc[:, 0] = fc[:, 0] & 255
-                # fc[:, 1] = (fc[:, 1] >> 8) & 255
-                # fc[:, 2] = (fc[:, 2] >> 16) & 255
-                fc = np.asarray(fc, dtype=np.int32)
-                vbo_face_ids = vbo.VBO(fc)
-                vbo_face_ids.bind()
-                GL.glEnableVertexAttribArray(self.face_ids_location)  # from 'location = 0' in shader
-                GL.glVertexAttribIPointer(self.face_ids_location, 1, GL.GL_INT, 0, None)
-
-                flen += len(f)
-
                 #Textures:
                 texture = None
                 if self.haveUVs_list[mesh][polygons]:
@@ -1765,7 +1782,6 @@ class SQErrorRenderer(ColoredRenderer):
 
                 textureIDs_mesh = textureIDs_mesh + [texture]
                 vbo_indices_mesh = vbo_indices_mesh + [vbo_indices]
-                vbo_face_ids_mesh = vbo_face_ids_mesh + [vbo_face_ids]
                 vbo_colors_mesh = vbo_colors_mesh + [vbo_colors]
                 vbo_vertices_mesh = vbo_vertices_mesh + [vbo_verts]
                 vbo_uvs_mesh = vbo_uvs_mesh + [vbo_uvs]
@@ -1774,7 +1790,7 @@ class SQErrorRenderer(ColoredRenderer):
             self.textureID_mesh_list = self.textureID_mesh_list + [textureIDs_mesh]
             self.vao_tex_mesh_list = self.vao_tex_mesh_list + [vaos_mesh]
             self.vbo_indices_mesh_list = self.vbo_indices_mesh_list + [vbo_indices_mesh]
-            self.vbo_face_ids_list = self.vbo_face_ids_list + [vbo_face_ids_mesh]
+
             self.vbo_colors_mesh = self.vbo_colors_mesh + [vbo_colors_mesh]
             self.vbo_verts_mesh = self.vbo_verts_mesh + [vbo_vertices_mesh]
             self.vbo_uvs_mesh = self.vbo_uvs_mesh + [vbo_uvs_mesh]
@@ -1798,23 +1814,27 @@ class SQErrorRenderer(ColoredRenderer):
         layout (location = 0) in vec3 position;
         layout (location = 1) in vec3 colorIn;
         layout(location = 2) in vec2 vertexUV;
-        layout(location = 3) in int face_id;
+        layout(location = 3) in uint face_id;
+        layout(location = 4) in vec3 barycentric;
 
         uniform mat4 MVP;
         out vec3 theColor;
-        out vec3 pos;
-        flat out int face_out;
+        out vec4 pos;
+        flat out uint face_out;
+        out vec3 barycentric_vert_out;
         out vec2 UV;
         
         // Values that stay constant for the whole mesh.
         void main(){
             // Output position of the vertex, in clip space : MVP * position
             gl_Position =  MVP* vec4(position,1);
-            vec4 pos4 =  MVP * vec4(position,1);
-            pos =  pos4.xyz;
+            pos =  MVP * vec4(position,1);
+            //pos =  pos4.xyz;
             theColor = colorIn;
             UV = vertexUV;
             face_out = face_id;
+            barycentric_vert_out = barycentric;
+            
         }""", GL.GL_VERTEX_SHADER)
 
         ERRORS_FRAGMENT_SHADER = shaders.compileShader("""#version 330 core 
@@ -1827,8 +1847,9 @@ class SQErrorRenderer(ColoredRenderer):
             // Interpolated values from the vertex shaders
             in vec3 theColor;
             in vec2 UV;
-            flat in int face_out;
-            in vec3 pos;
+            flat in uint face_out;
+            in vec4 pos;
+            in vec3 barycentric_vert_out;
                         
             layout(location = 3) uniform sampler2D myTextureSampler;
 
@@ -1838,16 +1859,19 @@ class SQErrorRenderer(ColoredRenderer):
             // Ouput data
             layout(location = 0) out vec3 color; 
             layout(location = 1) out vec2 sample_pos;
-            layout(location = 2) out int sample_face;
+            layout(location = 2) out uint sample_face;
+            layout(location = 3) out vec2 barycentric1;
+            layout(location = 4) out vec2 barycentric2;
             
             void main(){
                 vec3 finalColor = theColor * texture2D( myTextureSampler, UV).rgb;
                 color = finalColor.rgb;
                                 
-                sample_pos = pos.xy;
+                sample_pos = ((0.5*pos.xy/pos.w) + 0.5)*vec2(ww,wh);
                 sample_face = face_out;
+                barycentric1 = barycentric_vert_out.xy;
+                barycentric2 = vec2(barycentric_vert_out.z, 0.);
                 
-            
             }""", GL.GL_FRAGMENT_SHADER)
 
         self.errorTextureProgram = shaders.compileProgram(VERTEX_SHADER, ERRORS_FRAGMENT_SHADER)
@@ -1884,7 +1908,9 @@ class SQErrorRenderer(ColoredRenderer):
   
             layout(location = 2) uniform sampler2DMS colors;
             layout(location = 3) uniform sampler2DMS sample_positions;
-            layout(location = 4) uniform sampler2DMS sample_faces;
+            layout(location = 4) uniform usampler2DMS sample_faces;
+            layout(location = 5) uniform sampler2DMS sample_barycentric_coords1;
+            layout(location = 6) uniform sampler2DMS sample_barycentric_coords2;
 
             uniform float ww;
             uniform float wh;
@@ -1893,7 +1919,9 @@ class SQErrorRenderer(ColoredRenderer):
             // Ouput data
             layout(location = 0) out vec3 colorFetchOut;
             layout(location = 1) out vec2 sample_pos;
-            layout(location = 2) out int sample_face;
+            layout(location = 2) out uint sample_face;
+            layout(location = 3) out vec2 sample_barycentric1;
+            layout(location = 4) out vec2 sample_barycentric2;
 
             //out int gl_SampleMask[];
             const int all_sample_mask = 0xffff;
@@ -1902,7 +1930,10 @@ class SQErrorRenderer(ColoredRenderer):
                 ivec2 texcoord = ivec2(gl_FragCoord.xy);
                 colorFetchOut = texelFetch(colors, texcoord, sample).xyz;
                 sample_pos = texelFetch(sample_positions, texcoord, sample).xy;        
-                sample_face = int(texelFetch(sample_faces, texcoord, sample).x);
+                sample_face = texelFetch(sample_faces, texcoord, sample).r;
+                sample_barycentric1 = texelFetch(sample_barycentric_coords1, texcoord, sample).xy;
+                sample_barycentric2 = texelFetch(sample_barycentric_coords2, texcoord, sample).xy;
+
 
             }""", GL.GL_FRAGMENT_SHADER)
 
@@ -1980,19 +2011,26 @@ class SQErrorRenderer(ColoredRenderer):
 
         self.texture_errors_sample_faces = GL.glGenTextures(1)
         GL.glBindTexture(GL.GL_TEXTURE_2D_MULTISAMPLE, self.texture_errors_sample_faces)
-        GL.glTexImage2DMultisample(GL.GL_TEXTURE_2D_MULTISAMPLE, self.nsamples, GL.GL_R32I, self.frustum['width'], self.frustum['height'], False)
+        GL.glTexImage2DMultisample(GL.GL_TEXTURE_2D_MULTISAMPLE, self.nsamples, GL.GL_R32UI, self.frustum['width'], self.frustum['height'], False)
         # GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MIN_FILTER, GL.GL_LINEAR)
         GL.glFramebufferTexture2D(GL.GL_FRAMEBUFFER, GL.GL_COLOR_ATTACHMENT2, GL.GL_TEXTURE_2D_MULTISAMPLE, self.texture_errors_sample_faces, 0)
         #
-        # self.render_buf_errors_dedx = GL.glGenRenderbuffers(1)
-        # GL.glBindRenderbuffer(GL.GL_RENDERBUFFER, self.render_buf_errors_dedx)
-        # GL.glRenderbufferStorageMultisample(GL.GL_RENDERBUFFER, self.nsamples, GL.GL_RGB32F, self.frustum['width'], self.frustum['height'])
-        # GL.glFramebufferRenderbuffer(GL.GL_DRAW_FRAMEBUFFER, GL.GL_COLOR_ATTACHMENT4, GL.GL_RENDERBUFFER, self.render_buf_errors_dedx)
-        #
-        # self.render_buf_errors_dedy = GL.glGenRenderbuffers(1)
-        # GL.glBindRenderbuffer(GL.GL_RENDERBUFFER, self.render_buf_errors_dedy)
-        # GL.glRenderbufferStorageMultisample(GL.GL_RENDERBUFFER, self.nsamples, GL.GL_RGB32F, self.frustum['width'], self.frustum['height'])
-        # GL.glFramebufferRenderbuffer(GL.GL_DRAW_FRAMEBUFFER, GL.GL_COLOR_ATTACHMENT5, GL.GL_RENDERBUFFER, self.render_buf_errors_dedy)
+
+        self.texture_errors_sample_barycentric1 = GL.glGenTextures(1)
+        GL.glBindTexture(GL.GL_TEXTURE_2D_MULTISAMPLE, self.texture_errors_sample_barycentric1)
+        GL.glTexImage2DMultisample(GL.GL_TEXTURE_2D_MULTISAMPLE, self.nsamples, GL.GL_RG32F, self.frustum['width'], self.frustum['height'], False)
+        # GL.glTexParameteri(GL.GL_TEXTURE_2D_MULTISAMPLE, GL.GL_TEXTURE_MIN_FILTER, GL.GL_NEAREST)
+        # GL.glTexParameteri(GL.GL_TEXTURE_2D_MULTISAMPLE, GL.GL_TEXTURE_MAG_FILTER, GL.GL_NEAREST)
+        # GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MIN_FILTER, GL.GL_LINEAR)
+        GL.glFramebufferTexture2D(GL.GL_FRAMEBUFFER, GL.GL_COLOR_ATTACHMENT3, GL.GL_TEXTURE_2D_MULTISAMPLE, self.texture_errors_sample_barycentric1, 0)
+
+        self.texture_errors_sample_barycentric2 = GL.glGenTextures(1)
+        GL.glBindTexture(GL.GL_TEXTURE_2D_MULTISAMPLE, self.texture_errors_sample_barycentric2)
+        GL.glTexImage2DMultisample(GL.GL_TEXTURE_2D_MULTISAMPLE, self.nsamples, GL.GL_RG32F, self.frustum['width'], self.frustum['height'], False)
+        # GL.glTexParameteri(GL.GL_TEXTURE_2D_MULTISAMPLE, GL.GL_TEXTURE_MIN_FILTER, GL.GL_NEAREST)
+        # GL.glTexParameteri(GL.GL_TEXTURE_2D_MULTISAMPLE, GL.GL_TEXTURE_MAG_FILTER, GL.GL_NEAREST)
+        # GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MIN_FILTER, GL.GL_LINEAR)
+        GL.glFramebufferTexture2D(GL.GL_FRAMEBUFFER, GL.GL_COLOR_ATTACHMENT4, GL.GL_TEXTURE_2D_MULTISAMPLE, self.texture_errors_sample_barycentric2, 0)
 
 
         self.z_buf_ms_errors = GL.glGenTextures(1)
@@ -2038,18 +2076,18 @@ class SQErrorRenderer(ColoredRenderer):
 
         self.render_buffer_fetch_sample_face = GL.glGenRenderbuffers(1)
         GL.glBindRenderbuffer(GL.GL_RENDERBUFFER, self.render_buffer_fetch_sample_face)
-        GL.glRenderbufferStorage(GL.GL_RENDERBUFFER, GL.GL_R32I, self.frustum['width'], self.frustum['height'])
+        GL.glRenderbufferStorage(GL.GL_RENDERBUFFER, GL.GL_R32UI, self.frustum['width'], self.frustum['height'])
         GL.glFramebufferRenderbuffer(GL.GL_FRAMEBUFFER, GL.GL_COLOR_ATTACHMENT2, GL.GL_RENDERBUFFER, self.render_buffer_fetch_sample_face)
         #
-        # self.render_buf_errors_dedx = GL.glGenRenderbuffers(1)
-        # GL.glBindRenderbuffer(GL.GL_RENDERBUFFER, self.render_buf_errors_dedx)
-        # GL.glRenderbufferStorageMultisample(GL.GL_RENDERBUFFER, self.nsamples, GL.GL_RGB32F, self.frustum['width'], self.frustum['height'])
-        # GL.glFramebufferRenderbuffer(GL.GL_DRAW_FRAMEBUFFER, GL.GL_COLOR_ATTACHMENT4, GL.GL_RENDERBUFFER, self.render_buf_errors_dedx)
-        #
-        # self.render_buf_errors_dedy = GL.glGenRenderbuffers(1)
-        # GL.glBindRenderbuffer(GL.GL_RENDERBUFFER, self.render_buf_errors_dedy)
-        # GL.glRenderbufferStorageMultisample(GL.GL_RENDERBUFFER, self.nsamples, GL.GL_RGB32F, self.frustum['width'], self.frustum['height'])
-        # GL.glFramebufferRenderbuffer(GL.GL_DRAW_FRAMEBUFFER, GL.GL_COLOR_ATTACHMENT5, GL.GL_RENDERBUFFER, self.render_buf_errors_dedy)
+        self.render_buffer_fetch_sample_barycentric1 = GL.glGenRenderbuffers(1)
+        GL.glBindRenderbuffer(GL.GL_RENDERBUFFER, self.render_buffer_fetch_sample_barycentric1)
+        GL.glRenderbufferStorage(GL.GL_RENDERBUFFER, GL.GL_RG32F, self.frustum['width'], self.frustum['height'])
+        GL.glFramebufferRenderbuffer(GL.GL_FRAMEBUFFER, GL.GL_COLOR_ATTACHMENT3, GL.GL_RENDERBUFFER, self.render_buffer_fetch_sample_barycentric1)
+
+        self.render_buffer_fetch_sample_barycentric2 = GL.glGenRenderbuffers(1)
+        GL.glBindRenderbuffer(GL.GL_RENDERBUFFER, self.render_buffer_fetch_sample_barycentric2)
+        GL.glRenderbufferStorage(GL.GL_RENDERBUFFER, GL.GL_RG32F, self.frustum['width'], self.frustum['height'])
+        GL.glFramebufferRenderbuffer(GL.GL_FRAMEBUFFER, GL.GL_COLOR_ATTACHMENT4, GL.GL_RENDERBUFFER, self.render_buffer_fetch_sample_barycentric2)
 
         self.z_buf_samples_errors = GL.glGenRenderbuffers(1)
         GL.glBindRenderbuffer(GL.GL_RENDERBUFFER, self.z_buf_samples_errors)
@@ -2078,16 +2116,6 @@ class SQErrorRenderer(ColoredRenderer):
         GL.glRenderbufferStorage(GL.GL_RENDERBUFFER, GL.GL_RGB8, self.frustum['width'], self.frustum['height'])
         GL.glFramebufferRenderbuffer(GL.GL_FRAMEBUFFER, GL.GL_COLOR_ATTACHMENT0, GL.GL_RENDERBUFFER, render_buf_errors_render)
 
-        # render_buf_errors_nocolor = GL.glGenRenderbuffers(1)
-        # GL.glBindRenderbuffer(GL.GL_RENDERBUFFER, render_buf_errors_nocolor)
-        # GL.glRenderbufferStorage(GL.GL_RENDERBUFFER, GL.GL_RGBA, self.frustum['width'], self.frustum['height'])
-        # GL.glFramebufferRenderbuffer(GL.GL_FRAMEBUFFER, GL.GL_COLOR_ATTACHMENT1, GL.GL_RENDERBUFFER, render_buf_errors_nocolor)
-        #
-        # render_buf_errors_notexture = GL.glGenRenderbuffers(1)
-        # GL.glBindRenderbuffer(GL.GL_RENDERBUFFER, render_buf_errors_notexture)
-        # GL.glRenderbufferStorage(GL.GL_RENDERBUFFER, GL.GL_RGBA, self.frustum['width'], self.frustum['height'])
-        # GL.glFramebufferRenderbuffer(GL.GL_FRAMEBUFFER, GL.GL_COLOR_ATTACHMENT2, GL.GL_RENDERBUFFER, render_buf_errors_notexture)
-
         render_buf_errors_sample_position = GL.glGenRenderbuffers(1)
         GL.glBindRenderbuffer(GL.GL_RENDERBUFFER, render_buf_errors_sample_position)
         GL.glRenderbufferStorage(GL.GL_RENDERBUFFER, GL.GL_RG32F, self.frustum['width'], self.frustum['height'])
@@ -2095,13 +2123,19 @@ class SQErrorRenderer(ColoredRenderer):
 
         render_buf_errors_sample_face = GL.glGenRenderbuffers(1)
         GL.glBindRenderbuffer(GL.GL_RENDERBUFFER, render_buf_errors_sample_face)
-        GL.glRenderbufferStorage(GL.GL_RENDERBUFFER, GL.GL_R32I, self.frustum['width'], self.frustum['height'])
+        GL.glRenderbufferStorage(GL.GL_RENDERBUFFER, GL.GL_R32UI, self.frustum['width'], self.frustum['height'])
         GL.glFramebufferRenderbuffer(GL.GL_FRAMEBUFFER, GL.GL_COLOR_ATTACHMENT2, GL.GL_RENDERBUFFER, render_buf_errors_sample_face)
         #
-        # render_buf_errors_dedx = GL.glGenRenderbuffers(1)
-        # GL.glBindRenderbuffer(GL.GL_RENDERBUFFER, render_buf_errors_dedx)
-        # GL.glRenderbufferStorage(GL.GL_RENDERBUFFER, GL.GL_RGBA, self.frustum['width'], self.frustum['height'])
-        # GL.glFramebufferRenderbuffer(GL.GL_FRAMEBUFFER, GL.GL_COLOR_ATTACHMENT4, GL.GL_RENDERBUFFER, render_buf_errors_dedx)
+
+        render_buf_errors_sample_barycentric1 = GL.glGenRenderbuffers(1)
+        GL.glBindRenderbuffer(GL.GL_RENDERBUFFER, render_buf_errors_sample_barycentric1)
+        GL.glRenderbufferStorage(GL.GL_RENDERBUFFER, GL.GL_RG32F, self.frustum['width'], self.frustum['height'])
+        GL.glFramebufferRenderbuffer(GL.GL_FRAMEBUFFER, GL.GL_COLOR_ATTACHMENT3, GL.GL_RENDERBUFFER, render_buf_errors_sample_barycentric1)
+
+        render_buf_errors_sample_barycentric2 = GL.glGenRenderbuffers(1)
+        GL.glBindRenderbuffer(GL.GL_RENDERBUFFER, render_buf_errors_sample_barycentric2)
+        GL.glRenderbufferStorage(GL.GL_RENDERBUFFER, GL.GL_RG32F, self.frustum['width'], self.frustum['height'])
+        GL.glFramebufferRenderbuffer(GL.GL_FRAMEBUFFER, GL.GL_COLOR_ATTACHMENT4, GL.GL_RENDERBUFFER, render_buf_errors_sample_barycentric2)
         #
         z_buf_samples_errors = GL.glGenRenderbuffers(1)
         GL.glBindRenderbuffer(GL.GL_RENDERBUFFER, z_buf_samples_errors)
@@ -2122,7 +2156,8 @@ class SQErrorRenderer(ColoredRenderer):
         position_location = GL.glGetAttribLocation(self.errorTextureProgram, 'position')
         color_location = GL.glGetAttribLocation(self.errorTextureProgram, 'colorIn')
         uvs_location = GL.glGetAttribLocation(self.errorTextureProgram, 'vertexUV')
-        self.face_ids_location = GL.glGetAttribLocation(self.errorTextureProgram, 'face_id')
+        face_ids_location = GL.glGetAttribLocation(self.errorTextureProgram, 'face_id')
+        barycentric_location = GL.glGetAttribLocation(self.errorTextureProgram, 'barycentric')
 
         self.vbo_verts_cube= vbo.VBO(np.array(self.v_bgCube).astype(np.float32))
         self.vbo_colors_cube= vbo.VBO(np.array(self.vc_bgCube).astype(np.float32))
@@ -2143,11 +2178,94 @@ class SQErrorRenderer(ColoredRenderer):
         GL.glEnableVertexAttribArray(uvs_location) # from 'location = 0' in shader
         GL.glVertexAttribPointer(uvs_location, 2, GL.GL_FLOAT, GL.GL_FALSE, 0, None)
 
+        f = self.f_bgCube
+        fc = np.tile(np.arange(len(self.f), len(self.f) + len(f))[:, None], [1, 3]).ravel()
+        # fc[:, 0] = fc[:, 0] & 255
+        # fc[:, 1] = (fc[:, 1] >> 8) & 255
+        # fc[:, 2] = (fc[:, 2] >> 16) & 255
+        fc = np.asarray(fc, dtype=np.uint32)
+        vbo_face_ids_cube = vbo.VBO(fc)
+        vbo_face_ids_cube.bind()
+        GL.glEnableVertexAttribArray(face_ids_location)  # from 'location = 0' in shader
+        GL.glVertexAttribIPointer(face_ids_location, 1, GL.GL_UNSIGNED_INT, 0, None)
+
+        #Barycentric cube:
+        f_barycentric = np.asarray(np.tile(np.eye(3), (f.size // 3, 1)), dtype=np.float32, order='C')
+        vbo_barycentric_cube = vbo.VBO(f_barycentric)
+        vbo_barycentric_cube.bind()
+        GL.glEnableVertexAttribArray(barycentric_location)  # from 'location = 0' in shader
+        GL.glVertexAttribPointer(barycentric_location, 3, GL.GL_FLOAT, GL.GL_FALSE, 0, None)
+
         GL.glBindVertexArray(0)
 
         self.vao_quad = GL.GLuint(0)
         GL.glGenVertexArrays(1, self.vao_quad)
         GL.glBindVertexArray(self.vao_quad)
+
+
+        #Bind VAO
+
+        self.vbo_face_ids_list = []
+        self.vbo_barycentric_list = []
+        self.vao_errors_mesh_list = []
+        flen = 1
+
+        for mesh in range(len(self.f_list)):
+
+            vaos_mesh = []
+            vbo_face_ids_mesh = []
+            vbo_barycentric_mesh = []
+            for polygons in np.arange(len(self.f_list[mesh])):
+
+                vao = GL.GLuint(0)
+                GL.glGenVertexArrays(1, vao)
+                GL.glBindVertexArray(vao)
+
+                vbo_f = self.vbo_indices_mesh_list[mesh][polygons]
+                vbo_f.bind()
+                vbo_verts = self.vbo_verts_mesh[mesh][polygons]
+                vbo_verts.bind()
+                GL.glEnableVertexAttribArray(position_location)  # from 'location = 0' in shader
+                GL.glVertexAttribPointer(position_location, 3, GL.GL_FLOAT, GL.GL_FALSE, 0, None)
+                vbo_colors = self.vbo_colors_mesh[mesh][polygons]
+                vbo_colors.bind()
+                GL.glEnableVertexAttribArray(color_location)  # from 'location = 0' in shader
+                GL.glVertexAttribPointer(color_location, 3, GL.GL_FLOAT, GL.GL_FALSE, 0, None)
+                vbo_uvs = self.vbo_uvs_mesh[mesh][polygons]
+                vbo_uvs.bind()
+                GL.glEnableVertexAttribArray(uvs_location)  # from 'location = 0' in shader
+                GL.glVertexAttribPointer(uvs_location, 2, GL.GL_FLOAT, GL.GL_FALSE, 0, None)
+
+                f = self.f_list[mesh][polygons]
+
+                fc = np.tile(np.arange(flen, flen + len(f))[:,None], [1,3]).ravel()
+                # fc[:, 0] = fc[:, 0] & 255
+                # fc[:, 1] = (fc[:, 1] >> 8) & 255
+                # fc[:, 2] = (fc[:, 2] >> 16) & 255
+                fc = np.asarray(fc, dtype=np.uint32)
+                vbo_face_ids = vbo.VBO(fc)
+                vbo_face_ids.bind()
+                GL.glEnableVertexAttribArray(face_ids_location)  # from 'location = 0' in shader
+                GL.glVertexAttribIPointer(face_ids_location, 1, GL.GL_UNSIGNED_INT, 0, None)
+
+                f_barycentric = np.asarray(np.tile(np.eye(3), (f.size // 3, 1)), dtype=np.float32, order='C')
+                vbo_barycentric = vbo.VBO(f_barycentric)
+                vbo_barycentric.bind()
+                GL.glEnableVertexAttribArray(barycentric_location)  # from 'location = 0' in shader
+                GL.glVertexAttribPointer(barycentric_location, 3, GL.GL_FLOAT, GL.GL_FALSE, 0, None)
+
+                flen += len(f)
+
+                vaos_mesh += [vao]
+
+                vbo_face_ids_mesh += [vbo_face_ids]
+                vbo_barycentric_mesh += [vbo_face_ids]
+
+                GL.glBindVertexArray(0)
+
+            self.vbo_face_ids_list += [vbo_face_ids_mesh]
+            self.vbo_barycentric_list += [vbo_barycentric_mesh]
+            self.vao_errors_mesh_list += [vaos_mesh]
 
     def render_errors(self):
 
@@ -2166,22 +2284,8 @@ class SQErrorRenderer(ColoredRenderer):
 
         GL.glClear(GL.GL_COLOR_BUFFER_BIT | GL.GL_DEPTH_BUFFER_BIT)
 
-        drawingBuffers = [GL.GL_COLOR_ATTACHMENT0, GL.GL_COLOR_ATTACHMENT1, GL.GL_COLOR_ATTACHMENT2]
-        GL.glDrawBuffers(3, drawingBuffers)
-
-        # GL.glActiveTexture(GL.GL_TEXTURE1)
-        # # GL.glBindImageTexture(1,self.textureGT, 0, GL.GL_FALSE, 0, GL.GL_READ_ONLY, GL.GL_RGBA8)
-        # GL.glBindTexture(GL.GL_TEXTURE_2D, self.textureGT)
-        # self.textureGTLoc = GL.glGetUniformLocation(self.errorTextureProgram, "imageGT")
-        # GL.glUniform1i(self.textureGTLoc, 1)
-
-        # GL.glActiveTexture(GL.GL_TEXTURE1)
-        # GL.glBindTexture(GL.GL_TEXTURE_2D, self.textureEdges)
-        # image = np.array(np.flipud((self.visibility_image.r)), order='C', dtype=np.uint32)
-        # GL.glTexStorage2D(GL.GL_TEXTURE_2D, 1, GL.GL_RGB, image.shape[1], image.shape[0])
-        # GL.glTexSubImage2D(GL.GL_TEXTURE_2D, 0, 0, 0, image.shape[1], image.shape[0], GL.GL_RGB, GL.GL_UNSIGNED_INT, image)
-        # self.textureEdgesloc = GL.glGetUniformLocation(self.errorTextureProgram, "edges")
-        # GL.glUniform1i(self.textureEdgesloc, 1)
+        drawingBuffers = [GL.GL_COLOR_ATTACHMENT0, GL.GL_COLOR_ATTACHMENT1, GL.GL_COLOR_ATTACHMENT2, GL.GL_COLOR_ATTACHMENT3, GL.GL_COLOR_ATTACHMENT4]
+        GL.glDrawBuffers(5, drawingBuffers)
 
         wwLoc = GL.glGetUniformLocation(self.errorTextureProgram, 'ww')
         whLoc = GL.glGetUniformLocation(self.errorTextureProgram, 'wh')
@@ -2193,19 +2297,11 @@ class SQErrorRenderer(ColoredRenderer):
 
         for mesh in range(len(self.f_list)):
 
-            # vc = self.vc_list[mesh]
-
-            # colors = vc.r.astype(np.float32)
-
-            #Pol: Make a static zero vbo_color to make it more efficient?
-            # vbo_color.set_array(colors)
-
             for polygons in np.arange(len(self.f_list[mesh])):
 
-                vbo_color = self.vbo_colors_mesh[mesh][polygons]
-                vao_mesh = self.vao_tex_mesh_list[mesh][polygons]
+                vao_mesh = self.vao_errors_mesh_list[mesh][polygons]
+
                 vbo_f = self.vbo_indices_mesh_list[mesh][polygons]
-                vbo_f_ids = self.vbo_face_ids_list[mesh][polygons]
 
                 GL.glBindVertexArray(vao_mesh)
                 # vbo_color.bind()
@@ -2220,10 +2316,8 @@ class SQErrorRenderer(ColoredRenderer):
                 # GL.glUseProgram(self.errorTextureProgram)
                 if self.haveUVs_list[mesh][polygons]:
                     texture =  self.textureID_mesh_list[mesh][polygons]
-                    self.vbo_uvs_mesh[mesh].bind()
                 else:
                     texture = self.whitePixelTextureID
-                    self.vbo_uvs_cube.bind()
 
                 GL.glActiveTexture(GL.GL_TEXTURE0)
                 GL.glBindTexture(GL.GL_TEXTURE_2D, texture)
@@ -2231,11 +2325,6 @@ class SQErrorRenderer(ColoredRenderer):
 
                 GL.glUniformMatrix4fv(self.MVP_texture_location, 1, GL.GL_TRUE, MVP)
 
-                # vbo_f_ids.bind()
-                # GL.glEnableVertexAttribArray(self.face_ids_location)  # from 'location = 0' in shader
-                # GL.glVertexAttribIPointer(self.face_ids_location, 1, GL.GL_INT, 0, None)
-
-                # GL.glDrawElements(primtype, len(vbo_f)*vbo_f.data.shape[1], GL.GL_UNSIGNED_INT, None)
                 GL.glDrawArrays(primtype, 0, len(vbo_f)*vbo_f.data.shape[1])
 
         # # #Background cube:
@@ -2276,13 +2365,14 @@ class SQErrorRenderer(ColoredRenderer):
         # GL.glReadBuffer(GL.GL_COLOR_ATTACHMENT1)
         # result_blit_pos = np.flipud(np.frombuffer(GL.glReadPixels(0, 0, self.frustum['width'], self.frustum['height'], GL.GL_RGB, GL.GL_FLOAT), np.float32).reshape(self.frustum['height'], self.frustum['height'], 3)[:,:,0:3].astype(np.float64))
 
-
         GL.glUseProgram(self.fetchSamplesProgram)
         # GL.glDisable(GL.GL_MULTISAMPLE)
 
         self.colorsLoc = GL.glGetUniformLocation(self.fetchSamplesProgram, "colors")
         self.sample_positionsLoc = GL.glGetUniformLocation(self.fetchSamplesProgram, "sample_positions")
         self.sample_facesLoc = GL.glGetUniformLocation(self.fetchSamplesProgram, "sample_faces")
+        self.sample_barycentric1Loc = GL.glGetUniformLocation(self.fetchSamplesProgram, "sample_barycentric_coords1")
+        self.sample_barycentric2Loc = GL.glGetUniformLocation(self.fetchSamplesProgram, "sample_barycentric_coords2")
 
         # GL.glClear(GL.GL_COLOR_BUFFER_BIT | GL.GL_DEPTH_BUFFER_BIT)
 
@@ -2297,15 +2387,19 @@ class SQErrorRenderer(ColoredRenderer):
 
         self.renders = np.zeros([self.nsamples, self.frustum['width'], self.frustum['height'],3])
         self.renders_sample_pos = np.zeros([self.nsamples, self.frustum['width'], self.frustum['height'],2])
-        self.renders_faces = np.zeros([self.nsamples, self.frustum['width'], self.frustum['height']]).astype(np.int32)
+        self.renders_faces = np.zeros([self.nsamples, self.frustum['width'], self.frustum['height']]).astype(np.uint32)
+        self.renders_sample_barycentric1 = np.zeros([self.nsamples, self.frustum['width'], self.frustum['height'], 2])
+        self.renders_sample_barycentric2 = np.zeros([self.nsamples, self.frustum['width'], self.frustum['height'],1])
+        self.renders_sample_barycentric = np.zeros([self.nsamples, self.frustum['width'], self.frustum['height'],3])
 
         GL.glDisable(GL.GL_DEPTH_TEST)
 
         for sample in np.arange(self.nsamples):
 
             GL.glBindFramebuffer(GL.GL_DRAW_FRAMEBUFFER, self.fbo_sample_fetch)
-            drawingBuffers = [GL.GL_COLOR_ATTACHMENT0, GL.GL_COLOR_ATTACHMENT1, GL.GL_COLOR_ATTACHMENT2]
-            GL.glDrawBuffers(3, drawingBuffers)
+            drawingBuffers = [GL.GL_COLOR_ATTACHMENT0, GL.GL_COLOR_ATTACHMENT1, GL.GL_COLOR_ATTACHMENT2, GL.GL_COLOR_ATTACHMENT3,
+                              GL.GL_COLOR_ATTACHMENT4]
+            GL.glDrawBuffers(5, drawingBuffers)
 
             sampleLoc = GL.glGetUniformLocation(self.fetchSamplesProgram, 'sample')
             GL.glUniform1i(sampleLoc, sample)
@@ -2320,7 +2414,15 @@ class SQErrorRenderer(ColoredRenderer):
 
             GL.glActiveTexture(GL.GL_TEXTURE2)
             GL.glBindTexture(GL.GL_TEXTURE_2D_MULTISAMPLE, self.texture_errors_sample_faces)
-            GL.glUniform1i(self.sample_facesLoc, 1)
+            GL.glUniform1i(self.sample_facesLoc, 2)
+
+            GL.glActiveTexture(GL.GL_TEXTURE3)
+            GL.glBindTexture(GL.GL_TEXTURE_2D_MULTISAMPLE, self.texture_errors_sample_barycentric1)
+            GL.glUniform1i(self.sample_barycentric1Loc, 3)
+
+            GL.glActiveTexture(GL.GL_TEXTURE4)
+            GL.glBindTexture(GL.GL_TEXTURE_2D_MULTISAMPLE, self.texture_errors_sample_barycentric2)
+            GL.glUniform1i(self.sample_barycentric2Loc, 4)
 
             GL.glBindVertexArray(self.vao_quad)
             GL.glDrawArrays(GL.GL_POINTS, 0, 1)
@@ -2343,9 +2445,18 @@ class SQErrorRenderer(ColoredRenderer):
             self.renders_sample_pos[sample] = result
 
             GL.glReadBuffer(GL.GL_COLOR_ATTACHMENT2)
-            result = np.flipud(np.frombuffer(GL.glReadPixels(0, 0, self.frustum['width'], self.frustum['height'], GL.GL_RED_INTEGER, GL.GL_INT), np.int32).reshape(self.frustum['height'], self.frustum['height'])[:,:].astype(np.int32))
+            result = np.flipud(np.frombuffer(GL.glReadPixels(0, 0, self.frustum['width'], self.frustum['height'], GL.GL_RED_INTEGER, GL.GL_UNSIGNED_INT), np.uint32).reshape(self.frustum['height'], self.frustum['height'])[:,:].astype(np.uint32))
             self.renders_faces[sample] = result
 
+            GL.glReadBuffer(GL.GL_COLOR_ATTACHMENT3)
+            result = np.flipud(np.frombuffer(GL.glReadPixels(0, 0, self.frustum['width'], self.frustum['height'], GL.GL_RGB, GL.GL_FLOAT), np.float32).reshape(self.frustum['height'], self.frustum['height'], 3)[:,:,0:2].astype(np.float64))
+            self.renders_sample_barycentric1[sample] = result
+
+            GL.glReadBuffer(GL.GL_COLOR_ATTACHMENT4)
+            result = np.flipud(np.frombuffer(GL.glReadPixels(0, 0, self.frustum['width'], self.frustum['height'], GL.GL_RGB, GL.GL_FLOAT), np.float32).reshape(self.frustum['height'], self.frustum['height'], 3)[:,:,0:1].astype(np.float64))
+            self.renders_sample_barycentric2[sample] = result
+
+            self.renders_sample_barycentric[sample] = np.concatenate([self.renders_sample_barycentric1[sample], self.renders_sample_barycentric2[sample][:,:,0:1]], 2)
             # GL.glClear(GL.GL_COLOR_BUFFER_BIT | GL.GL_DEPTH_BUFFER_BIT)
 
             # GL.glReadBuffer(GL.GL_COLOR_ATTACHMENT2)
@@ -2353,9 +2464,8 @@ class SQErrorRenderer(ColoredRenderer):
             # self.renders_faces[sample] = result
 
         self.renders_faces[0]
-        self.render = np.mean(self.renders,0)
-
-        import pdb; pdb.set_trace()
+        self.renders_sample_barycentric[0]
+        self.render_resolved = np.mean(self.renders,0)
 
         GL.glBindVertexArray(0)
 
@@ -2438,7 +2548,8 @@ class SQErrorRenderer(ColoredRenderer):
         visibility = self.visibility_image
 
         shape = visibility.shape
-        color = self.color_image
+
+        color = self.render_resolved
 
         visible = np.nonzero(visibility.ravel() != 4294967295)[0]
         num_visible = len(visible)
@@ -2446,15 +2557,11 @@ class SQErrorRenderer(ColoredRenderer):
         barycentric = self.barycentric_image
 
         if wrt is self.camera:
-            dEdx = self.render_dedx
-            dEdy = self.render_dedy
 
             # dEdxtilde = 2*(self.imageGT.r - self.render_image)*np.gradient(self.render_image)[0]
             # dEdytilde = 2 * (self.imageGT.r - self.render_image) * np.gradient(self.render_image)[1]
 
-            # z = self.dErrors_wrt_2dVerts(color, dEdxtilde, dEdytilde, visible, visibility, barycentric, self.frustum['width'], self.frustum['height'],self.v.r.size / 3, self.f)
-
-            return self.dErrors_wrt_2dVerts(color, dEdx, dEdy, visible, visibility, barycentric, self.frustum['width'], self.frustum['height'], self.v.r.size/3, self.f)
+            return self.dErrors_wrt_2dVerts(color, visible, visibility, barycentric, self.frustum['width'], self.frustum['height'], self.v.r.size/3, self.f)
 
         elif wrt is self.bgcolor:
             return 2. * (self.imageGT.r - self.render_image).ravel() * common.dr_wrt_bgcolor(visibility, self.frustum, num_channels=self.num_channels)
@@ -2498,13 +2605,12 @@ class SQErrorRenderer(ColoredRenderer):
     @depends_on(dterms+terms)
     def render_sqerrors(self):
         self._call_on_changed()
-
         try:
-            return self.render
+            return self.render_resolved
         except:
             self.render_errors()
 
-        return self.render
+        return self.render_resolved
 
 
     @depends_on(dterms+terms)
@@ -2526,7 +2632,7 @@ class SQErrorRenderer(ColoredRenderer):
 
         return self.render
 
-    def dErrors_wrt_2dVerts(self, observed, dEdx, dEdy, visible, visibility, barycentric, image_width, image_height, num_verts, f):
+    def dErrors_wrt_2dVerts(self, observed, visible, visibility, barycentric, image_width, image_height, num_verts, f):
         """Construct a sparse jacobian that relates 2D projected vertex positions
         (in the columns) to pixel values (in the rows). This can be done
         in two steps."""
@@ -2534,19 +2640,92 @@ class SQErrorRenderer(ColoredRenderer):
         # xdiff = dEdx
         # ydiff = dEdy
         nVisF = len(visibility.ravel()[visible])
-        projVertices = self.camera.r[f[visibility.ravel()[visible]].ravel()].reshape([nVisF,3, 2])
+        # projVertices = self.camera.r[f[visibility.ravel()[visible]].ravel()].reshape([nVisF,3, 2])
         visTriVC = self.vc.r[f[visibility.ravel()[visible]].ravel()].reshape([nVisF,3, 3])
 
-        p1 = projVertices[:, 0, :]
-        p2 = projVertices[:, 1, :]
-        p3 = projVertices[:, 2, :]
+        boundaryImage = self.boundarybool_image.astype(np.bool)
+        rangeIm = np.arange(self.boundarybool_image.size)
+        zerosIm = np.ones(self.boundarybool_image.shape).astype(np.bool)
+        # zerosIm[60:70,60:70] = True
 
-        u1 = projVertices[:,0,0]
-        v1 = projVertices[:,0,1]
-        u2 = projVertices[:,1,0]
-        v2 = projVertices[:,1,1]
-        u3 = projVertices[:,2,0]
-        v3 = projVertices[:,2,1]
+        edge_visibility = self.boundaryid_image
+
+        verts = self.camera.r[self.vpe[edge_visibility.ravel()[(zerosIm*boundaryImage).ravel().astype(np.bool)]].ravel()].reshape([-1,2,2])
+        nsamples = self.nsamples
+        sampleV = self.renders_sample_pos.reshape([nsamples, -1, 2])[:,(zerosIm*boundaryImage).ravel().astype(np.bool),:].reshape([nsamples, -1, 2])
+
+        sampleFaces = self.renders_faces.reshape([nsamples, -1])[:,(zerosIm*boundaryImage).ravel().astype(np.bool)].reshape([nsamples, -1])
+
+        sampleBarycentric = self.renders_sample_barycentric.reshape([nsamples, -1, 3])[:,(zerosIm*boundaryImage).ravel().astype(np.bool),:].reshape([nsamples, -1, 3])
+        sampleColors = self.renders.reshape([nsamples, -1, 3])[:,(zerosIm*boundaryImage).ravel().astype(np.bool),:].reshape([nsamples, -1, 3])
+
+        # verts[None, :] - sampleV[:,None,:]
+
+        chEdgeVerts = ch.Ch(verts[None,:])
+        chEdgeVerts1 = chEdgeVerts[:,:,0,:]
+        chEdgeVerts2 = chEdgeVerts[:,:,1,:]
+
+        chSampleVerts = ch.Ch(sampleV[:,:,:])
+        c1 = (chEdgeVerts1 - chSampleVerts)
+        c2 = (chEdgeVerts2 - chSampleVerts)
+        n = (chEdgeVerts2 - chEdgeVerts1)
+        l = (chEdgeVerts2 - chEdgeVerts1)
+
+        # d2 = ch.abs(c1[:,:,0]*c2[:,:,1] - c1[:,:,1]*c2[:,:,0]) / ch.sqrt((ch.sum(n**2,2)))
+        #
+        # # np_mat = ch.dot(ch.array([[0,-1],[1,0]]), n)
+        # np_mat2 = -ch.concatenate([-n[:,:,1][:,:,None], n[:,:,0][:,:,None]],2)
+        #
+        # np_vec2 = np_mat2 / ch.sqrt((ch.sum(np_mat2**2,2)))[:,:,None]
+        #
+        # d2 =  d2 / ch.maximum(ch.abs(np_vec2[:,:,0]),ch.abs(np_vec2[:,:,1]))
+
+        lnorm = l/ch.sqrt((ch.sum(l**2,2)))[:,:,None]
+
+        v = chSampleVerts - chEdgeVerts1
+        d = v[:,:,0]* lnorm[:,:,0] + v[:,:,1]* lnorm[:,:,1]
+        intersectPoint = chEdgeVerts1 + d[:,:,None] * lnorm
+
+        lineToPoint = (chSampleVerts - intersectPoint)
+        n_norm = lineToPoint / ch.sqrt((ch.sum(lineToPoint ** 2, 2)))[:, :, None]
+
+
+        dist = lineToPoint[:,:,0]*n_norm[:,:,0] + lineToPoint[:,:,1]*n_norm[:,:,1]
+
+        d_final = dist / ch.maximum(ch.abs(n_norm[:, :, 0]), ch.abs(n_norm[:, :, 1]))
+
+        boundaryFaces = f[visibility[zerosIm * (boundaryImage)]].ravel()
+        projVerticesBnd = self.camera.r[boundaryFaces].reshape([-1, 3, 2])
+
+        projFacesBndTiled = np.tile(boundaryFaces[None, :], [self.nsamples,1])
+
+        facesInsideBnd = projFacesBndTiled == sampleFaces
+        facesOutsideBnd = ~facesInsideBnd
+
+
+
+        sampleFaces
+
+        projVerticesBnd
+
+        d_final_outside = d_final[facesOutsideBnd]
+        barycentric_outside = sampleBarycentric[facesOutsideBnd]
+        color_outside = sampleBarycentric[facesOutsideBnd]
+
+        d_final_inside = d_final[facesOutsideBnd]
+        barycentric_inside = sampleBarycentric[facesOutsideBnd]
+        color_inside = sampleBarycentric[facesOutsideBnd]
+
+        p1 = projVerticesBnd[:, 0, :]
+        p2 = projVerticesBnd[:, 1, :]
+        p3 = projVerticesBnd[:, 2, :]
+
+        u1 = projVerticesBnd[:,0,0]
+        v1 = projVerticesBnd[:,0,1]
+        u2 = projVerticesBnd[:,1,0]
+        v2 = projVerticesBnd[:,1,1]
+        u3 = projVerticesBnd[:,2,0]
+        v3 = projVerticesBnd[:,2,1]
 
         D = np.linalg.det(np.concatenate([(p3-p1).reshape([nVisF, 1, 2]), (p1-p2).reshape([nVisF, 1, 2])], axis=1))
         dBar1dx = (v2 -v3)/D
@@ -2556,6 +2735,41 @@ class SQErrorRenderer(ColoredRenderer):
         dBar1dy = (u3 - u2)/D
         dBar2dy = (u1 - u3)/D
         dBar3dy = (u2 - u1)/D
+
+
+
+        nonBoundaryFaces = visibility.ravel()[zerosIm * (1 - self.boundarybool_image)]
+        projVerticesNonBnd = self.camera.r[f[nonBoundaryFaces].ravel()].reshape([-1, 3, 2])
+
+        cam = np.array([[self.camera.f.r[0], 0, self.camera.c.r[0]], [0., self.camera.f.r[1], self.camera.c.r[1]], [0., 0., 1.]], dtype=np.float64)
+
+        p1 = projVerticesNonBnd[:, 0, :]
+        p2 = projVerticesNonBnd[:, 1, :]
+        p3 = projVerticesNonBnd[:, 2, :]
+
+        u1 = projVerticesNonBnd[:,0,0]
+        v1 = projVerticesNonBnd[:,0,1]
+        u2 = projVerticesNonBnd[:,1,0]
+        v2 = projVerticesNonBnd[:,1,1]
+        u3 = projVerticesNonBnd[:,2,0]
+        v3 = projVerticesNonBnd[:,2,1]
+
+        D = np.linalg.det(np.concatenate([(p3-p1).reshape([nVisF, 1, 2]), (p1-p2).reshape([nVisF, 1, 2])], axis=1))
+        dBar1dx = (v2 -v3)/D
+        dBar2dx = (v3 - v1)/D
+        dBar3dx = (v1 - v2)/D
+
+        dBar1dy = (u3 - u2)/D
+        dBar2dy = (u1 - u3)/D
+        dBar3dy = (u2 - u1)/D
+
+        dEdx = observed
+
+        self.renders_faces[0]
+        self.renders_sample_barycentric[0]
+        self.renders_sample_pos
+        self.render_resolved = np.mean(self.renders,0)
+
 
         dEVis = dEdx.reshape([-1,3])[visible]
 
@@ -2583,21 +2797,7 @@ class SQErrorRenderer(ColoredRenderer):
 
         datas = []
 
-        # The data is weighted according to barycentric coordinates
-        # bc0 = col(barycentric[pys, pxs, 0])
-        # bc1 = col(barycentric[pys, pxs, 1])
-        # bc2 = col(barycentric[pys, pxs, 2])
-        # for k in range(n_channels):
-            # dxs = xdiff[pys, pxs, k]
-            # dys = ydiff[pys, pxs, k]
-            # if f.shape[1] == 3:
-            # datas.append(np.hstack((col(visTriVC[:,0,:] * dBar1dx[:,None]),col(visTriVC[:, 0, :] * dBar1dy[:, None]), col(visTriVC[:,1,:]* dBar2dx[:,None]),col(visTriVC[:, 1, :] * dBar2dy[:, None]),col(visTriVC[:,2,:]* dBar3dx[:,None]),col(visTriVC[:, 2, :] * dBar3dy[:, None]))).ravel())
-                # datas.append(np.hstack((col(dxs)*bc0,col(dys)*bc0,col(dxs)*bc1,col(dys)*bc1,col(dxs)*bc2,col(dys)*bc2)).ravel())
-            # else:
-                # datas.append(np.hstack((col(dxs)*bc0,col(dys)*bc0,col(dxs)*bc1,col(dys)*bc1)).ravel())
-                # datas.append(np.hstack((col(dxs)*bc0,col(dys)*bc0,col(dxs)*bc1,col(dys)*bc1)).ravel())
         data = np.concatenate(((visTriVC[:,0,:] * dBar1dx[:,None])[:,:,None],(visTriVC[:, 0, :] * dBar1dy[:, None])[:,:,None], (visTriVC[:,1,:]* dBar2dx[:,None])[:,:,None], (visTriVC[:, 1, :] * dBar2dy[:, None])[:,:,None],(visTriVC[:,2,:]* dBar3dx[:,None])[:,:,None],(visTriVC[:, 2, :] * dBar3dy[:, None])[:,:,None]),axis=2).swapaxes(0,1).ravel()
-        # data = np.concatenate(datas)
 
         ij = np.vstack((IS.ravel(), JS.ravel()))
 
@@ -2630,16 +2830,18 @@ class SQErrorRenderer(ColoredRenderer):
 
             self.vbo_indices_range.set_array(np.arange(self.f.size, dtype=np.uint32).ravel())
             self.vbo_indices_range.bind()
-            flen = 0
+            flen = 1
             for mesh in range(len(self.f_list)):
                 for polygons in range(len(self.f_list[mesh])):
                     f = self.f_list[mesh][polygons]
 
-                    fc = np.arange(flen, flen + len(f))
+                    # fc = np.arange(flen, flen + len(f))
+                    fc = np.tile(np.arange(flen, flen + len(f))[:, None], [1, 3]).ravel()
+
                     # fc[:, 0] = fc[:, 0] & 255
                     # fc[:, 1] = (fc[:, 1] >> 8) & 255
                     # fc[:, 2] = (fc[:, 2] >> 16) & 255
-                    fc = np.asarray(fc, dtype=np.int32)
+                    fc = np.asarray(fc, dtype=np.uint32)
                     self.vbo_face_ids_list[mesh][polygons].set_array(fc)
                     self.vbo_face_ids_list[mesh][polygons].bind()
 
@@ -2938,6 +3140,7 @@ class SQErrorRenderer(ColoredRenderer):
                 colors = np.ones_like(vc).astype(np.float32)
 
             #Pol: Make a static zero vbo_color to make it more efficient?
+            pdb.set_trace()
             vbo_color.set_array(colors)
 
             for polygons in np.arange(len(self.f_list[mesh])):
