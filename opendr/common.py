@@ -16,7 +16,7 @@ from PIL import Image
 from chumpy.utils import row, col
 from opendr.contexts._constants import *
 import bottleneck as bn
-# import ipdb
+import pdb
 import matplotlib.pyplot as plt
 import warnings
 
@@ -723,5 +723,30 @@ def dr_wrt_vc(visible, visibility, f, barycentric, frustum, vc_size, num_channel
     return result
 
 
+def bary_coords(vertices, points):
+    origin = np.array([0, 0, 0]).reshape([1, 1, 3])
+    T = vertices - origin
+    T_inv = faster_inverse(T)
+    c = np.einsum('ij,ij->i', T_inv, points - origin)
+    return np.concatenate([c, [1 - np.sum(c)]])
 
+
+from numpy.linalg import lapack_lite
+lapack_routine = lapack_lite.dgesv
+#from http://stackoverflow.com/questions/11972102/is-there-a-way-to-efficiently-invert-an-array-of-matrices-with-numpy
+def faster_inverse(A):
+    b = np.identity(A.shape[2], dtype=A.dtype)
+
+    n_eq = A.shape[1]
+    n_rhs = A.shape[2]
+    identity  = np.eye(n_eq)
+    def lapack_inverse(a):
+        b = np.copy(identity)
+        pivots = np.zeros(n_eq, np.intc)
+        results = lapack_lite.dgesv(n_eq, n_rhs, a, n_eq, pivots, b, n_eq, 0)
+        if results['info'] > 0:
+            pdb.set_trace()
+        return b
+
+    return np.array([lapack_inverse(a) for a in A])
 

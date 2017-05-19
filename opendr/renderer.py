@@ -2650,7 +2650,8 @@ class SQErrorRenderer(ColoredRenderer):
 
         edge_visibility = self.boundaryid_image
 
-        verts = self.camera.r[self.vpe[edge_visibility.ravel()[(zerosIm*boundaryImage).ravel().astype(np.bool)]].ravel()].reshape([-1,2,2])
+        vertsProjBnd = self.camera.r[self.vpe[edge_visibility.ravel()[(zerosIm*boundaryImage).ravel().astype(np.bool)]].ravel()].reshape([-1,2,2])
+
         nsamples = self.nsamples
         sampleV = self.renders_sample_pos.reshape([nsamples, -1, 2])[:,(zerosIm*boundaryImage).ravel().astype(np.bool),:].reshape([nsamples, -1, 2])
 
@@ -2659,16 +2660,17 @@ class SQErrorRenderer(ColoredRenderer):
         sampleBarycentric = self.renders_sample_barycentric.reshape([nsamples, -1, 3])[:,(zerosIm*boundaryImage).ravel().astype(np.bool),:].reshape([nsamples, -1, 3])
         sampleColors = self.renders.reshape([nsamples, -1, 3])[:,(zerosIm*boundaryImage).ravel().astype(np.bool),:].reshape([nsamples, -1, 3])
 
-        # verts[None, :] - sampleV[:,None,:]
+        # vertsProjBnd[None, :] - sampleV[:,None,:]
 
-        chEdgeVerts = ch.Ch(verts[None,:])
+        chEdgeVerts = ch.Ch(vertsProjBnd[None,:])
         chEdgeVerts1 = chEdgeVerts[:,:,0,:]
         chEdgeVerts2 = chEdgeVerts[:,:,1,:]
 
         chSampleVerts = ch.Ch(sampleV[:,:,:])
-        c1 = (chEdgeVerts1 - chSampleVerts)
-        c2 = (chEdgeVerts2 - chSampleVerts)
-        n = (chEdgeVerts2 - chEdgeVerts1)
+        # c1 = (chEdgeVerts1 - chSampleVerts)
+        # c2 = (chEdgeVerts2 - chSampleVerts)
+        # n = (chEdgeVerts2 - chEdgeVerts1)
+
         l = (chEdgeVerts2 - chEdgeVerts1)
 
         # d2 = ch.abs(c1[:,:,0]*c2[:,:,1] - c1[:,:,1]*c2[:,:,0]) / ch.sqrt((ch.sum(n**2,2)))
@@ -2679,8 +2681,8 @@ class SQErrorRenderer(ColoredRenderer):
         # np_vec2 = np_mat2 / ch.sqrt((ch.sum(np_mat2**2,2)))[:,:,None]
         #
         # d2 =  d2 / ch.maximum(ch.abs(np_vec2[:,:,0]),ch.abs(np_vec2[:,:,1]))
-
-        lnorm = l/ch.sqrt((ch.sum(l**2,2)))[:,:,None]
+        linedist = ch.sqrt((ch.sum(l**2,2)))[:,:,None]
+        lnorm = l/linedist
 
         v = chSampleVerts - chEdgeVerts1
         d = v[:,:,0]* lnorm[:,:,0] + v[:,:,1]* lnorm[:,:,1]
@@ -2689,36 +2691,48 @@ class SQErrorRenderer(ColoredRenderer):
         lineToPoint = (chSampleVerts - intersectPoint)
         n_norm = lineToPoint / ch.sqrt((ch.sum(lineToPoint ** 2, 2)))[:, :, None]
 
-
         dist = lineToPoint[:,:,0]*n_norm[:,:,0] + lineToPoint[:,:,1]*n_norm[:,:,1]
 
         d_final = dist / ch.maximum(ch.abs(n_norm[:, :, 0]), ch.abs(n_norm[:, :, 1]))
 
         boundaryFaces = f[visibility[zerosIm * (boundaryImage)]].ravel()
-        projVerticesBnd = self.camera.r[boundaryFaces].reshape([-1, 3, 2])
+        projVerticesBnd = self.v[boundaryFaces].reshape([-1, 3, 2])
 
         projFacesBndTiled = np.tile(boundaryFaces[None, :], [self.nsamples,1])
 
         facesInsideBnd = projFacesBndTiled == sampleFaces
         facesOutsideBnd = ~facesInsideBnd
 
-
-
-        sampleFaces
-
-        projVerticesBnd
-
-        d_final_outside = d_final[facesOutsideBnd]
-        barycentric_outside = sampleBarycentric[facesOutsideBnd]
-        color_outside = sampleBarycentric[facesOutsideBnd]
-
-        d_final_inside = d_final[facesOutsideBnd]
-        barycentric_inside = sampleBarycentric[facesOutsideBnd]
-        color_inside = sampleBarycentric[facesOutsideBnd]
-
+        #Point IN edge barycentric
+        intersectPoint
         p1 = projVerticesBnd[:, 0, :]
         p2 = projVerticesBnd[:, 1, :]
         p3 = projVerticesBnd[:, 2, :]
+
+        # projVerticesBnd
+
+        d_final_outside = d_final[facesOutsideBnd]
+        w_outside = d_final_outside
+        # barycentric_outside = sampleBarycentric[facesOutsideBnd]
+        color_outside = sampleBarycentric[facesOutsideBnd]
+
+        facesOutsideBnd
+
+        # projPointsInEdge = cv2.projectPoints(v, self.rt.r, self.t.r, self.camera_mtx, self.k.r)
+
+        common.bary_coords(projVerticesBnd, points)
+        pdb.set_trace()
+
+
+
+        #
+        # barycentricOutsideEdge1 =
+        # intersectPoint
+        # np.tile(boundaryFaces[None,:,:], len(d_final_outside)
+        #
+        # w_outside = 1-w_outside
+        # # barycentric_inside = sampleBarycentric[facesOutsideBnd]
+        # color_inside = sampleBarycentric[facesOutsideBnd]
 
         u1 = projVerticesBnd[:,0,0]
         v1 = projVerticesBnd[:,0,1]
@@ -2728,13 +2742,13 @@ class SQErrorRenderer(ColoredRenderer):
         v3 = projVerticesBnd[:,2,1]
 
         D = np.linalg.det(np.concatenate([(p3-p1).reshape([nVisF, 1, 2]), (p1-p2).reshape([nVisF, 1, 2])], axis=1))
-        dBar1dx = (v2 -v3)/D
-        dBar2dx = (v3 - v1)/D
-        dBar3dx = (v1 - v2)/D
+        dBar1dxBnd = (v2 -v3)/D
+        dBar2dxBnd = (v3 - v1)/D
+        dBar3dxBnd = (v1 - v2)/D
 
-        dBar1dy = (u3 - u2)/D
-        dBar2dy = (u1 - u3)/D
-        dBar3dy = (u2 - u1)/D
+        dBar1dyBnd = (u3 - u2)/D
+        dBar2dyBnd = (u1 - u3)/D
+        dBar3dyBnd = (u2 - u1)/D
 
 
 
@@ -2769,7 +2783,6 @@ class SQErrorRenderer(ColoredRenderer):
         self.renders_sample_barycentric[0]
         self.renders_sample_pos
         self.render_resolved = np.mean(self.renders,0)
-
 
         dEVis = dEdx.reshape([-1,3])[visible]
 
