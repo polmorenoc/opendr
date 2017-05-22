@@ -2674,13 +2674,11 @@ class SQErrorRenderer(ColoredRenderer):
         l = (chEdgeVerts2 - chEdgeVerts1)
 
         # d2 = ch.abs(c1[:,:,0]*c2[:,:,1] - c1[:,:,1]*c2[:,:,0]) / ch.sqrt((ch.sum(n**2,2)))
-        #
         # # np_mat = ch.dot(ch.array([[0,-1],[1,0]]), n)
         # np_mat2 = -ch.concatenate([-n[:,:,1][:,:,None], n[:,:,0][:,:,None]],2)
-        #
         # np_vec2 = np_mat2 / ch.sqrt((ch.sum(np_mat2**2,2)))[:,:,None]
-        #
         # d2 =  d2 / ch.maximum(ch.abs(np_vec2[:,:,0]),ch.abs(np_vec2[:,:,1]))
+
         linedist = ch.sqrt((ch.sum(l**2,2)))[:,:,None]
         lnorm = l/linedist
 
@@ -2694,17 +2692,59 @@ class SQErrorRenderer(ColoredRenderer):
         dist = lineToPoint[:,:,0]*n_norm[:,:,0] + lineToPoint[:,:,1]*n_norm[:,:,1]
 
         d_final = dist / ch.maximum(ch.abs(n_norm[:, :, 0]), ch.abs(n_norm[:, :, 1]))
+        #Trick to cap to 1 while keeping gradients.
+        d_final = d_final - d_final.r + np.minimum(d_final.r,1)
 
-        boundaryFaces = f[visibility[zerosIm * (boundaryImage)]].ravel()
-        projVerticesBnd = self.v[boundaryFaces].reshape([-1, 3, 2])
+        boundaryFaces = visibility[zerosIm * (boundaryImage)]
+        # verticesBnd = self.v[boundaryFaces].reshape([-1, 3, 2])
+        vertsProjBnd = self.camera.r[self.vpe[edge_visibility.ravel()[(zerosIm * boundaryImage).ravel().astype(np.bool)]].ravel()]
+        verticesBnd = self.v.r[self.vpe[edge_visibility.ravel()[(zerosIm * boundaryImage).ravel().astype(np.bool)]].ravel()]
+        vcBnd = self.vc.r[self.vpe[edge_visibility.ravel()[(zerosIm * boundaryImage).ravel().astype(np.bool)]].ravel()]
+        # vcBnd = self.vc.r[self.f[visibility.ravel()[(zerosIm * boundaryImage).ravel().astype(np.bool)]].ravel()]
 
         projFacesBndTiled = np.tile(boundaryFaces[None, :], [self.nsamples,1])
 
         facesInsideBnd = projFacesBndTiled == sampleFaces
         facesOutsideBnd = ~facesInsideBnd
 
+        invViewMtx =  np.linalg.inv(np.r_[self.camera.view_mtx, np.array([[0, 0, 0, 1]])])
+        #
+        camMtx = np.r_[np.c_[self.camera.camera_mtx, np.array([0, 0, 0])], np.array([[0, 0, 0, 1]])]
+        # invCamMtx = np.r_[np.c_[np.linalg.inv(self.camera.camera_mtx), np.array([0,0,0])], np.array([[0, 0, 0, 1]])]
+
+        view_mtx = np.r_[self.camera.view_mtx, np.array([[0, 0, 0, 1]])]
+
+        verticesBnd = np.concatenate([verticesBnd, np.ones([verticesBnd.shape[0], 1])], axis=1)
+
+        projVerticesBnd = (camMtx.dot(view_mtx)).dot(verticesBnd.T).T[:,:3].reshape([-1,2,3])
+        projVerticesBndDir = projVerticesBnd[:,1,:] - projVerticesBnd[:,0,:]
+        projVerticesBndDir = projVerticesBndDir/np.sqrt((np.sum(projVerticesBndDir ** 2, 1)))[:, None]
+
+        dproj = (intersectPoint[:,:,0]* projVerticesBnd[:,0,2] - projVerticesBnd[:,0,0]) / (projVerticesBndDir[:,0] - projVerticesBndDir[:,2]*intersectPoint[:,:,0])
+        # dproj_y = (intersectPoint[:,:,1]* projVerticesBnd[:,0,2] - projVerticesBnd[:,0,1]) / (projVerticesBndDir[:,1] - projVerticesBndDir[:,2]*intersectPoint[:,:,1])
+
+        projPoint = projVerticesBnd[:,0,:][None,:,: ] + dproj[:,:,None]*projVerticesBndDir[None,:,:]
+
+        projPointVec4 = np.concatenate([projPoint, np.ones([projPoint.shape[0], projPoint.shape[1], 1])], axis=2)
+        viewPointIntersect = (invViewMtx.dot(np.linalg.inv(camMtx)).dot(projPointVec4.T.reshape([4,-1])).reshape([4,-1,self.nsamples])).T[:,:,:3]
+
+        barycentricVertsDistIntesect = np.linalg.norm(viewPointIntersect - verticesBnd[:,0:3].reshape([1, -1, 2, 3])[:,:,0,:], axis=2)
+        barycentricVertsDistIntesect2 = np.linalg.norm(viewPointIntersect - verticesBnd[:,0:3].reshape([1, -1, 2, 3])[:,:,1,:], axis=2)
+        barycentricVertsDistEdge = np.linalg.norm(verticesBnd[:,0:3].reshape([1, -1, 2, 3])[:,:,1,:] - verticesBnd[:,0:3].reshape([1, -1, 2, 3])[:,:,0,:], axis=2)
+
+        barycentricVertsIntersect = barycentricVertsDistIntesect / (barycentricVertsDistIntesect + barycentricVertsDistIntesect2)
+
+        vcEdges1 = barycentricVertsIntersect[:, :, None] * vcBnd.reshape([1, -1, 2, 3])[:, :, 0, :]
+        vcEdges2 = (1-barycentricVertsIntersect[:,:,None]) * vcBnd.reshape([1, -1,2,3])[:,:,1,:]
+        #Color:
+        colorVertsEdge =  vcEdges1 + vcEdges2
+
+        # distProj =
+
         #Point IN edge barycentric
-        intersectPoint
+
+        projVerticesBnd = self.camera.r[f[boundaryFaces].ravel()].reshape([-1, 3, 2])
+
         p1 = projVerticesBnd[:, 0, :]
         p2 = projVerticesBnd[:, 1, :]
         p3 = projVerticesBnd[:, 2, :]
@@ -2713,17 +2753,23 @@ class SQErrorRenderer(ColoredRenderer):
 
         d_final_outside = d_final[facesOutsideBnd]
         w_outside = d_final_outside
-        # barycentric_outside = sampleBarycentric[facesOutsideBnd]
-        color_outside = sampleBarycentric[facesOutsideBnd]
 
-        facesOutsideBnd
+        # finalColorBnd = np.mean(d_final.r[:, :, None] * sampleColors + (1-d_final.r[:, :, None]) * colorVertsEdge,axis=0)
+        finalColorBnd = np.mean(colorVertsEdge,axis=0)
+        # finalColorBnd = np.mean(d_final.r[:, :, None] * sampleColors ,axis=0)
+
+        bndColorsImage = np.zeros_like(self.render_resolved)
+        bndColorsImage[(zerosIm * boundaryImage), :] = finalColorBnd
+
+
+        finalColor2 = (1-boundaryImage)[:,:,None] * self.render_resolved + boundaryImage[:,:,None] *  bndColorsImage
+        finalColor = (1-boundaryImage)[:,:,None] * self.render_resolved + boundaryImage[:,:,None] *  bndColorsImage
+
+        barycentric_outside = sampleBarycentric[facesOutsideBnd]
 
         # projPointsInEdge = cv2.projectPoints(v, self.rt.r, self.t.r, self.camera_mtx, self.k.r)
 
-        common.bary_coords(projVerticesBnd, points)
-        pdb.set_trace()
-
-
+        # common.bary_coords(projVerticesBnd, points)
 
         #
         # barycentricOutsideEdge1 =
@@ -2749,7 +2795,6 @@ class SQErrorRenderer(ColoredRenderer):
         dBar1dyBnd = (u3 - u2)/D
         dBar2dyBnd = (u1 - u3)/D
         dBar3dyBnd = (u2 - u1)/D
-
 
 
         nonBoundaryFaces = visibility.ravel()[zerosIm * (1 - self.boundarybool_image)]
@@ -3142,26 +3187,26 @@ class SQErrorRenderer(ColoredRenderer):
 
         for mesh in range(len(self.f_list)):
 
-            vbo_color = self.vbo_colors_mesh[mesh]
-            vc = self.vc_list[mesh]
-            colors = None
-
-            if with_vertex_colors:
-                colors = vc.r.astype(np.float32)
-            else:
-                #Only texture.
-                colors = np.ones_like(vc).astype(np.float32)
-
-            #Pol: Make a static zero vbo_color to make it more efficient?
-            pdb.set_trace()
-            vbo_color.set_array(colors)
-
             for polygons in np.arange(len(self.f_list[mesh])):
 
                 vao_mesh = self.vao_tex_mesh_list[mesh][polygons]
                 vbo_f = self.vbo_indices_mesh_list[mesh][polygons]
 
                 GL.glBindVertexArray(vao_mesh)
+                f = self.f_list[mesh][polygons]
+                verts_by_face = np.asarray(self.v_list[mesh].reshape((-1, 3))[f.ravel()], dtype=np.float32, order='C')
+                vbo_color = self.vbo_colors_mesh[mesh][polygons]
+                vc = verts_by_face
+                colors = None
+
+                if with_vertex_colors:
+                    colors = vc.astype(np.float32)
+                else:
+                    # Only texture.
+                    colors = np.ones_like(vc).astype(np.float32)
+
+                # Pol: Make a static zero vbo_color to make it more efficient?
+                vbo_color.set_array(colors)
                 vbo_color.bind()
 
                 if self.f.shape[1]==2:

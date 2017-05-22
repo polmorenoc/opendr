@@ -731,10 +731,11 @@ def bary_coords(vertices, points):
     return np.concatenate([c, [1 - np.sum(c)]])
 
 
-from numpy.linalg import lapack_lite
-lapack_routine = lapack_lite.dgesv
 #from http://stackoverflow.com/questions/11972102/is-there-a-way-to-efficiently-invert-an-array-of-matrices-with-numpy
 def faster_inverse(A):
+    from numpy.linalg import lapack_lite
+    lapack_routine = lapack_lite.dgesv
+
     b = np.identity(A.shape[2], dtype=A.dtype)
 
     n_eq = A.shape[1]
