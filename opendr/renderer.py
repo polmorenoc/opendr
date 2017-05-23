@@ -643,6 +643,7 @@ class BaseRenderer(Ch):
 
         #Pol: FIX THIS (UNCOMMENT)
         if primtype == GL.GL_LINES:
+            GL.glPolygonMode(GL.GL_FRONT_AND_BACK, GL.GL_LINE)
             f = np.fliplr(f).copy()
             verts_by_edge = v.reshape((-1,3))[f.ravel()]
             verts_by_edge = np.asarray(verts_by_edge, dtype=np.float32, order='C')
@@ -654,6 +655,7 @@ class BaseRenderer(Ch):
             self.vbo_indices_dyn.bind()
 
             GL.glDrawElements(GL.GL_LINES, len(self.vbo_indices_dyn), GL.GL_UNSIGNED_INT, None)
+            GL.glPolygonMode(GL.GL_FRONT_AND_BACK, GL.GL_FILL)
 
 
     def compute_vpe_boundary_idxs(self, v, f, camera, fpe):
@@ -671,7 +673,8 @@ class BaseRenderer(Ch):
         dps = faces_invisible.take(fpe[:,0]) * faces_invisible.take(fpe[:,1])
         # dps = faces_invisible0 * faces_invisible1
         # idxs = (dps<=0) & (faces_invisible.take(fpe[:,0]) + faces_invisible.take(fpe[:,1]) > 0.0)
-        silhouette_edges = np.asarray(np.nonzero(dps<=1e-5)[0], np.uint32)
+        silhouette_edges = np.asarray(np.nonzero(dps<=0.)[0], np.uint32)
+        # silhouette_edges = np.asarray(np.nonzero(dps<=1e-5)[0], np.uint32)
 
         return silhouette_edges, faces_invisible < 0
 
@@ -1228,7 +1231,7 @@ class TexturedRenderer(ColoredRenderer):
         return no_overdraw
 
         GL.glPolygonMode(GL.GL_FRONT_AND_BACK, GL.GL_LINE)
-        GL.glLineWidth(1.)
+
         overdraw = self.draw_color_image()
         GL.glPolygonMode(GL.GL_FRONT_AND_BACK, GL.GL_FILL)
 
@@ -1722,6 +1725,9 @@ class SQErrorRenderer(ColoredRenderer):
         self.vbo_uvs_mesh = []
         self.textureID_mesh_list = []
 
+        # GL.glEnable(GL.GL_LINE_SMOOTH)
+        # GL.glHint(GL.GL_LINE_SMOOTH_HINT, GL.GL_NICEST)
+        GL.glLineWidth(2.)
 
         for mesh in range(len(self.f_list)):
 
@@ -2682,8 +2688,14 @@ class SQErrorRenderer(ColoredRenderer):
         linedist = ch.sqrt((ch.sum(l**2,2)))[:,:,None]
         lnorm = l/linedist
 
-        v = chSampleVerts - chEdgeVerts1
-        d = v[:,:,0]* lnorm[:,:,0] + v[:,:,1]* lnorm[:,:,1]
+        v1 = chSampleVerts - chEdgeVerts1
+        d = v1[:,:,0]* lnorm[:,:,0] + v1[:,:,1]* lnorm[:,:,1]
+        intersectPoint = chEdgeVerts1 + d[:,:,None] * lnorm
+        intersectPointDist1 = intersectPoint - chEdgeVerts1
+        intersectPointDist2 = intersectPoint - chEdgeVerts2
+        lengthIntersectToPoint1 = np.linalg.norm(intersectPointDist1.r,axis=2)
+        lengthIntersectToPoint2 = np.linalg.norm(intersectPointDist2.r,axis=2)
+
         intersectPoint = chEdgeVerts1 + d[:,:,None] * lnorm
 
         lineToPoint = (chSampleVerts - intersectPoint)
@@ -2732,14 +2744,15 @@ class SQErrorRenderer(ColoredRenderer):
         barycentricVertsDistIntesect2 = np.linalg.norm(viewPointIntersect - verticesBnd[:,0:3].reshape([1, -1, 2, 3])[:,:,1,:], axis=2)
         barycentricVertsDistEdge = np.linalg.norm(verticesBnd[:,0:3].reshape([1, -1, 2, 3])[:,:,1,:] - verticesBnd[:,0:3].reshape([1, -1, 2, 3])[:,:,0,:], axis=2)
 
-        barycentricVertsIntersect = barycentricVertsDistIntesect / (barycentricVertsDistIntesect + barycentricVertsDistIntesect2)
+        barycentricVertsIntersect = barycentricVertsDistIntesect2 / (barycentricVertsDistIntesect + barycentricVertsDistIntesect2)
 
         vcEdges1 = barycentricVertsIntersect[:, :, None] * vcBnd.reshape([1, -1, 2, 3])[:, :, 0, :]
         vcEdges2 = (1-barycentricVertsIntersect[:,:,None]) * vcBnd.reshape([1, -1,2,3])[:,:,1,:]
+
         #Color:
         colorVertsEdge =  vcEdges1 + vcEdges2
-
-        # distProj =
+        # colorVertsEdge =  vcBnd.reshape([1, -1, 2, 3])[:, :, 0, :]
+        # colorVertsEdge =  vcBnd.reshape([1, -1, 2, 3])[:, :, 1, :]
 
         #Point IN edge barycentric
 
@@ -2752,24 +2765,31 @@ class SQErrorRenderer(ColoredRenderer):
         # projVerticesBnd
 
         d_final_outside = d_final[facesOutsideBnd]
-        w_outside = d_final_outside
 
-        # finalColorBnd = np.mean(d_final.r[:, :, None] * sampleColors + (1-d_final.r[:, :, None]) * colorVertsEdge,axis=0)
-        finalColorBnd = np.mean(colorVertsEdge,axis=0)
+        d_finalNP = d_final.r.copy()
+        d_finalNP[facesInsideBnd] = 1.
+
+        # w_outside = d_final_outside
+
+        finalColorBnd = np.mean(d_finalNP[:, :, None] * sampleColors + (1-d_finalNP[:, :, None]) * colorVertsEdge,axis=0)
+
+        # finalColorBnd = np.mean(colorVertsEdge,axis=0)
+
         # finalColorBnd = np.mean(d_final.r[:, :, None] * sampleColors ,axis=0)
 
         bndColorsImage = np.zeros_like(self.render_resolved)
         bndColorsImage[(zerosIm * boundaryImage), :] = finalColorBnd
 
-
         finalColor2 = (1-boundaryImage)[:,:,None] * self.render_resolved + boundaryImage[:,:,None] *  bndColorsImage
         finalColor = (1-boundaryImage)[:,:,None] * self.render_resolved + boundaryImage[:,:,None] *  bndColorsImage
+
+        pdb.set_trace()
 
         barycentric_outside = sampleBarycentric[facesOutsideBnd]
 
         # projPointsInEdge = cv2.projectPoints(v, self.rt.r, self.t.r, self.camera_mtx, self.k.r)
 
-        # common.bary_coords(projVerticesBnd, points)
+        # common.bary_coords(projVerticesBnd, points)sampleColors
 
         #
         # barycentricOutsideEdge1 =
@@ -2995,7 +3015,7 @@ class SQErrorRenderer(ColoredRenderer):
 
 
         GL.glPolygonMode(GL.GL_FRONT_AND_BACK, GL.GL_LINE)
-        GL.glLineWidth(1.)
+        GL.glLineWidth(2.)
         overdraw = self.draw_color_image()
         GL.glPolygonMode(GL.GL_FRONT_AND_BACK, GL.GL_FILL)
 
