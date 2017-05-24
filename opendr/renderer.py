@@ -1461,7 +1461,8 @@ class TexturedRenderer(ColoredRenderer):
 
                             #Update the OpenGL textures with all the textures. (Inefficient as many might not have changed).
                             image = np.array(np.flipud((self.textures_list[mesh][polygons] * 255.0)), order='C', dtype=np.uint8)
-                            self.textures_list[mesh][polygons] = self.texture_stack[textureCoordIdx:image.size].reshape(image.shape)
+
+                            self.textures_list[mesh][polygons] = self.texture_stack[textureCoordIdx:image.size+textureCoordIdx].reshape(image.shape)
 
                             textureCoordIdx = textureCoordIdx + image.size
                             image = np.array(np.flipud((self.textures_list[mesh][polygons] * 255.0)), order='C', dtype=np.uint8)
@@ -2661,7 +2662,7 @@ class SQErrorRenderer(ColoredRenderer):
         nsamples = self.nsamples
         sampleV = self.renders_sample_pos.reshape([nsamples, -1, 2])[:,(zerosIm*boundaryImage).ravel().astype(np.bool),:].reshape([nsamples, -1, 2])
 
-        sampleFaces = self.renders_faces.reshape([nsamples, -1])[:,(zerosIm*boundaryImage).ravel().astype(np.bool)].reshape([nsamples, -1])
+        sampleFaces = self.renders_faces.reshape([nsamples, -1])[:,(zerosIm*boundaryImage).ravel().astype(np.bool)].reshape([nsamples, -1]) - 1
 
         sampleBarycentric = self.renders_sample_barycentric.reshape([nsamples, -1, 3])[:,(zerosIm*boundaryImage).ravel().astype(np.bool),:].reshape([nsamples, -1, 3])
         sampleColors = self.renders.reshape([nsamples, -1, 3])[:,(zerosIm*boundaryImage).ravel().astype(np.bool),:].reshape([nsamples, -1, 3])
@@ -2971,7 +2972,7 @@ class SQErrorRenderer(ColoredRenderer):
 
                             #Update the OpenGL textures with all the textures. (Inefficient as many might not have changed).
                             image = np.array(np.flipud((self.textures_list[mesh][polygons] * 255.0)), order='C', dtype=np.uint8)
-                            self.textures_list[mesh][polygons] = self.texture_stack[textureCoordIdx:image.size].reshape(image.shape)
+                            self.textures_list[mesh][polygons] = self.texture_stack[textureCoordIdx:image.size+textureCoordIdx].reshape(image.shape)
 
                             textureCoordIdx = textureCoordIdx + image.size
                             image = np.array(np.flipud((self.textures_list[mesh][polygons] * 255.0)), order='C', dtype=np.uint8)
