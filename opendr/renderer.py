@@ -1617,7 +1617,7 @@ class TexturedRenderer(ColoredRenderer):
         return self.draw_texcoord_image(self.v.r, self.f, self.ft, self.boundarybool_image if self.overdraw else None)
 
 
-class SQErrorRenderer(ColoredRenderer):
+class AnalyticRenderer(ColoredRenderer):
 
     terms = 'f', 'frustum', 'vt', 'ft', 'background_image', 'overdraw', 'ft_list', 'haveUVs_list', 'textures_list', 'vc_list' , 'imageGT'
     dterms = 'vc', 'camera', 'bgcolor', 'texture_stack', 'v'
@@ -2274,7 +2274,7 @@ class SQErrorRenderer(ColoredRenderer):
             self.vbo_barycentric_list += [vbo_barycentric_mesh]
             self.vao_errors_mesh_list += [vaos_mesh]
 
-    def render_errors(self):
+    def render_image_buffers(self):
 
         GL.glEnable(GL.GL_MULTISAMPLE)
         GL.glEnable(GL.GL_SAMPLE_SHADING)
@@ -2563,22 +2563,20 @@ class SQErrorRenderer(ColoredRenderer):
 
         barycentric = self.barycentric_image
 
+        derivatives = self.dimage_wrt_params
+
         if wrt is self.camera:
 
-            # dEdxtilde = 2*(self.imageGT.r - self.render_image)*np.gradient(self.render_image)[0]
-            # dEdytilde = 2 * (self.imageGT.r - self.render_image) * np.gradient(self.render_image)[1]
+            return derivatives[0]
 
-            return self.dErrors_wrt_2dVerts(color, visible, visibility, barycentric, self.frustum['width'], self.frustum['height'], self.v.r.size/3, self.f)
+        elif wrt is self.vc:
+
+            return derivatives[1]
 
         elif wrt is self.bgcolor:
             return 2. * (self.imageGT.r - self.render_image).ravel() * common.dr_wrt_bgcolor(visibility, self.frustum, num_channels=self.num_channels)
 
-        elif wrt is self.vc:
-            result = common.dr_wrt_vc(visible, visibility, self.f, barycentric, self.frustum, self.vc.size, num_channels=self.num_channels)
-            cim = -2. * (self.imageGT.r - self.render_image).ravel() * self.renderWithoutColor.ravel()
-            cim = sp.spdiags(row(cim), [0], cim.size, cim.size)
 
-            return  cim.dot(result)
 
         elif wrt is self.texture_stack:
             IS = np.nonzero(self.visibility_image.ravel() != 4294967295)[0]
@@ -2609,16 +2607,6 @@ class SQErrorRenderer(ColoredRenderer):
     def compute_r(self):
         return self.render_sqerrors
 
-    @depends_on(dterms+terms)
-    def render_sqerrors(self):
-        self._call_on_changed()
-        try:
-            return self.render_resolved
-        except:
-            self.render_errors()
-
-        return self.render_resolved
-
 
     @depends_on(dterms+terms)
     def renderWithoutColor(self):
@@ -2639,10 +2627,32 @@ class SQErrorRenderer(ColoredRenderer):
 
         return self.render
 
-    def dErrors_wrt_2dVerts(self, observed, visible, visibility, barycentric, image_width, image_height, num_verts, f):
+
+    @depends_on(dterms+terms)
+    def dimage_wrt_params(self):
+        self._call_on_changed()
+
+        visibility = self.visibility_image
+
+        color = self.render_resolved
+
+        visible = np.nonzero(visibility.ravel() != 4294967295)[0]
+        num_visible = len(visible)
+
+        barycentric = self.barycentric_image
+
+        derivatives = self.image_derivatives(color, visible, visibility, barycentric, self.frustum['width'], self.frustum['height'], self.v.r.size / 3, self.f)
+
+        return derivatives
+
+
+    def image_derivatives(self, observed, visible, visibility, barycentric, image_width, image_height, num_verts, f):
         """Construct a sparse jacobian that relates 2D projected vertex positions
         (in the columns) to pixel values (in the rows). This can be done
         in two steps."""
+
+        width = self.frustum['width']
+        height = self.frustum['height']
 
         # xdiff = dEdx
         # ydiff = dEdy
@@ -2752,8 +2762,6 @@ class SQErrorRenderer(ColoredRenderer):
 
         #Color:
         colorVertsEdge =  vcEdges1 + vcEdges2
-        # colorVertsEdge =  vcBnd.reshape([1, -1, 2, 3])[:, :, 0, :]
-        # colorVertsEdge =  vcBnd.reshape([1, -1, 2, 3])[:, :, 1, :]
 
         #Point IN edge barycentric
 
@@ -2763,20 +2771,13 @@ class SQErrorRenderer(ColoredRenderer):
         p2 = projVerticesBnd[:, 1, :]
         p3 = projVerticesBnd[:, 2, :]
 
-        # projVerticesBnd
-
         d_final_outside = d_final[facesOutsideBnd]
 
         d_finalNP = d_final.r.copy()
         d_finalNP[facesInsideBnd] = 1.
 
-        # w_outside = d_final_outside
 
         finalColorBnd = np.mean(d_finalNP[:, :, None] * sampleColors + (1-d_finalNP[:, :, None]) * colorVertsEdge,axis=0)
-
-        # finalColorBnd = np.mean(colorVertsEdge,axis=0)
-
-        # finalColorBnd = np.mean(d_final.r[:, :, None] * sampleColors ,axis=0)
 
         bndColorsImage = np.zeros_like(self.render_resolved)
         bndColorsImage[(zerosIm * boundaryImage), :] = finalColorBnd
@@ -2784,22 +2785,7 @@ class SQErrorRenderer(ColoredRenderer):
         finalColor2 = (1-boundaryImage)[:,:,None] * self.render_resolved + boundaryImage[:,:,None] *  bndColorsImage
         finalColor = (1-boundaryImage)[:,:,None] * self.render_resolved + boundaryImage[:,:,None] *  bndColorsImage
 
-        pdb.set_trace()
-
         barycentric_outside = sampleBarycentric[facesOutsideBnd]
-
-        # projPointsInEdge = cv2.projectPoints(v, self.rt.r, self.t.r, self.camera_mtx, self.k.r)
-
-        # common.bary_coords(projVerticesBnd, points)sampleColors
-
-        #
-        # barycentricOutsideEdge1 =
-        # intersectPoint
-        # np.tile(boundaryFaces[None,:,:], len(d_final_outside)
-        #
-        # w_outside = 1-w_outside
-        # # barycentric_inside = sampleBarycentric[facesOutsideBnd]
-        # color_inside = sampleBarycentric[facesOutsideBnd]
 
         u1 = projVerticesBnd[:,0,0]
         v1 = projVerticesBnd[:,0,1]
@@ -2845,11 +2831,6 @@ class SQErrorRenderer(ColoredRenderer):
 
         dEdx = observed
 
-        self.renders_faces[0]
-        self.renders_sample_barycentric[0]
-        self.renders_sample_pos
-        self.render_resolved = np.mean(self.renders,0)
-
         dEVis = dEdx.reshape([-1,3])[visible]
 
         visTriVC = -dEVis[:,None] * visTriVC
@@ -2874,15 +2855,38 @@ class SQErrorRenderer(ColoredRenderer):
             IS = np.concatenate([IS*n_channels+i for i in range(n_channels)])
             JS = np.concatenate([JS for i in range(n_channels)])
 
-        datas = []
-
         data = np.concatenate(((visTriVC[:,0,:] * dBar1dx[:,None])[:,:,None],(visTriVC[:, 0, :] * dBar1dy[:, None])[:,:,None], (visTriVC[:,1,:]* dBar2dx[:,None])[:,:,None], (visTriVC[:, 1, :] * dBar2dy[:, None])[:,:,None],(visTriVC[:,2,:]* dBar3dx[:,None])[:,:,None],(visTriVC[:, 2, :] * dBar3dy[:, None])[:,:,None]),axis=2).swapaxes(0,1).ravel()
 
         ij = np.vstack((IS.ravel(), JS.ravel()))
 
-        result = sp.csc_matrix((data, ij), shape=(image_width*image_height*n_channels, num_verts*2))
+        result_wrt_verts = sp.csc_matrix((data, ij), shape=(image_width*image_height*n_channels, num_verts*2))
 
-        return result
+
+        ### Derivatives wrt VC:
+
+        num_channels = 3
+        vc_size = self.vc.size
+
+        # Each pixel relies on three verts
+        IS = np.tile(col(visible), (1, 3)).ravel()
+        JS = col(f[visibility.ravel()[visible]].ravel())
+
+        bc = barycentric.reshape((-1, 3))
+        data = np.asarray(bc[visible, :], order='C').ravel()
+
+        IS = np.concatenate([IS * num_channels + k for k in range(num_channels)])
+        JS = np.concatenate([JS * num_channels + k for k in range(num_channels)])
+        data = np.concatenate([data for i in range(num_channels)])
+        # IS = np.concatenate((IS*3, IS*3+1, IS*3+2))
+        # JS = np.concatenate((JS*3, JS*3+1, JS*3+2))
+        # data = np.concatenate((data, data, data))
+
+        ij = np.vstack((IS.ravel(), JS.ravel()))
+        result = sp.csc_matrix((data, ij), shape=(width * height * num_channels, vc_size))
+
+        result_wrt_vc = result
+
+        return result_wrt_verts, result_wrt_vc
 
     def on_changed(self, which):
         super().on_changed(which)
@@ -2989,7 +2993,7 @@ class SQErrorRenderer(ColoredRenderer):
             GL.glTexSubImage2D(GL.GL_TEXTURE_2D, 0, 0, 0, image.shape[1], image.shape[0], GL.GL_RGB, GL.GL_FLOAT, image)
 
         if 'v' or 'f' or 'vc' or 'ft' or 'camera' or 'texture_stack' or 'imageGT' in which:
-            self.render_errors()
+            self.render_image_buffers()
 
 
     def release_textures(self):
