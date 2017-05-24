@@ -2605,7 +2605,7 @@ class AnalyticRenderer(ColoredRenderer):
         return None
 
     def compute_r(self):
-        return self.render_sqerrors
+        return self.render_image
 
 
     @depends_on(dterms+terms)
@@ -2625,7 +2625,7 @@ class AnalyticRenderer(ColoredRenderer):
     def render_image(self):
         self._call_on_changed()
 
-        return self.render
+        return self.render_resolved
 
 
     @depends_on(dterms+terms)
@@ -2656,6 +2656,7 @@ class AnalyticRenderer(ColoredRenderer):
 
         # xdiff = dEdx
         # ydiff = dEdy
+
         nVisF = len(visibility.ravel()[visible])
         # projVertices = self.camera.r[f[visibility.ravel()[visible]].ravel()].reshape([nVisF,3, 2])
         visTriVC = self.vc.r[f[visibility.ravel()[visible]].ravel()].reshape([nVisF,3, 3])
@@ -2663,7 +2664,6 @@ class AnalyticRenderer(ColoredRenderer):
         boundaryImage = self.boundarybool_image.astype(np.bool)
         rangeIm = np.arange(self.boundarybool_image.size)
         zerosIm = np.ones(self.boundarybool_image.shape).astype(np.bool)
-        # zerosIm[60:70,60:70] = True
 
         edge_visibility = self.boundaryid_image
 
@@ -2677,58 +2677,66 @@ class AnalyticRenderer(ColoredRenderer):
         sampleBarycentric = self.renders_sample_barycentric.reshape([nsamples, -1, 3])[:,(zerosIm*boundaryImage).ravel().astype(np.bool),:].reshape([nsamples, -1, 3])
         sampleColors = self.renders.reshape([nsamples, -1, 3])[:,(zerosIm*boundaryImage).ravel().astype(np.bool),:].reshape([nsamples, -1, 3])
 
+        boundaryFaces = visibility[zerosIm * (boundaryImage)]
+        nBndFaces = len(boundaryFaces)
+        projFacesBndTiled = np.tile(boundaryFaces[None, :], [self.nsamples,1])
+
+        facesInsideBnd = projFacesBndTiled == sampleFaces
+        facesOutsideBnd = ~facesInsideBnd
+
         # vertsProjBnd[None, :] - sampleV[:,None,:]
+        vertsProjBndSamples = np.tile(vertsProjBnd[None, :], [self.nsamples, 1,1,1])
+        vertsProjBndSamplesOutside = vertsProjBndSamples[facesOutsideBnd]
 
-        chEdgeVerts = ch.Ch(vertsProjBnd[None,:])
-        chEdgeVerts1 = chEdgeVerts[:,:,0,:]
-        chEdgeVerts2 = chEdgeVerts[:,:,1,:]
+        chEdgeVerts = ch.Ch(vertsProjBndSamplesOutside)
 
-        chSampleVerts = ch.Ch(sampleV[:,:,:])
+        chEdgeVerts1 = chEdgeVerts[:,0,:]
+        chEdgeVerts2 = chEdgeVerts[:,1,:]
+
+        chSampleVerts = ch.Ch(sampleV[facesOutsideBnd])
         # c1 = (chEdgeVerts1 - chSampleVerts)
         # c2 = (chEdgeVerts2 - chSampleVerts)
         # n = (chEdgeVerts2 - chEdgeVerts1)
 
-        l = (chEdgeVerts2 - chEdgeVerts1)
 
+        #Code to check computation of distance below
         # d2 = ch.abs(c1[:,:,0]*c2[:,:,1] - c1[:,:,1]*c2[:,:,0]) / ch.sqrt((ch.sum(n**2,2)))
         # # np_mat = ch.dot(ch.array([[0,-1],[1,0]]), n)
         # np_mat2 = -ch.concatenate([-n[:,:,1][:,:,None], n[:,:,0][:,:,None]],2)
         # np_vec2 = np_mat2 / ch.sqrt((ch.sum(np_mat2**2,2)))[:,:,None]
         # d2 =  d2 / ch.maximum(ch.abs(np_vec2[:,:,0]),ch.abs(np_vec2[:,:,1]))
 
-        linedist = ch.sqrt((ch.sum(l**2,2)))[:,:,None]
+        l = (chEdgeVerts2 - chEdgeVerts1)
+        linedist = ch.sqrt((ch.sum(l**2,axis=1)))[:,None]
         lnorm = l/linedist
 
         v1 = chSampleVerts - chEdgeVerts1
-        d = v1[:,:,0]* lnorm[:,:,0] + v1[:,:,1]* lnorm[:,:,1]
-        intersectPoint = chEdgeVerts1 + d[:,:,None] * lnorm
+        d = v1[:,0]* lnorm[:,0] + v1[:,1]* lnorm[:,1]
+        intersectPoint = chEdgeVerts1 + d[:,None] * lnorm
         intersectPointDist1 = intersectPoint - chEdgeVerts1
         intersectPointDist2 = intersectPoint - chEdgeVerts2
-        lengthIntersectToPoint1 = np.linalg.norm(intersectPointDist1.r,axis=2)
-        lengthIntersectToPoint2 = np.linalg.norm(intersectPointDist2.r,axis=2)
+        # Code to check computation of distances below:
+        lengthIntersectToPoint1 = np.linalg.norm(intersectPointDist1.r,axis=1)
+        lengthIntersectToPoint2 = np.linalg.norm(intersectPointDist2.r,axis=1)
 
-        intersectPoint = chEdgeVerts1 + d[:,:,None] * lnorm
+        intersectPoint = chEdgeVerts1 + d[:,None] * lnorm
 
         lineToPoint = (chSampleVerts - intersectPoint)
-        n_norm = lineToPoint / ch.sqrt((ch.sum(lineToPoint ** 2, 2)))[:, :, None]
+        n_norm = lineToPoint / ch.sqrt((ch.sum(lineToPoint ** 2, axis=1)))[:, None]
 
-        dist = lineToPoint[:,:,0]*n_norm[:,:,0] + lineToPoint[:,:,1]*n_norm[:,:,1]
+        dist = lineToPoint[:,0]*n_norm[:,0] + lineToPoint[:,1]*n_norm[:,1]
 
-        d_final = dist / ch.maximum(ch.abs(n_norm[:, :, 0]), ch.abs(n_norm[:, :, 1]))
+        d_final_ch = dist / ch.maximum(ch.abs(n_norm[:, 0]), ch.abs(n_norm[:, 1]))
         #Trick to cap to 1 while keeping gradients.
-        d_final = d_final - d_final.r + np.minimum(d_final.r,1)
+        d_final = d_final_ch - d_final_ch.r + np.minimum(d_final_ch.r,1)
 
-        boundaryFaces = visibility[zerosIm * (boundaryImage)]
-        # verticesBnd = self.v[boundaryFaces].reshape([-1, 3, 2])
-        vertsProjBnd = self.camera.r[self.vpe[edge_visibility.ravel()[(zerosIm * boundaryImage).ravel().astype(np.bool)]].ravel()]
-        verticesBnd = self.v.r[self.vpe[edge_visibility.ravel()[(zerosIm * boundaryImage).ravel().astype(np.bool)]].ravel()]
-        vcBnd = self.vc.r[self.vpe[edge_visibility.ravel()[(zerosIm * boundaryImage).ravel().astype(np.bool)]].ravel()]
-        # vcBnd = self.vc.r[self.f[visibility.ravel()[(zerosIm * boundaryImage).ravel().astype(np.bool)]].ravel()]
+        verticesBnd = self.v.r[self.vpe[edge_visibility.ravel()[(zerosIm * boundaryImage).ravel().astype(np.bool)]].ravel()].reshape([-1, 2 , 3])
+        verticesBndSamples = np.tile(verticesBnd[None,:,:],[self.nsamples,1,1, 1])
+        verticesBndOutside = verticesBndSamples[facesOutsideBnd]
 
-        projFacesBndTiled = np.tile(boundaryFaces[None, :], [self.nsamples,1])
-
-        facesInsideBnd = projFacesBndTiled == sampleFaces
-        facesOutsideBnd = ~facesInsideBnd
+        vcBnd = self.vc.r[self.vpe[edge_visibility.ravel()[(zerosIm * boundaryImage).ravel().astype(np.bool)]].ravel()].reshape([-1, 2 , 3])
+        vcBndSamples = np.tile(vcBnd[None,:,:],[self.nsamples,1,1,1])
+        vcBndOutside = vcBndSamples[facesOutsideBnd]
 
         invViewMtx =  np.linalg.inv(np.r_[self.camera.view_mtx, np.array([[0, 0, 0, 1]])])
         #
@@ -2737,53 +2745,101 @@ class AnalyticRenderer(ColoredRenderer):
 
         view_mtx = np.r_[self.camera.view_mtx, np.array([[0, 0, 0, 1]])]
 
-        verticesBnd = np.concatenate([verticesBnd, np.ones([verticesBnd.shape[0], 1])], axis=1)
+        verticesBndOutside = np.concatenate([verticesBndOutside.reshape([-1,3]), np.ones([verticesBndOutside.size//3, 1])], axis=1)
 
-        projVerticesBnd = (camMtx.dot(view_mtx)).dot(verticesBnd.T).T[:,:3].reshape([-1,2,3])
+        projVerticesBnd = (camMtx.dot(view_mtx)).dot(verticesBndOutside.T).T[:,:3].reshape([-1,2,3])
         projVerticesBndDir = projVerticesBnd[:,1,:] - projVerticesBnd[:,0,:]
         projVerticesBndDir = projVerticesBndDir/np.sqrt((np.sum(projVerticesBndDir ** 2, 1)))[:, None]
 
-        dproj = (intersectPoint[:,:,0]* projVerticesBnd[:,0,2] - projVerticesBnd[:,0,0]) / (projVerticesBndDir[:,0] - projVerticesBndDir[:,2]*intersectPoint[:,:,0])
-        # dproj_y = (intersectPoint[:,:,1]* projVerticesBnd[:,0,2] - projVerticesBnd[:,0,1]) / (projVerticesBndDir[:,1] - projVerticesBndDir[:,2]*intersectPoint[:,:,1])
+        dproj = (intersectPoint[:,0]* projVerticesBnd[:,0,2] - projVerticesBnd[:,0,0]) / (projVerticesBndDir[:,0] - projVerticesBndDir[:,2]*intersectPoint[:,0])
+        # Code to check computation that dproj == dprojy
+        # dproj_y = (intersectPoint[:,1]* projVerticesBnd[:,0,2] - projVerticesBnd[:,0,1]) / (projVerticesBndDir[:,1] - projVerticesBndDir[:,2]*intersectPoint[:,1])
 
-        projPoint = projVerticesBnd[:,0,:][None,:,: ] + dproj[:,:,None]*projVerticesBndDir[None,:,:]
+        projPoint = projVerticesBnd[:,0,:][:,: ] + dproj[:,None]*projVerticesBndDir[:,:]
 
-        projPointVec4 = np.concatenate([projPoint, np.ones([projPoint.shape[0], projPoint.shape[1], 1])], axis=2)
-        viewPointIntersect = (invViewMtx.dot(np.linalg.inv(camMtx)).dot(projPointVec4.T.reshape([4,-1])).reshape([4,-1,self.nsamples])).T[:,:,:3]
+        projPointVec4 = np.concatenate([projPoint, np.ones([projPoint.shape[0],1])], axis=1)
+        viewPointIntersect = (invViewMtx.dot(np.linalg.inv(camMtx)).dot(projPointVec4.T.reshape([4,-1])).reshape([4,-1])).T[:,:3]
 
-        barycentricVertsDistIntesect = np.linalg.norm(viewPointIntersect - verticesBnd[:,0:3].reshape([1, -1, 2, 3])[:,:,0,:], axis=2)
-        barycentricVertsDistIntesect2 = np.linalg.norm(viewPointIntersect - verticesBnd[:,0:3].reshape([1, -1, 2, 3])[:,:,1,:], axis=2)
-        barycentricVertsDistEdge = np.linalg.norm(verticesBnd[:,0:3].reshape([1, -1, 2, 3])[:,:,1,:] - verticesBnd[:,0:3].reshape([1, -1, 2, 3])[:,:,0,:], axis=2)
+        barycentricVertsDistIntesect = np.linalg.norm(viewPointIntersect - verticesBndOutside[:,0:3].reshape([-1, 2, 3])[:,0,:], axis=1)
+        barycentricVertsDistIntesect2 = np.linalg.norm(viewPointIntersect - verticesBndOutside[:,0:3].reshape([-1, 2, 3])[:,1,:], axis=1)
+        # Code to check barycentricVertsDistIntesect + barycentricVertsDistIntesect2 = barycentricVertsDistEdge
+        # barycentricVertsDistEdge = np.linalg.norm(verticesBnd[:,0:3].reshape([1, -1, 2, 3])[:,:,1,:] - verticesBnd[:,0:3].reshape([1, -1, 2, 3])[:,:,0,:], axis=2)
 
         barycentricVertsIntersect = barycentricVertsDistIntesect2 / (barycentricVertsDistIntesect + barycentricVertsDistIntesect2)
 
-        vcEdges1 = barycentricVertsIntersect[:, :, None] * vcBnd.reshape([1, -1, 2, 3])[:, :, 0, :]
-        vcEdges2 = (1-barycentricVertsIntersect[:,:,None]) * vcBnd.reshape([1, -1,2,3])[:,:,1,:]
+        vcEdges1 = barycentricVertsIntersect[:, None] * vcBndOutside.reshape([-1, 2, 3])[:, 0, :]
+        vcEdges2 = (1-barycentricVertsIntersect[:,None]) * vcBndOutside.reshape([-1,2,3])[:,1,:]
 
         #Color:
         colorVertsEdge =  vcEdges1 + vcEdges2
 
         #Point IN edge barycentric
 
+        d_finalNP = d_final.r.copy()
+
+        finalColorBndOutside = np.zeros([self.nsamples, boundaryFaces.size, 3])
+        finalColorBndOutside_edge = np.zeros([self.nsamples, boundaryFaces.size, 3])
+        finalColorBndInside = np.zeros([self.nsamples, boundaryFaces.size, 3])
+
+        sampleColorsOutside = sampleColors[facesOutsideBnd]
+        finalColorBndOutside[facesOutsideBnd] = d_finalNP[:,  None] * sampleColorsOutside / self.nsamples
+        finalColorBndOutside_edge[facesOutsideBnd] = (1-d_finalNP[:, None]) * colorVertsEdge / self.nsamples
+
+        sampleColorsInside = sampleColors[facesInsideBnd]
+        finalColorBndInside[facesInsideBnd] = sampleColorsInside / self.nsamples
+
+        finalColorBnd = finalColorBndOutside + finalColorBndOutside_edge + finalColorBndInside
+
+        bndColorsImage = np.zeros_like(self.render_resolved)
+        bndColorsImage[(zerosIm * boundaryImage), :] = np.sum(finalColorBnd, axis=0)
+
+        finalColor = (1-boundaryImage)[:,:,None] * self.render_resolved + boundaryImage[:,:,None] *  bndColorsImage
+        self.render = finalColor
+
+        #Computing gradients:
+        #A multisampled pixel color is given by: w R + (1-w) R' thus:
+        #1 derivatives samples outside wrt v 1: (dw * (svc) - dw (bar'*vc') )/ nsamples for face sample
+        #2 derivatives samples outside wrt v bar outside: (w * (dbar*vc) )/ nsamples for faces sample
+        #3 derivatives samples outside wrt v bar edge: (1-w) (dbar'*vc') )/ nsamples for faces edge (barv1', barv2', 0)
+        #4 derivatives samples outside wrt vc : (w * (bar) )/ nsamples for faces sample
+        #5 derivatives samples outside wrt vc : (1-w) (bar')/ nsamples for faces edge
+
+        #6 derivatives samples inside wrt v : (dbar'*vc')/ nsamples for faces sample
+        #7 derivatives samples inside wrt vc : (bar)/ nsamples for faces sample
+
+        #for every boundary pixel i,j we have list of sample faces. compute gradients at each and sum them according to face identity, options:
+        #   - Best: create sparse matrix for every matrix. sum them! same can be done with boundary.
+
+        #Finally, stack data, and IJ of nonbnd with bnd on both dwrt_v and dwrt_vc.
+
+        # 1 derivatives samples outside wrt v 1: (dw * (bar*vc) - dw (bar'*vc') )/ nsamples for face sample
+
+        pdb.set_trace()
+
+        d_final_outside = d_final.ravel()
+        dwdv = d_final_outside.dr_wrt(chSampleVerts)
+        rows = np.tile(np.arange(d_final.shape[0])[None, :], [2, 1]).T.ravel()
+        cols = np.arange(d_final.shape[0] * 2)
+
+        finalColorBndOutside_edge
+        finalColorBndOutside
+        finalColorBndInside
+
+        dwdv_r = np.array(dwdv[rows, cols]).reshape([-1, 2])
+
+        dImage_wrt_outside_v = finalColorBndOutside[facesOutsideBnd][:,:,None]*dwdv_r[:,None,:] - dwdv_r[:,None,:]*finalColorBndOutside_edge[facesOutsideBnd][:,:,None]
+
+        # 4 derivatives samples outside wrt vc : (w * (bar) )/ nsamples for faces sample
+        dImage_wrt_outside_vc_outside = d_final_outside[:,None] * sampleBarycentric[facesOutsideBnd]
+
+        # 5 derivatives samples outside wrt vc : (w * (bar) )/ nsamples for faces sample
+        dImage_wrt_outside_vc_edge = (1-d_final_outside[:, None]) * np.c_[barycentricVertsIntersect, 1-barycentricVertsIntersect]
+
         projVerticesBnd = self.camera.r[f[boundaryFaces].ravel()].reshape([-1, 3, 2])
 
         p1 = projVerticesBnd[:, 0, :]
         p2 = projVerticesBnd[:, 1, :]
         p3 = projVerticesBnd[:, 2, :]
-
-        d_final_outside = d_final[facesOutsideBnd]
-
-        d_finalNP = d_final.r.copy()
-        d_finalNP[facesInsideBnd] = 1.
-
-
-        finalColorBnd = np.mean(d_finalNP[:, :, None] * sampleColors + (1-d_finalNP[:, :, None]) * colorVertsEdge,axis=0)
-
-        bndColorsImage = np.zeros_like(self.render_resolved)
-        bndColorsImage[(zerosIm * boundaryImage), :] = finalColorBnd
-
-        finalColor2 = (1-boundaryImage)[:,:,None] * self.render_resolved + boundaryImage[:,:,None] *  bndColorsImage
-        finalColor = (1-boundaryImage)[:,:,None] * self.render_resolved + boundaryImage[:,:,None] *  bndColorsImage
 
         barycentric_outside = sampleBarycentric[facesOutsideBnd]
 
@@ -2794,7 +2850,7 @@ class AnalyticRenderer(ColoredRenderer):
         u3 = projVerticesBnd[:,2,0]
         v3 = projVerticesBnd[:,2,1]
 
-        D = np.linalg.det(np.concatenate([(p3-p1).reshape([nVisF, 1, 2]), (p1-p2).reshape([nVisF, 1, 2])], axis=1))
+        D = np.linalg.det(np.concatenate([(p3-p1).reshape([nBndFaces, 1, 2]), (p1-p2).reshape([nBndFaces, 1, 2])], axis=1))
         dBar1dxBnd = (v2 -v3)/D
         dBar2dxBnd = (v3 - v1)/D
         dBar3dxBnd = (v1 - v2)/D
@@ -2803,8 +2859,10 @@ class AnalyticRenderer(ColoredRenderer):
         dBar2dyBnd = (u1 - u3)/D
         dBar3dyBnd = (u2 - u1)/D
 
+        nonBoundaryFaces = visibility[zerosIm * (~boundaryImage)]
+        boundaryFaces = visibility[zerosIm * (boundaryImage)]
 
-        nonBoundaryFaces = visibility.ravel()[zerosIm * (1 - self.boundarybool_image)]
+
         projVerticesNonBnd = self.camera.r[f[nonBoundaryFaces].ravel()].reshape([-1, 3, 2])
 
         cam = np.array([[self.camera.f.r[0], 0, self.camera.c.r[0]], [0., self.camera.f.r[1], self.camera.c.r[1]], [0., 0., 1.]], dtype=np.float64)
@@ -2829,14 +2887,12 @@ class AnalyticRenderer(ColoredRenderer):
         dBar2dy = (u1 - u3)/D
         dBar3dy = (u2 - u1)/D
 
-        dEdx = observed
+        obsVisNonBnd = observed.reshape([-1,3])[visible]
 
-        dEVis = dEdx.reshape([-1,3])[visible]
+        visTriVC = self.vc.r[f[visibility.ravel()[visible]].ravel()].reshape([nVisF, 3, 3])
 
-        visTriVC = -dEVis[:,None] * visTriVC
+        visTriVC = obsVisNonBnd[:,None] * visTriVC
 
-        # xdiff = (visTriVC[:,0,:] * dBar1dx[:,None] + visTriVC[:,1,:]* dBar2dx[:,None] + visTriVC[:,2,:]* dBar3dx[:,None])
-        # ydiff = (visTriVC[:, 0, :] * dBar1dy[:, None] + visTriVC[:, 1, :] * dBar2dy[:, None] + visTriVC[:, 2, :] * dBar3dy[:, None])
 
         n_channels = np.atleast_3d(observed).shape[2]
         shape = visibility.shape
@@ -2860,7 +2916,6 @@ class AnalyticRenderer(ColoredRenderer):
         ij = np.vstack((IS.ravel(), JS.ravel()))
 
         result_wrt_verts = sp.csc_matrix((data, ij), shape=(image_width*image_height*n_channels, num_verts*2))
-
 
         ### Derivatives wrt VC:
 
