@@ -2821,15 +2821,12 @@ class AnalyticRenderer(ColoredRenderer):
 
         ######## 1 derivatives samples outside wrt v 1: (dw * (bar*vc) - dw (bar'*vc') )/ nsamples for face sample
 
-        try:
-            d_final_outside = d_final.ravel()
-            dwdv = d_final_outside.dr_wrt(chEdgeVerts1)
-            rows = np.tile(np.arange(d_final_outside.shape[0])[None, :], [2, 1]).T.ravel()
-            cols = np.arange(d_final_outside.shape[0] * 2)
+        d_final_outside = d_final.ravel()
+        dwdv = d_final_outside.dr_wrt(chEdgeVerts1)
+        rows = np.tile(np.arange(d_final_outside.shape[0])[None, :], [2, 1]).T.ravel()
+        cols = np.arange(d_final_outside.shape[0] * 2)
 
-            dwdv_r_v1 = np.array(dwdv[rows, cols]).reshape([-1, 2])
-        except:
-            pdb.set_trace()
+        dwdv_r_v1 = np.array(dwdv[rows, cols]).reshape([-1, 2])
 
         dwdv = d_final_outside.dr_wrt(chEdgeVerts2)
         rows = np.tile(np.arange(d_final.shape[0])[None, :], [2, 1]).T.ravel()
@@ -2872,6 +2869,7 @@ class AnalyticRenderer(ColoredRenderer):
         # Each pixel relies on three verts
         pixels = np.tile(np.where(boundaryImage.ravel())[0][None,:], [self.nsamples, 1])[facesOutsideBnd]
         IS = np.tile(col(pixels), (1, 3)).ravel()
+
         faces = f[sampleFaces[facesOutsideBnd]].ravel()
         JS = col(faces)
 
