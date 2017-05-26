@@ -2249,6 +2249,7 @@ class AnalyticRenderer(ColoredRenderer):
                 GL.glVertexAttribPointer(position_location, 3, GL.GL_FLOAT, GL.GL_FALSE, 0, None)
                 vbo_colors = self.vbo_colors_mesh[mesh][polygons]
                 vbo_colors.bind()
+
                 GL.glEnableVertexAttribArray(color_location)  # from 'location = 0' in shader
                 GL.glVertexAttribPointer(color_location, 3, GL.GL_FLOAT, GL.GL_FALSE, 0, None)
                 vbo_uvs = self.vbo_uvs_mesh[mesh][polygons]
@@ -2325,6 +2326,11 @@ class AnalyticRenderer(ColoredRenderer):
 
                 GL.glBindVertexArray(vao_mesh)
                 # vbo_color.bind()
+
+                f = self.f_list[mesh][polygons]
+                colors_by_face = np.asarray(self.vc_list[mesh].reshape((-1, 3))[f.ravel()], dtype=np.float32, order='C')
+                self.vbo_colors_mesh[mesh][polygons].set_array(colors_by_face.astype(np.float32))
+                self.vbo_colors_mesh[mesh][polygons].bind()
 
                 if self.f.shape[1]==2:
                     primtype = GL.GL_LINES
@@ -2955,8 +2961,15 @@ class AnalyticRenderer(ColoredRenderer):
         dBar3dyBnd = (u2 - u1)/D
 
         dImage_wrt_bar_v = np.concatenate([np.c_[dBar1dxBnd, dBar2dxBnd, dBar3dxBnd][:,:,None],np.c_[dBar1dyBnd,dBar2dyBnd, dBar3dyBnd][:,:,None]], axis=2)
-        dImage_wrt_bar_v = dImage_wrt_bar_v * sampleColors.reshape([-1,3,1])
-        dImage_wrt_bar_v[facesOutsideBnd.ravel()] = dImage_wrt_bar_v[facesOutsideBnd.ravel()] * d_final_outside[:,None,None]
+
+        # Temprary fix to avoid getting nan when the screen triangle has (almost) 0 area
+        dImage_wrt_bar_v[np.abs(D)<1e-20] = 0
+
+        faceColors = self.vc.r[f[sampleFaces].ravel()].reshape([-1,3,3])
+
+        dImage_wrt_bar_v = dImage_wrt_bar_v[:,:,None,:] * faceColors[:,:,:,None]
+
+        dImage_wrt_bar_v[facesOutsideBnd.ravel()] = dImage_wrt_bar_v[facesOutsideBnd.ravel()] * d_final_outside[:,None,None, None]
 
         dImage_wrt_bar_v /= self.nsamples
 
@@ -2975,7 +2988,8 @@ class AnalyticRenderer(ColoredRenderer):
         # data = np.concatenate(((visTriVC[:,0,:] * dBar1dxBnd[:,None])[:,:,None],(visTriVC[:, 0, :] * dBar1dyBnd[:, None])[:,:,None], (visTriVC[:,1,:]* dBar2dxBnd[:,None])[:,:,None], (visTriVC[:, 1, :] * dBar2dyBnd[:, None])[:,:,None],(visTriVC[:,2,:]* dBar3dx[:,None])[:,:,None],(visTriVC[:, 2, :] * dBar3dy[:, None])[:,:,None]),axis=2).swapaxes(0,1).ravel()
         # dImage_wrt_bar_v =
 
-        data = np.tile(dImage_wrt_bar_v[facesOutsideBnd.ravel()][None,:],[3,1,1,1]).ravel()
+        # data = np.tile(dImage_wrt_bar_v[facesOutsideBnd.ravel()][None,:],[3,1,1,1]).ravel()
+        data = np.transpose(dImage_wrt_bar_v[facesOutsideBnd.ravel()],[2,0,1,3]).ravel()
 
         ij = np.vstack((IS.ravel(), JS.ravel()))
 
@@ -2997,7 +3011,8 @@ class AnalyticRenderer(ColoredRenderer):
         # data = np.concatenate(((visTriVC[:,0,:] * dBar1dxBnd[:,None])[:,:,None],(visTriVC[:, 0, :] * dBar1dyBnd[:, None])[:,:,None], (visTriVC[:,1,:]* dBar2dxBnd[:,None])[:,:,None], (visTriVC[:, 1, :] * dBar2dyBnd[:, None])[:,:,None],(visTriVC[:,2,:]* dBar3dx[:,None])[:,:,None],(visTriVC[:, 2, :] * dBar3dy[:, None])[:,:,None]),axis=2).swapaxes(0,1).ravel()
         # dImage_wrt_bar_v =
 
-        data = np.tile(dImage_wrt_bar_v[facesInsideBnd.ravel()][None,:],[3,1,1,1]).ravel()
+        # data = np.tile(dImage_wrt_bar_v[facesInsideBnd.ravel()][None,:],[3,1,1,1]).ravel()
+        data = np.transpose(dImage_wrt_bar_v[facesInsideBnd.ravel()], [2, 0, 1, 3]).ravel()
 
         ij = np.vstack((IS.ravel(), JS.ravel()))
 
@@ -3033,19 +3048,28 @@ class AnalyticRenderer(ColoredRenderer):
         dBar3dyBndEdge = (u2 - u1)/D
 
         dImage_wrt_bar_v_edge_faces = np.concatenate([np.c_[dBar1dxBndEdge, dBar2dxBndEdge, dBar3dxBndEdge][:,:,None],np.c_[dBar1dyBndEdge,dBar2dyBndEdge, dBar3dyBndEdge][:,:,None]], axis=2)
-        dImage_wrt_bar_v_edge_samples = np.tile(dImage_wrt_bar_v_edge_faces[None,:], [self.nsamples, 1,1,1])
+
+        #Temprary fix to avoid getting nan when the screen triangle has (almost) 0 area
+        dImage_wrt_bar_v_edge_faces[np.abs(D) < 1e-20] = 0
+
+        faceColors = self.vc.r[f[frontFacingEdgeFaces]].reshape([-1, 3, 3])
+        dImage_wrt_bar_v_edge_faces = dImage_wrt_bar_v_edge_faces[:, :, None, :] * faceColors[:, :, :, None]
+
+        dImage_wrt_bar_v_edge_samples = np.tile(dImage_wrt_bar_v_edge_faces[None,:], [self.nsamples, 1,1,1, 1])
         dImage_wrt_bar_v_edge = dImage_wrt_bar_v_edge_samples[facesOutsideBnd]
 
-        dImage_wrt_bar_v_edge = (dImage_wrt_bar_v_edge * colorVertsEdge.reshape([-1,3,1])).squeeze()
-        dImage_wrt_bar_v_edge = dImage_wrt_bar_v_edge * (1-d_final_outside[:,None,None])
+        # dImage_wrt_bar_v_edge = (dImage_wrt_bar_v_edge * colorVertsEdge.reshape([-1,3,1])).squeeze()
+
+        dImage_wrt_bar_v_edge = dImage_wrt_bar_v_edge * (1-d_final_outside[:,None,None, None])
 
         dImage_wrt_bar_v_edge /= self.nsamples
 
         ### Derivatives wrt V:
         pixels = np.tile(np.where(boundaryImage.ravel())[0][None, :], [self.nsamples, 1])[facesOutsideBnd]
-        IS = np.tile(col(pixels), (1, 2 * 2)).ravel()
-        faces = self.vpe[edge_visibility.ravel()[(zerosIm * boundaryImage).ravel().astype(np.bool)]].ravel()
-        faces = np.tile(faces.reshape([1, -1, 2]), [self.nsamples, 1, 1])[facesOutsideBnd].ravel()
+        IS = np.tile(col(pixels), (1, 3 * 2)).ravel()
+        # faces = self.vpe[edge_visibility.ravel()[(zerosIm * boundaryImage).ravel().astype(np.bool)]].ravel()
+        faces = f[frontFacingEdgeFaces]
+        faces = np.tile(faces.reshape([1, -1, 3]), [self.nsamples, 1, 1])[facesOutsideBnd].ravel()
         JS = col(faces)
         JS = np.hstack((JS*2, JS*2+1)).ravel()
 
@@ -3053,7 +3077,9 @@ class AnalyticRenderer(ColoredRenderer):
             IS = np.concatenate([IS*n_channels+i for i in range(n_channels)])
             JS = np.concatenate([JS for i in range(n_channels)])
 
-        data = np.tile(dImage_wrt_bar_v_edge[None,:],[2,1,1,1]).ravel()
+        # data = np.tile(dImage_wrt_bar_v_edge[None,:],[2,1,1,1]).ravel()
+        data = np.transpose(dImage_wrt_bar_v_edge, [2, 0, 1, 3]).ravel()
+
 
         ij = np.vstack((IS.ravel(), JS.ravel()))
 
@@ -3085,6 +3111,14 @@ class AnalyticRenderer(ColoredRenderer):
         dBar1dy = (u3 - u2)/D
         dBar2dy = (u1 - u3)/D
         dBar3dy = (u2 - u1)/D
+
+        #Temprary fix to avoid getting nan when the screen triangle has (almost) 0 area
+        dBar1dx[np.abs(D) < 1e-20] = 0
+        dBar2dx[np.abs(D) < 1e-20] = 0
+        dBar3dx[np.abs(D) < 1e-20] = 0
+        dBar1dy[np.abs(D) < 1e-20] = 0
+        dBar2dy[np.abs(D) < 1e-20] = 0
+        dBar3dy[np.abs(D) < 1e-20] = 0
 
         obsVisNonBnd = observed.reshape([-1,3])[visible]
 
@@ -3135,15 +3169,15 @@ class AnalyticRenderer(ColoredRenderer):
         result_wrt_vc_nonbnd = result
         result_wrt_vc_nonbnd.sum_duplicates()
 
-        result_wrt_verts = result_wrt_verts_bnd_outside + result_wrt_verts_bar_outside +  result_wrt_verts_bar_inside +  result_wrt_verts_bar_outside_edge + result_wrt_verts_nonbnd
-        result_wrt_vc = result_wrt_vc_bnd_outside + result_wrt_vc_bnd_outside_edge + result_wrt_vc_bnd_inside + result_wrt_vc_nonbnd
+        result_wrt_verts = result_wrt_verts_bnd_outside + result_wrt_verts_bar_outside +  result_wrt_verts_bar_inside +  result_wrt_verts_bar_outside_edge
+        result_wrt_vc = result_wrt_vc_bnd_outside + result_wrt_vc_bnd_outside_edge + result_wrt_vc_bnd_inside
 
         return finalColor, (result_wrt_verts, result_wrt_vc)
 
     def on_changed(self, which):
         super().on_changed(which)
 
-        if 'v' in which:
+        if 'v' or 'camera' in which:
             for mesh in range(len(self.f_list)):
                 for polygons in range(len(self.f_list[mesh])):
                     f = self.f_list[mesh][polygons]
@@ -3244,6 +3278,7 @@ class AnalyticRenderer(ColoredRenderer):
             # GL.glTexStorage2D(GL.GL_TEXTURE_2D, 1, GL.GL_RGBA, image.shape[1], image.shape[0])
             GL.glTexSubImage2D(GL.GL_TEXTURE_2D, 0, 0, 0, image.shape[1], image.shape[0], GL.GL_RGB, GL.GL_FLOAT, image)
 
+
         if 'v' or 'f' or 'vc' or 'ft' or 'camera' or 'texture_stack' or 'imageGT' in which:
             self.render_image_buffers()
 
@@ -3272,7 +3307,6 @@ class AnalyticRenderer(ColoredRenderer):
 
 
         GL.glPolygonMode(GL.GL_FRONT_AND_BACK, GL.GL_LINE)
-        GL.glLineWidth(2.)
         overdraw = self.draw_color_image()
         GL.glPolygonMode(GL.GL_FRONT_AND_BACK, GL.GL_FILL)
 
@@ -3344,13 +3378,15 @@ class AnalyticRenderer(ColoredRenderer):
         view_mtx = self.camera.openglMat.dot(np.asarray(np.vstack((self.camera.view_matrix, np.array([0, 0, 0, 1]))),np.float32))
         MVP = np.dot(self.projectionMatrix, view_mtx)
 
+        vc = self.vc_list[mesh]
+
         for polygons in np.arange(len(self.f_list[mesh])):
             vao_mesh = self.vao_tex_mesh_list[mesh][polygons]
             GL.glBindVertexArray(vao_mesh)
-
+            f = self.f_list[mesh][polygons]
             vbo_color = self.vbo_colors_mesh[mesh][polygons]
-            vc = self.vc_list[mesh][polygons]
-            colors = np.array(np.ones_like(vc) * (index + 1) / 255.0, dtype=np.float32)
+            colors_by_face = np.asarray(vc.reshape((-1, 3))[f.ravel()], dtype=np.float32, order='C')
+            colors = np.array(np.ones_like(colors_by_face) * (index + 1) / 255.0, dtype=np.float32)
 
             # Pol: Make a static zero vbo_color to make it more efficient?
             vbo_color.set_array(colors)
