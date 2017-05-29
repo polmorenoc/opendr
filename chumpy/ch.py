@@ -1123,8 +1123,7 @@ class Cross(Ch):
             self._w = w
             
         return self._tiled_identity, self._IS, self._JS, 
-            
-    
+
 
     # Could be at least 2x faster, with some work
     def compute_dr_wrt(self, wrt):
