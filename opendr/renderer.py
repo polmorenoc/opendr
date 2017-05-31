@@ -1738,7 +1738,7 @@ class AnalyticRenderer(ColoredRenderer):
 
         # GL.glEnable(GL.GL_LINE_SMOOTH)
         # GL.glHint(GL.GL_LINE_SMOOTH_HINT, GL.GL_NICEST)
-        GL.glLineWidth(2.)
+        GL.glLineWidth(1.)
 
         for mesh in range(len(self.f_list)):
 
@@ -2488,8 +2488,6 @@ class AnalyticRenderer(ColoredRenderer):
             # result = np.flipud(np.frombuffer(GL.glReadPixels(0, 0, self.frustum['width'], self.frustum['height'], GL.GL_RGB, GL.GL_FLOAT), np.float32).reshape(self.frustum['height'], self.frustum['height'], 3)[:,:,0:3].astype(np.float64))
             # self.renders_faces[sample] = result
 
-        self.renders_faces[0]
-        self.renders_sample_barycentric[0]
 
         GL.glBindVertexArray(0)
 
@@ -2771,6 +2769,28 @@ class AnalyticRenderer(ColoredRenderer):
         drb2p1 = chb2.dr_wrt(p1)
         drb2p2 = chb2.dr_wrt(p2)
 
+        # import sympy
+        # from sympy.vector import CoordSysCartesian
+        # from sympy import diff
+        # N0 = CoordSysCartesian('N')
+        # p0x = sympy.Symbol('p0x')
+        # p0y, p0z, = sympy.symbols('p0y p0z')
+        # p1x, p1y, p1z, = sympy.symbols('p1x p1y p1z')
+        # p2x, p2y, p2z, = sympy.symbols('p2x p2y p2z')
+        # p0 = p0x*N0.i + p0y*N0.j + p0z*N0.k
+        # p1 = p1x*N0.i + p1y*N0.j + p1z*N0.k
+        # p2 = p2x*N0.i + p2y*N0.j + p2z*N0.k
+        # viewVertsx, viewVertsy, viewVertsz, = sympy.symbols('viewVertsx viewVertsy viewVertsz')
+        # viewVerts = viewVertsx*N0.i + viewVertsy*N0.j + viewVertsz*N0.k
+        # nt = (p1 - p0).cross(p2 - p0)
+        # A = 0.5*nt.magnitude()
+        # nt_norm = nt.normalize()
+        # chb0 = 0.5 *nt_norm.cross(p2 - p1).dot(viewVerts - p1) / A
+        # chb1 = 0.5 *nt_norm.cross(p0 - p2).dot(viewVerts - p2) / A
+        # chb2 = 0.5 *nt_norm.cross(p1 - p0).dot(viewVerts - p0) / A
+        # chb0.diff(p0x)
+
+
         rows = np.tile(np.arange(drb0p0.shape[0])[None, :], [3, 1]).T.ravel()
         cols = np.arange(drb0p0.shape[0] * 3)
 
@@ -2987,7 +3007,7 @@ class AnalyticRenderer(ColoredRenderer):
 
             ######## 1 derivatives samples outside wrt v 1: (dw * (bar*vc) - dw (bar'*vc') )/ nsamples for face sample
 
-            d_final_outside = d_final.ravel()
+            d_final_outside = d_final_ch.ravel()
             dwdv = d_final_outside.dr_wrt(chEdgeVerts1)
             rows = np.tile(np.arange(d_final_outside.shape[0])[None, :], [2, 1]).T.ravel()
             cols = np.arange(d_final_outside.shape[0] * 2)
@@ -3002,6 +3022,8 @@ class AnalyticRenderer(ColoredRenderer):
 
             dImage_wrt_outside_v1 = finalColorBndOutside_for_dr[facesOutsideBnd][:,:,None]*dwdv_r_v1[:,None,:] - dwdv_r_v1[:,None,:]*finalColorBndOutside_edge_for_dr[facesOutsideBnd][:,:,None]
             dImage_wrt_outside_v2 = finalColorBndOutside_for_dr[facesOutsideBnd][:,:,None]*dwdv_r_v2[:,None,:] - dwdv_r_v2[:,None,:]*finalColorBndOutside_edge_for_dr[facesOutsideBnd][:,:,None]
+
+            # pdb.set_trace()
 
             ### Derivatives wrt V:
             pixels = np.tile(np.where(boundaryImage.ravel())[0][None, :], [self.nsamples, 1])[facesOutsideBnd]
@@ -3176,11 +3198,12 @@ class AnalyticRenderer(ColoredRenderer):
 
             fFrontEdge = np.tile(f[frontFacingEdgeFaces][None,:], [self.nsamples, 1, 1]).reshape([-1,3])[facesOutsideBnd.ravel()]
 
-            dImage_wrt_bar_v = self.barycentricDerivatives(verticesBnd, fFrontEdge, verts).swapaxes(0, 1)
+            dImage_wrt_bar_v_edge = self.barycentricDerivatives(verticesBnd, fFrontEdge, verts).swapaxes(0, 1)
 
-            dImage_wrt_bar_v = dImage_wrt_bar_v * (1-d_final_outside[:,None,None, None])
+            dImage_wrt_bar_v_edge = dImage_wrt_bar_v_edge * (1-d_final_outside[:,None,None, None])
 
-            dImage_wrt_bar_v /= self.nsamples
+            dImage_wrt_bar_v_edge /= self.nsamples
+
 
             ### Derivatives wrt V:
             pixels = np.tile(np.where(boundaryImage.ravel())[0][None, :], [self.nsamples, 1])[facesOutsideBnd]
@@ -3197,12 +3220,14 @@ class AnalyticRenderer(ColoredRenderer):
 
             # data = np.tile(dImage_wrt_bar_v_edge[None,:],[2,1,1,1]).ravel()
             # data = np.transpose(dImage_wrt_bar_v_edge, [2, 0, 1, 3]).ravel()
-            data = np.transpose(dImage_wrt_bar_v, [1, 0, 2, 3]).ravel()
+            data = np.transpose(dImage_wrt_bar_v_edge, [1, 0, 2, 3]).ravel()
 
             ij = np.vstack((IS.ravel(), JS.ravel()))
 
             result_wrt_verts_bar_outside_edge = sp.csc_matrix((data, ij), shape=(image_width*image_height*n_channels, num_verts*2))
             result_wrt_verts_bar_outside_edge.sum_duplicates()
+
+
 
         ########### Non boundary derivatives: ####################
 
@@ -3211,7 +3236,7 @@ class AnalyticRenderer(ColoredRenderer):
 
         verticesNonBnd = self.v.r[f[nonBoundaryFaces].ravel()]
 
-        barySample = self.renders_sample_barycentric[7].reshape([-1,3])[(~boundaryImage).ravel().astype(np.bool), :]
+        barySample = self.renders_sample_barycentric[0].reshape([-1,3])[(~boundaryImage).ravel().astype(np.bool), :]
         verts = np.sum(self.v.r[f[nonBoundaryFaces.ravel()].ravel()].reshape([-1, 3, 3]) * barySample[:, :,None], axis=1)
 
         # verts = np.sum(self.v.r[f[nonBoundaryFaces].ravel()].reshape([-1, 3, 3]) * self.barycentric_image.reshape([-1, 3])[~boundaryImage.ravel(), :][:, :, None], axis=1)
@@ -3272,8 +3297,9 @@ class AnalyticRenderer(ColoredRenderer):
         if np.any(boundaryImage):
             finalColor  = (1 - boundaryImage)[:, :, None] * self.render_resolved + boundaryImage[:,:,None]*finalColorImageBnd
             result_wrt_verts = result_wrt_verts_bnd_outside + result_wrt_verts_bar_outside + result_wrt_verts_bar_inside + result_wrt_verts_bar_outside_edge + result_wrt_verts_nonbnd
-            # result_wrt_verts = result_wrt_verts_bnd_outside
+            result_wrt_verts = result_wrt_verts_nonbnd
             result_wrt_vc = result_wrt_vc_bnd_outside + result_wrt_vc_bnd_outside_edge + result_wrt_vc_bnd_inside + result_wrt_vc_nonbnd
+            # result_wrt_vc = sp.csc_matrix((width * height * num_channels, vc_size))
         else:
             finalColor = self.render_resolved
             result_wrt_verts = result_wrt_verts_nonbnd

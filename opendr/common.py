@@ -428,9 +428,9 @@ def dImage_wrt_2dVerts_bnd(observed, visible, visibility, barycentric, image_wid
     ydiffbnd *= 2.0
 
     xdiffnb = -xdiffnb
-    ydiffnb = -ydiffnb
+    ydiffnb = ydiffnb
     xdiffbnd = -xdiffbnd
-    ydiffbnd = -ydiffbnd
+    ydiffbnd = ydiffbnd
     # ydiffnb *= 0
     # xdiffnb *= 0
 
@@ -606,7 +606,7 @@ def dImage_wrt_2dVerts(observed, visible, visibility, barycentric, image_width, 
     ksize=1
     sobel_normalizer = cv2.Sobel(np.asarray(np.tile(row(np.arange(10)), (10, 1)), np.float64), cv2.CV_64F, dx=1, dy=0, ksize=ksize)[5,5]
     xdiff = -cv2.Sobel(observed, cv2.CV_64F, dx=1, dy=0, ksize=ksize) / sobel_normalizer
-    ydiff = -cv2.Sobel(observed, cv2.CV_64F, dx=0, dy=1, ksize=ksize) / sobel_normalizer
+    ydiff = cv2.Sobel(observed, cv2.CV_64F, dx=0, dy=1, ksize=ksize) / sobel_normalizer
 
     xdiff = np.atleast_3d(xdiff)
     ydiff = np.atleast_3d(ydiff)
