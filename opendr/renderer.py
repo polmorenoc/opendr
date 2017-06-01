@@ -2685,136 +2685,205 @@ class AnalyticRenderer(ColoredRenderer):
         xu = np.c_[c * (cam_f - b * v) / xudiv, a * v * c / xudiv, a * cam_f * c / xudiv]
         xv = np.c_[b * u * c / xudiv, c * (cam_f - a * u) / xudiv, b * cam_f * c / xudiv]
 
-        x = u * c / (cam_f - a * u - b * v)
+        # x = u * c / (cam_f - a * u - b * v)
         # y = v*c/(cam_f - a*u - b*v)
         # z = c*cam_f/(cam_f - a*u - b*v)
 
         dxdp = np.concatenate([xu[:, :, None], xv[:, :, None]], axis=2)
 
-        # A = 0.5*np.linalg.norm(np.cross(p0 - p1, p0 - p2),axis=1)
+        A = 0.5*np.linalg.norm(np.cross(p1 - p0, p2 - p0),axis=1)
+        nt_mag = A*2
+
+
+        # Check with autodiff:
+
+        # view_mtx = np.r_[self.camera.view_mtx, np.array([[0, 0, 0, 1]])]
+        # # negYMat = ch.array([[1,0,self.camera.c.r[0]],[0,-1,self.camera.c.r[1]],[0,0,1]])
+        # verts_hom_ch = ch.Ch(verts_hom)
+        # camMtx = ch.Ch(np.r_[np.c_[self.camera.camera_mtx, np.array([0, 0, 0])], np.array([[0, 0, 0, 1]])])
+        # viewVerticesNonBnd = ch.Ch(np.array(camMtx[0:3, 0:3].dot(view_mtx.dot(vertices.T).T[:, :3].T).T.reshape([-1, 3, 3])))
+        # projVerts = (camMtx.dot(view_mtx)).dot(verts_hom_ch.T).T[:, :3].reshape([-1, 3])
+        # viewVerts = ch.Ch(np.array(projVerts))
+        # projVerts = projVerts[:, :2] / projVerts[:, 2:3]
+        #
+        # p0 = viewVerticesNonBnd[:, 0, :]
+        # p1 = viewVerticesNonBnd[:, 1, :]
+        # p2 = viewVerticesNonBnd[:, 2, :]
+        #
+        # # D = np.linalg.det(np.concatenate([(p3 - p1).reshape([nNonBndFaces, 1, 3]), (p1 - p2).reshape([nNonBndFaces, 1, 3])], axis=1))
+        # nt = ch.cross(p1 - p0, p2 - p0)
+        # A = 0.5 * ch.sqrt(ch.sum(nt ** 2, axis=1))
+        # nt_norm = nt / ch.sqrt(ch.sum(nt ** 2, axis=1))[:, None]
         # # nt = nt / A
-        # # db1 = 0.5*np.cross(nt_norm, p2-p1)/A[:, None]
-        # # db2 = 0.5*np.cross(nt_norm, p0-p2)/A[:, None]
-        # # db3_2 = 0.5*np.cross(nt_norm, p1-p0)/A[:, None]
-        # # db3 = - db1 - db2
         #
-        # b0 = 0.5*np.sum(np.cross(nt_norm, p2-p1)*(viewVerts - p1),axis=1)/A
-        # b0 = b0[:,None]
-        # # b1_2 = 0.5*np.linalg.norm(np.cross(p2-viewVerts, p1 - viewVerts),axis=1)/A
-        # b1 = 0.5*np.sum(np.cross(nt_norm, p0-p2)*(viewVerts - p2), axis=1)/A
-        # b1 = b1[:, None]
-        # # b2_2 = 0.5*np.linalg.norm(np.cross(p2 - viewVerts, p0 - viewVerts), axis=1) / A
-        # b2 = 0.5*np.sum(np.cross(nt_norm, p1-p0)*(viewVerts - p0),axis=1)/A
-        # b2 = b2[:, None]
-        # # b3_2 = 0.5*np.linalg.norm(np.cross(p0 - viewVerts, p1 - viewVerts), axis=1) / A
+        # chb0 = 0.5 * ch.sum(ch.cross(nt_norm, p2 - p1) * (viewVerts - p1), axis=1) / A
         #
-        # p = viewVerts
+        # chb1 = 0.5 * ch.sum(ch.cross(nt_norm, p0 - p2) * (viewVerts - p2), axis=1) / A
         #
-        # db0dp0 = ((p - b2*p2 - p1 + p1*b2) / (-(p0 - p1)**2))
-        # db0dp1 = (-1 + b2)/(p0 - p1) + (p - b2*p2 - p1 + p1*b2)/(p0 - p1)**2
-        # db0dp2 = -np.c_[b2,b2,b2]
+        # chb2 = 0.5 * ch.sum(ch.cross(nt_norm, p1 - p0) * (viewVerts - p0), axis=1) / A
         #
-        # db1dp0 = -np.c_[b0,b0,b0]
-        # db1dp1 = (p - b0*p0 - p2 + p2*b0) / -(p1 - p2)**2
-        # db1dp2 = (-1 + b0)/(p1 - p2) + (p - b0*p0 - p2 + p2*b0)/(p1 - p2)**2
+        # drb0p0 = chb0.dr_wrt(p0)
+        # drb0p1 = chb0.dr_wrt(p1)
+        # drb0p2 = chb0.dr_wrt(p2)
         #
-        # db2dp0 = (-1 + b1)/(p2 - p0) + (p - b1*p1 - p0 + p0*b1)/(p2 - p0)**2
-        # db2dp1 = -np.c_[b1,b1,b1]
-        # db2dp2 = (p - b1*p1 - p0 + p0*b1) / -(p2 - p0)**2
+        # drb1p0 = chb1.dr_wrt(p0)
+        # drb1p1 = chb1.dr_wrt(p1)
+        # drb1p2 = chb1.dr_wrt(p2)
         #
-        # dp0 = np.concatenate([db0dp0[:,None,:], db1dp0[:,None,:], db2dp0[:,None,:]], axis=1)
-        # dp1 = np.concatenate([db0dp1[:, None, :], db1dp1[:, None, :], db2dp1[:, None, :]], axis=1)
-        # dp2 = np.concatenate([db0dp2[:, None, :], db1dp2[:, None, :], db2dp2[:, None, :]], axis=1)
+        # drb2p0 = chb2.dr_wrt(p0)
+        # drb2p1 = chb2.dr_wrt(p1)
+        # drb2p2 = chb2.dr_wrt(p2)
         #
-        # dp = np.concatenate([dp0[:,:,None], dp1[:,:,None], dp2[:,:,None]], 2)
-        # dp = dp[None,:]
         #
-        # Check:
+        # rows = np.tile(np.arange(drb0p0.shape[0])[None, :], [3, 1]).T.ravel()
+        # cols = np.arange(drb0p0.shape[0] * 3)
+        #
+        # drb0p0 = np.array(drb0p0[rows, cols]).reshape([-1, 3])
+        # drb0p1 = np.array(drb0p1[rows, cols]).reshape([-1, 3])
+        # drb0p2 = np.array(drb0p2[rows, cols]).reshape([-1, 3])
+        # drb1p0 = np.array(drb1p0[rows, cols]).reshape([-1, 3])
+        # drb1p1 = np.array(drb1p1[rows, cols]).reshape([-1, 3])
+        # drb1p2 = np.array(drb1p2[rows, cols]).reshape([-1, 3])
+        # drb2p0 = np.array(drb2p0[rows, cols]).reshape([-1, 3])
+        # drb2p1 = np.array(drb2p1[rows, cols]).reshape([-1, 3])
+        # drb2p2 = np.array(drb2p2[rows, cols]).reshape([-1, 3])
+        #
+        # dp0 = np.concatenate([drb0p0[:, None, :], drb1p0[:, None, :], drb2p0[:, None, :]], axis=1)
+        # dp1 = np.concatenate([drb0p1[:, None, :], drb1p1[:, None, :], drb2p1[:, None, :]], axis=1)
+        # dp2 = np.concatenate([drb0p2[:, None, :], drb1p2[:, None, :], drb2p2[:, None, :]], axis=1)
+        # #
+        # dp = np.concatenate([dp0[:, :, None], dp1[:, :, None], dp2[:, :, None]], 2)
+        # dp = dp[None, :]
 
 
         view_mtx = np.r_[self.camera.view_mtx, np.array([[0, 0, 0, 1]])]
-        # negYMat = ch.array([[1,0,self.camera.c.r[0]],[0,-1,self.camera.c.r[1]],[0,0,1]])
-        verts_hom_ch = ch.Ch(verts_hom)
-        camMtx = ch.Ch(np.r_[np.c_[self.camera.camera_mtx, np.array([0, 0, 0])], np.array([[0, 0, 0, 1]])])
-        viewVerticesNonBnd = ch.Ch(np.array(camMtx[0:3, 0:3].dot(view_mtx.dot(vertices.T).T[:, :3].T).T.reshape([-1, 3, 3])))
-        projVerts = (camMtx.dot(view_mtx)).dot(verts_hom_ch.T).T[:, :3].reshape([-1, 3])
-        viewVerts = ch.Ch(np.array(projVerts))
+        camMtx = np.r_[np.c_[self.camera.camera_mtx, np.array([0, 0, 0])], np.array([[0, 0, 0, 1]])]
+        verts_hom = np.concatenate([verts.reshape([-1, 3]), np.ones([verts.size // 3, 1])], axis=1)
+        # viewVerts = negYMat.dot(view_mtx.dot(verts_hom.T).T[:, :3].T).T.reshape([-1, 3])
+        projVerts = (camMtx.dot(view_mtx)).dot(verts_hom.T).T[:, :3].reshape([-1, 3])
+        viewVerts = projVerts
         projVerts = projVerts[:, :2] / projVerts[:, 2:3]
 
+        # viewVerticesNonBnd = negYMat.dot(view_mtx.dot(vertices.T).T[:, :3].T).T.reshape([-1, 3, 3])
+        viewVerticesNonBnd = camMtx[0:3, 0:3].dot(view_mtx.dot(vertices.T).T[:, :3].T).T.reshape([-1, 3, 3])
         p0 = viewVerticesNonBnd[:, 0, :]
         p1 = viewVerticesNonBnd[:, 1, :]
         p2 = viewVerticesNonBnd[:, 2, :]
 
         # D = np.linalg.det(np.concatenate([(p3 - p1).reshape([nNonBndFaces, 1, 3]), (p1 - p2).reshape([nNonBndFaces, 1, 3])], axis=1))
-        nt = ch.cross(p1 - p0, p2 - p0)
-        A = 0.5 * ch.sqrt(ch.sum(nt ** 2, axis=1))
-        nt_norm = nt / ch.sqrt(ch.sum(nt ** 2, axis=1))[:, None]
+        nt = np.cross(p2 - p0, p1 - p0)
+        nt_norm = nt / np.linalg.norm(nt, axis=1)[:, None]
+
+        a = -nt_norm[:, 0] / nt_norm[:, 2]
+        b = -nt_norm[:, 1] / nt_norm[:, 2]
+        c = np.sum(nt_norm * p0, 1) / nt_norm[:, 2]
+
+        cam_f = 1
+        u = projVerts[:, 0]
+        v = projVerts[:, 1]
+
+        xudiv = (cam_f - a * u - b * v) ** 2
+        xu = np.c_[c * (cam_f - b * v) / xudiv, a * v * c / xudiv, a * cam_f * c / xudiv]
+        xv = np.c_[b * u * c / xudiv, c * (cam_f - a * u) / xudiv, b * cam_f * c / xudiv]
+
+        # x = u * c / (cam_f - a * u - b * v)
+        # y = v*c/(cam_f - a*u - b*v)
+        # z = c*cam_f/(cam_f - a*u - b*v)
+
+        dxdp = np.concatenate([xu[:, :, None], xv[:, :, None]], axis=2)
+
+        A = 0.5*np.linalg.norm(np.cross(p2 - p0, p1 - p0),axis=1)
+        nt_mag = A*2
         # nt = nt / A
+        # db1 = 0.5*np.cross(nt_norm, p2-p1)/A[:, None]
+        # db2 = 0.5*np.cross(nt_norm, p0-p2)/A[:, None]
+        # db3_2 = 0.5*np.cross(nt_norm, p1-p0)/A[:, None]
+        # db3 = - db1 - db2
+        p = viewVerts
 
-        chb0 = 0.5 * ch.sum(ch.cross(nt_norm, p2 - p1) * (viewVerts - p1), axis=1) / A
+        #Pol: sign should be negative but as is now it matches the autodiff results.
+        pre1 = -1/(nt_mag[:,None]**2) * nt_norm
 
-        chb1 = 0.5 * ch.sum(ch.cross(nt_norm, p0 - p2) * (viewVerts - p2), axis=1) / A
+        ident = np.identity(3)
+        ident = np.tile(ident[None,:],[len(p2),1,1])
+        dntdp0 = -np.cross(ident,(p2-p0)[:,None,:]) - np.cross((p1-p0)[:,None,:],ident)
+        dntdp1 = np.cross(ident,(p2-p0)[:,None,:])
+        dntdp2 = np.cross((p1-p0)[:,None,:], ident)
 
-        chb2 = 0.5 * ch.sum(ch.cross(nt_norm, p1 - p0) * (viewVerts - p0), axis=1) / A
+        dntnorm = (ident - np.einsum('ij,ik->ijk',nt,nt_norm))/nt_mag[:,None,None]**2
 
-        drb0p0 = chb0.dr_wrt(p0)
-        drb0p1 = chb0.dr_wrt(p1)
-        drb0p2 = chb0.dr_wrt(p2)
+        dntnormdp0 = np.einsum('ijk,ikl->ijl',dntnorm, dntdp0)
+        dntnormdp1 = np.einsum('ijk,ikl->ijl',dntnorm, dntdp1)
+        dntnormdp2 = np.einsum('ijk,ikl->ijl',dntnorm, dntdp2)
 
-        drb1p0 = chb1.dr_wrt(p0)
-        drb1p1 = chb1.dr_wrt(p1)
-        drb1p2 = chb1.dr_wrt(p2)
+        b0 = np.sum(np.cross(nt_norm, p1 - p2) * (p - p1), axis=1)[:,None]
+        dpart2p0 = np.einsum('ikj,ij->ik',np.cross(dntnormdp0, (p1 - p2)[:, None, :]), p - p1)
+        dpart2p1 = np.einsum('ikj,ij->ik',np.cross(dntnormdp1, (p1 - p2)[:, None, :]), p - p1) + np.einsum('ikj,ij->ik', np.cross(nt_norm[:, None, :], ident), p - p1) + np.einsum('ik,ikj->ik', np.cross(nt_norm[:, :], p1-p2), -ident)
+        dpart2p2 =  np.einsum('ikj,ij->ik',np.cross(dntnormdp2, (p1 - p2)[:, None, :]), p - p1) + np.einsum('ikj,ij->ik', np.cross(nt_norm[:, None, :], -ident), p - p1)
 
-        drb2p0 = chb2.dr_wrt(p0)
-        drb2p1 = chb2.dr_wrt(p1)
-        drb2p2 = chb2.dr_wrt(p2)
+        dpart1p0 = np.einsum('ij,ijk->ik', pre1, dntdp0)
+        dpart1p1 = np.einsum('ij,ijk->ik', pre1, dntdp1)
+        dpart1p2 = np.einsum('ij,ijk->ik', pre1, dntdp2)
 
-        # import sympy
-        # from sympy.vector import CoordSysCartesian
-        # from sympy import diff
-        # N0 = CoordSysCartesian('N')
-        # p0x = sympy.Symbol('p0x')
-        # p0y, p0z, = sympy.symbols('p0y p0z')
-        # p1x, p1y, p1z, = sympy.symbols('p1x p1y p1z')
-        # p2x, p2y, p2z, = sympy.symbols('p2x p2y p2z')
-        # p0 = p0x*N0.i + p0y*N0.j + p0z*N0.k
-        # p1 = p1x*N0.i + p1y*N0.j + p1z*N0.k
-        # p2 = p2x*N0.i + p2y*N0.j + p2z*N0.k
-        # viewVertsx, viewVertsy, viewVertsz, = sympy.symbols('viewVertsx viewVertsy viewVertsz')
-        # viewVerts = viewVertsx*N0.i + viewVertsy*N0.j + viewVertsz*N0.k
-        # nt = (p1 - p0).cross(p2 - p0)
-        # A = 0.5*nt.magnitude()
-        # nt_norm = nt.normalize()
-        # chb0 = 0.5 *nt_norm.cross(p2 - p1).dot(viewVerts - p1) / A
-        # chb1 = 0.5 *nt_norm.cross(p0 - p2).dot(viewVerts - p2) / A
-        # chb2 = 0.5 *nt_norm.cross(p1 - p0).dot(viewVerts - p0) / A
-        # chb0.diff(p0x)
+        db0dp0wrtpart1 = dpart1p0*b0
+        db0dp1wrtpart1 = dpart1p1*b0
+        db0dp2wrtpart1 = dpart1p2*b0
 
+        db0dp0wrtpart2 = 1./(nt_mag[:,None])*dpart2p0
+        db0dp1wrtpart2 = 1./(nt_mag[:,None])*dpart2p1
+        db0dp2wrtpart2 = 1./(nt_mag[:,None])*dpart2p2
 
-        rows = np.tile(np.arange(drb0p0.shape[0])[None, :], [3, 1]).T.ravel()
-        cols = np.arange(drb0p0.shape[0] * 3)
+        db0dp0wrt = db0dp0wrtpart1 +  db0dp0wrtpart2
+        db0dp1wrt = db0dp1wrtpart1 +  db0dp1wrtpart2
+        db0dp2wrt = db0dp2wrtpart1 +  db0dp2wrtpart2
 
-        drb0p0 = np.array(drb0p0[rows, cols]).reshape([-1, 3])
-        drb0p1 = np.array(drb0p1[rows, cols]).reshape([-1, 3])
-        drb0p2 = np.array(drb0p2[rows, cols]).reshape([-1, 3])
-        drb1p0 = np.array(drb1p0[rows, cols]).reshape([-1, 3])
-        drb1p1 = np.array(drb1p1[rows, cols]).reshape([-1, 3])
-        drb1p2 = np.array(drb1p2[rows, cols]).reshape([-1, 3])
-        drb2p0 = np.array(drb2p0[rows, cols]).reshape([-1, 3])
-        drb2p1 = np.array(drb2p1[rows, cols]).reshape([-1, 3])
-        drb2p2 = np.array(drb2p2[rows, cols]).reshape([-1, 3])
+        ######
+        b1 = np.sum(np.cross(nt_norm, p2 - p0) * (p - p0), axis=1)[:, None]
 
-        dp0 = np.concatenate([drb0p0[:, None, :], drb1p0[:, None, :], drb2p0[:, None, :]], axis=1)
-        dp1 = np.concatenate([drb0p1[:, None, :], drb1p1[:, None, :], drb2p1[:, None, :]], axis=1)
-        dp2 = np.concatenate([drb0p2[:, None, :], drb1p2[:, None, :], drb2p2[:, None, :]], axis=1)
+        dpart2p0 = np.einsum('ikj,ij->ik',np.cross(dntnormdp0, (p2 - p0)[:, None, :]), p - p0) + np.einsum('ikj,ij->ik', np.cross(nt_norm[:, None, :], -ident), p - p0) + np.einsum('ik,ikj->ik', np.cross(nt_norm[:, :], p2-p0), -ident)
+        dpart2p1 = np.einsum('ikj,ij->ik',np.cross(dntnormdp1, (p2 - p0)[:, None, :]), p - p0)
+        dpart2p2 =  np.einsum('ikj,ij->ik',np.cross(dntnormdp2, (p2 - p0)[:, None, :]), p - p0) + np.einsum('ikj,ij->ik', np.cross(nt_norm[:, None, :], ident), p - p0)
+
+        db1dp0wrtpart1 = dpart1p0*b1
+        db1dp1wrtpart1 = dpart1p1*b1
+        db1dp2wrtpart1 = dpart1p2*b1
+
+        db1dp0wrtpart2 = 1./(nt_mag[:,None])*dpart2p0
+        db1dp1wrtpart2 = 1./(nt_mag[:,None])*dpart2p1
+        db1dp2wrtpart2 = 1./(nt_mag[:,None])*dpart2p2
+
+        db1dp0wrt = db1dp0wrtpart1 + db1dp0wrtpart2
+        db1dp1wrt = db1dp1wrtpart1 +  db1dp1wrtpart2
+        db1dp2wrt = db1dp2wrtpart1 +  db1dp2wrtpart2
+
+        ######
+        b2 = np.sum(np.cross(nt_norm, p0 - p1) * (p - p1), axis=1)[:, None]
+
+        dpart2p0 = np.einsum('ikj,ij->ik',np.cross(dntnormdp0, (p0-p1)[:, None, :]), p - p1) + np.einsum('ikj,ij->ik', np.cross(nt_norm[:, None, :], ident), p - p1)
+        dpart2p1 = np.einsum('ikj,ij->ik',np.cross(dntnormdp1, (p0-p1)[:, None, :]), p - p1) + np.einsum('ikj,ij->ik', np.cross(nt_norm[:, None, :], -ident), p - p1) + np.einsum('ik,ikj->ik', np.cross(nt_norm[:, :], p0-p1), -ident)
+        dpart2p2 =  np.einsum('ikj,ij->ik',np.cross(dntnormdp2, (p0-p1)[:, None, :]), p - p1)
+
+        db2dp0wrtpart1 = dpart1p0*b2
+        db2dp1wrtpart1 = dpart1p1*b2
+        db2dp2wrtpart1 = dpart1p2*b2
+
+        db2dp0wrtpart2 = 1./(nt_mag[:,None])*dpart2p0
+        db2dp1wrtpart2 = 1./(nt_mag[:,None])*dpart2p1
+        db2dp2wrtpart2 = 1./(nt_mag[:,None])*dpart2p2
+
+        db2dp0wrt = db2dp0wrtpart1 + db2dp0wrtpart2
+        db2dp1wrt = db2dp1wrtpart1 +  db2dp1wrtpart2
+        db2dp2wrt = db2dp2wrtpart1 +  db2dp2wrtpart2
+
+        dp0 = np.concatenate([db0dp0wrt[:, None, :], db1dp0wrt[:, None, :], db2dp0wrt[:, None, :]], axis=1)
+        dp1 = np.concatenate([db0dp1wrt[:, None, :], db1dp1wrt[:, None, :], db2dp1wrt[:, None, :]], axis=1)
+        dp2 = np.concatenate([db0dp2wrt[:, None, :], db1dp2wrt[:, None, :], db2dp2wrt[:, None, :]], axis=1)
         #
         dp = np.concatenate([dp0[:, :, None], dp1[:, :, None], dp2[:, :, None]], 2)
         dp = dp[None, :]
 
         nFaces = len(faces)
         visTriVC = self.vc.r[faces.ravel()].reshape([nFaces, 3, 3]).transpose([2, 0, 1])[:, :, :, None, None]
-
-        # db = np.concatenate([db1[:, None, :], db2[:, None, :], db3[:, None, :]], axis=1)[None,:]
 
         dxdp = dxdp[None, :, None, :, :]
         dbvc = np.sum(dp * visTriVC, 2)
@@ -3023,7 +3092,51 @@ class AnalyticRenderer(ColoredRenderer):
             dImage_wrt_outside_v1 = finalColorBndOutside_for_dr[facesOutsideBnd][:,:,None]*dwdv_r_v1[:,None,:] - dwdv_r_v1[:,None,:]*finalColorBndOutside_edge_for_dr[facesOutsideBnd][:,:,None]
             dImage_wrt_outside_v2 = finalColorBndOutside_for_dr[facesOutsideBnd][:,:,None]*dwdv_r_v2[:,None,:] - dwdv_r_v2[:,None,:]*finalColorBndOutside_edge_for_dr[facesOutsideBnd][:,:,None]
 
-            # pdb.set_trace()
+            pdb.set_trace()
+
+            p1 = vertsProjBndSamplesOutside[:,0,:]
+            p2 = vertsProjBndSamplesOutside[:,1,:]
+
+            p = sampleV[facesOutsideBnd]
+
+            l = (p2 - p1)
+            linedist = np.sqrt((np.sum(l**2,axis=1)))[:,None]
+            lnorm = l/linedist
+
+            v1 = p - p1
+            d = v1[:,0]* lnorm[:,0] + v1[:,1]* lnorm[:,1]
+            intersectPoint = p1 + d[:,None] * lnorm
+
+            lineToPoint = (p - intersectPoint)
+            n_norm = lineToPoint / np.sqrt((np.sum(lineToPoint ** 2, axis=1)))[:, None]
+
+            dist = lineToPoint[:,0]*n_norm[:,0] + lineToPoint[:,1]*n_norm[:,1]
+
+            d_final_np = dist / np.maximum(np.abs(n_norm[:, 0]), np.abs(n_norm[:, 1]))
+
+            ident = np.identity(3)
+            ident = np.tile(ident[None, :], [len(p2), 1, 1])
+
+            dl_normdp1 = np.einsum('ij,ijk->ik', lnorm, -ident)
+            dl_normdp2 = np.einsum('ij,ijk->ik', lnorm, -ident)
+
+            dv1dp1 = -ident
+            dv1dp2 = 0
+
+            ddistdp1 = np.dot(dv1dp1, lnorm) + v1.dot(dl_normdp1)
+            ddistdp2 = np.dot(dv1dp2, lnorm) + v1.dot(dl_normdp2)
+
+            dipdp1 = ident + ddistdp1.dot(lnorm) + dist*dl_normdp1
+            dipdp2 = ddistdp2.dot(lnorm) + dist*dl_normdp2
+
+            dndp1 = -dipdp1
+            dndp2 = -dipdp2
+
+            dnmagd1 = lnorm.dot(dndp1)
+            dnmagdp2 = lnorm.dot(dndp2)
+
+            
+
 
             ### Derivatives wrt V:
             pixels = np.tile(np.where(boundaryImage.ravel())[0][None, :], [self.nsamples, 1])[facesOutsideBnd]
@@ -3297,7 +3410,7 @@ class AnalyticRenderer(ColoredRenderer):
         if np.any(boundaryImage):
             finalColor  = (1 - boundaryImage)[:, :, None] * self.render_resolved + boundaryImage[:,:,None]*finalColorImageBnd
             result_wrt_verts = result_wrt_verts_bnd_outside + result_wrt_verts_bar_outside + result_wrt_verts_bar_inside + result_wrt_verts_bar_outside_edge + result_wrt_verts_nonbnd
-            result_wrt_verts = result_wrt_verts_nonbnd
+            # result_wrt_verts = result_wrt_verts_nonbnd
             result_wrt_vc = result_wrt_vc_bnd_outside + result_wrt_vc_bnd_outside_edge + result_wrt_vc_bnd_inside + result_wrt_vc_nonbnd
             # result_wrt_vc = sp.csc_matrix((width * height * num_channels, vc_size))
         else:
