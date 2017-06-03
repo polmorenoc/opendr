@@ -1822,6 +1822,7 @@ class AnalyticRenderer(ColoredRenderer):
         self.initGLTexture()
 
         self.updateRender = True
+        self.updateDerivatives = True
 
         GL.glEnable(GL.GL_MULTISAMPLE)
         # GL.glHint(GL.GL_MULTISAMPLE_FILTER_HINT_NV, GL.GL_NICEST);
@@ -2501,6 +2502,7 @@ class AnalyticRenderer(ColoredRenderer):
         self.render_resolved = np.mean(self.renders, 0)
 
         self.updateRender = True
+        self.updateDerivatives = True
 
 
 
@@ -2572,23 +2574,22 @@ class AnalyticRenderer(ColoredRenderer):
 
         visibility = self.visibility_image
 
-        visible = np.nonzero(visibility.ravel() != 4294967295)[0]
-
         if wrt is self.camera:
-            render, derivatives = self.image_and_derivatives()
+            derivatives = self.get_derivatives()
 
             return derivatives[0]
 
         elif wrt is self.vc:
 
-            render, derivatives = self.image_and_derivatives()
+            derivatives = self.get_derivatives()
 
             return derivatives[1]
 
+        # Not working atm.:
         elif wrt is self.bgcolor:
             return 2. * (self.imageGT.r - self.render_image).ravel() * common.dr_wrt_bgcolor(visibility, self.frustum, num_channels=self.num_channels)
 
-
+        #Not working atm.:
         elif wrt is self.texture_stack:
             IS = np.nonzero(self.visibility_image.ravel() != 4294967295)[0]
             texcoords, texidx = self.texcoord_image_quantized
@@ -2616,8 +2617,7 @@ class AnalyticRenderer(ColoredRenderer):
         return None
 
     def compute_r(self):
-        return self.image_and_derivatives()[0]
-
+        return self.render()
 
     @depends_on(dterms+terms)
     def renderWithoutColor(self):
@@ -2631,25 +2631,63 @@ class AnalyticRenderer(ColoredRenderer):
 
         return self.render_notexture
 
-
     # @depends_on(dterms+terms)
-    def image_and_derivatives(self):
-        # self._call_on_changed()
+    def render(self):
+        self._call_on_changed()
+
         visibility = self.visibility_image
 
         color = self.render_resolved
 
         visible = np.nonzero(visibility.ravel() != 4294967295)[0]
-        num_visible = len(visible)
 
         barycentric = self.barycentric_image
 
         if self.updateRender:
-            render, derivatives = self.compute_image_and_derivatives(color, visible, visibility, barycentric, self.frustum['width'], self.frustum['height'], self.v.r.size / 3, self.f)
-            self.render = render
-            self.derivatives = derivatives
+            render = self.compute_image(color, visible, visibility, self.f)
+            self.render_result = render
+            self.updateRender = False
+        return self.render_result
 
-        return self.render, self.derivatives
+    def get_derivatives(self):
+        self._call_on_changed()
+
+        visibility = self.visibility_image
+
+        color = self.render_resolved
+
+        visible = np.nonzero(visibility.ravel() != 4294967295)[0]
+        barycentric = self.barycentric_image
+
+        if self.updateDerivatives:
+            if self.updateRender:
+                self.render()
+            derivatives = self.compute_derivatives(color, visible, visibility, barycentric, self.frustum['width'], self.frustum['height'], self.v.r.size / 3, self.f)
+            self.derivatives = derivatives
+            self.updateDerivatives = False
+        return self.derivatives
+
+
+    # # @depends_on(dterms+terms)
+    # def image_and_derivatives(self):
+    #     # self._call_on_changed()
+    #     visibility = self.visibility_image
+    #
+    #     color = self.render_resolved
+    #
+    #     visible = np.nonzero(visibility.ravel() != 4294967295)[0]
+    #     num_visible = len(visible)
+    #
+    #     barycentric = self.barycentric_image
+    #
+    #     if self.updateRender:
+    #         render, derivatives = self.compute_image_and_derivatives(color, visible, visibility, barycentric, self.frustum['width'], self.frustum['height'], self.v.r.size / 3, self.f)
+    #         self.render = render
+    #         self.derivatives = derivatives
+    #         self.updateRender = False
+    #
+    #     return self.render, self.derivatives
+    #
 
     def barycentricDerivatives(self, vertices, faces, verts):
         import chumpy as ch
@@ -2660,8 +2698,6 @@ class AnalyticRenderer(ColoredRenderer):
         verts_hom = np.concatenate([verts.reshape([-1, 3]), np.ones([verts.size // 3, 1])], axis=1)
         # viewVerts = negYMat.dot(view_mtx.dot(verts_hom.T).T[:, :3].T).T.reshape([-1, 3])
         projVerts = (camMtx.dot(view_mtx)).dot(verts_hom.T).T[:, :3].reshape([-1, 3])
-        viewVerts = projVerts
-        projVerts = projVerts[:, :2] / projVerts[:, 2:3]
 
         # viewVerticesNonBnd = negYMat.dot(view_mtx.dot(vertices.T).T[:, :3].T).T.reshape([-1, 3, 3])
         viewVerticesNonBnd = camMtx[0:3, 0:3].dot(view_mtx.dot(vertices.T).T[:, :3].T).T.reshape([-1, 3, 3])
@@ -2669,7 +2705,6 @@ class AnalyticRenderer(ColoredRenderer):
         # x = u * c / (cam_f - a * u - b * v)
         # y = v*c/(cam_f - a*u - b*v)
         # z = c*cam_f/(cam_f - a*u - b*v)
-
 
         # Check with autodiff:
 
@@ -2881,8 +2916,7 @@ class AnalyticRenderer(ColoredRenderer):
 
         return didp
 
-
-    def compute_image_and_derivatives(self, observed, visible, visibility, barycentric, image_width, image_height, num_verts, f):
+    def compute_image(self, visible, visibility, f):
         """Construct a sparse jacobian that relates 2D projected vertex positions
         (in the columns) to pixel values (in the rows). This can be done
         in two steps."""
@@ -2982,17 +3016,24 @@ class AnalyticRenderer(ColoredRenderer):
 
             l = (p2 - p1)
             linedist = np.sqrt((np.sum(l**2,axis=1)))[:,None]
+            self.linedist = linedist
             lnorm = l/linedist
+            self.lnorm = lnorm
 
             v1 = p - p1
+            self.v1 = v1
             d = v1[:,0]* lnorm[:,0] + v1[:,1]* lnorm[:,1]
+            self.d = d
             intersectPoint = p1 + d[:,None] * lnorm
 
             lineToPoint = (p - intersectPoint)
             n=lineToPoint
             n_norm = lineToPoint / np.sqrt((np.sum(lineToPoint ** 2, axis=1)))[:, None]
 
+            self.n_norm = n_norm
+
             dist = np.sqrt((np.sum(lineToPoint ** 2, axis=1)))[:, None]
+            self.dist = dist
 
             d_final = dist.squeeze()
 
@@ -3032,6 +3073,7 @@ class AnalyticRenderer(ColoredRenderer):
             # barycentricVertsDistEdge = np.linalg.norm(verticesBnd[:,0:3].reshape([1, -1, 2, 3])[:,:,1,:] - verticesBnd[:,0:3].reshape([1, -1, 2, 3])[:,:,0,:], axis=2)
 
             barycentricVertsIntersect = barycentricVertsDistIntesect2 / (barycentricVertsDistIntesect + barycentricVertsDistIntesect2)
+            self.barycentricVertsIntersect = barycentricVertsIntersect
 
             vcEdges1 = barycentricVertsIntersect[:, None] * vcBndOutside.reshape([-1, 2, 3])[:, 0, :]
             vcEdges2 = (1-barycentricVertsIntersect[:,None]) * vcBndOutside.reshape([-1,2,3])[:,1,:]
@@ -3042,7 +3084,7 @@ class AnalyticRenderer(ColoredRenderer):
             #Point IN edge barycentric
 
             d_finalNP = d_final.copy()
-            d_final_outside = d_finalNP
+            self.d_final_outside = d_finalNP
 
             finalColorBndOutside = np.zeros([self.nsamples, boundaryFaces.size, 3])
             finalColorBndOutside_edge = np.zeros([self.nsamples, boundaryFaces.size, 3])
@@ -3051,10 +3093,10 @@ class AnalyticRenderer(ColoredRenderer):
             sampleColorsOutside = sampleColors[facesOutsideBnd]
             self.sampleColorsOutside = sampleColors.copy()
             finalColorBndOutside[facesOutsideBnd] = sampleColorsOutside / self.nsamples
-            finalColorBndOutside_for_dr = finalColorBndOutside.copy()
+            self.finalColorBndOutside_for_dr = finalColorBndOutside.copy()
             finalColorBndOutside[facesOutsideBnd] *= d_finalNP[:,  None]
             finalColorBndOutside_edge[facesOutsideBnd] = colorVertsEdge/ self.nsamples
-            finalColorBndOutside_edge_for_dr = finalColorBndOutside_edge.copy()
+            self.finalColorBndOutside_edge_for_dr = finalColorBndOutside_edge.copy()
             finalColorBndOutside_edge[facesOutsideBnd] *= (1 - d_finalNP[:, None])
 
             sampleColorsInside = sampleColors[facesInsideBnd]
@@ -3068,6 +3110,80 @@ class AnalyticRenderer(ColoredRenderer):
             bndColorsImage[(zerosIm * boundaryImage), :] = np.sum(finalColorBnd, axis=0)
 
             finalColorImageBnd = bndColorsImage
+
+        if np.any(boundaryImage):
+            finalColor = (1 - boundaryImage)[:, :, None] * self.render_resolved + boundaryImage[:, :, None] * finalColorImageBnd
+        else:
+            finalColor = self.render_resolved
+
+        return finalColor
+
+    def compute_derivatives(self, observed, visible, visibility, barycentric, image_width, image_height, num_verts, f):
+        width = self.frustum['width']
+        height = self.frustum['height']
+        num_channels = 3
+        n_channels = num_channels
+        vc_size = self.vc.size
+        n_norm = self.n_norm
+        dist = self.dist
+        linedist = self.linedist
+        d = self.d
+        v1 = self.v1
+        lnorm = self.lnorm
+
+        finalColorBndOutside_for_dr = self.finalColorBndOutside_for_dr
+        finalColorBndOutside_edge_for_dr = self.finalColorBndOutside_edge_for_dr
+        d_final_outside = self.d_final_outside
+        d_final_outside = self.d_final_outside
+        barycentricVertsIntersect = self.barycentricVertsIntersect
+
+        # xdiff = dEdx
+        # ydiff = dEdy
+
+        nVisF = len(visibility.ravel()[visible])
+        # projVertices = self.camera.r[f[visibility.ravel()[visible]].ravel()].reshape([nVisF,3, 2])
+        visTriVC = self.vc.r[f[visibility.ravel()[visible]].ravel()].reshape([nVisF, 3, 3])
+
+        boundaryImage = self.boundarybool_image.astype(np.bool)
+        rangeIm = np.arange(self.boundarybool_image.size)
+        zerosIm = np.ones(self.boundarybool_image.shape).astype(np.bool)
+
+        edge_visibility = self.boundaryid_image
+
+        vertsProjBnd = self.camera.r[self.vpe[edge_visibility.ravel()[(zerosIm * boundaryImage).ravel().astype(np.bool)]].ravel()].reshape([-1, 2, 2])
+
+        nsamples = self.nsamples
+        sampleV = self.renders_sample_pos.reshape([nsamples, -1, 2])[:, (zerosIm * boundaryImage).ravel().astype(np.bool), :].reshape(
+            [nsamples, -1, 2])
+
+        sampleFaces = self.renders_faces.reshape([nsamples, -1])[:, (zerosIm * boundaryImage).ravel().astype(np.bool)].reshape([nsamples, -1]) - 1
+
+        sampleBarycentric = self.renders_sample_barycentric.reshape([nsamples, -1, 3])[:, (zerosIm * boundaryImage).ravel().astype(np.bool),:].reshape([nsamples, -1, 3])
+
+        sampleColors = self.renders.reshape([nsamples, -1, 3])[:, (zerosIm * boundaryImage).ravel().astype(np.bool), :].reshape([nsamples, -1, 3])
+
+        nonBoundaryFaces = visibility[zerosIm * (~boundaryImage)]
+
+
+        if np.any(boundaryImage):
+
+            boundaryFaces = visibility[(boundaryImage)]
+            nBndFaces = len(boundaryFaces)
+            projFacesBndTiled = np.tile(boundaryFaces[None, :], [self.nsamples, 1])
+
+
+            facesInsideBnd = projFacesBndTiled == sampleFaces
+            facesOutsideBnd = ~facesInsideBnd
+
+
+            # vertsProjBnd[None, :] - sampleV[:,None,:]
+            vertsProjBndSamples = np.tile(vertsProjBnd[None, :], [self.nsamples, 1,1,1])
+            vertsProjBndSamplesOutside = vertsProjBndSamples[facesOutsideBnd]
+
+
+            p1 = vertsProjBndSamplesOutside[:, 0, :]
+            p2 = vertsProjBndSamplesOutside[:, 1, :]
+            p = sampleV[facesOutsideBnd]
 
             #Computing gradients:
             #A multisampled pixel color is given by: w R + (1-w) R' thus:
@@ -3342,11 +3458,9 @@ class AnalyticRenderer(ColoredRenderer):
             # result_wrt_verts_bar_outside_edge.sum_duplicates()
 
 
-
         ########### Non boundary derivatives: ####################
 
         nNonBndFaces = nonBoundaryFaces.size
-
 
         verticesNonBnd = self.v.r[f[nonBoundaryFaces].ravel()]
 
@@ -3409,20 +3523,17 @@ class AnalyticRenderer(ColoredRenderer):
         # result_wrt_vc_nonbnd.sum_duplicates()
 
         if np.any(boundaryImage):
-            finalColor  = (1 - boundaryImage)[:, :, None] * self.render_resolved + boundaryImage[:,:,None]*finalColorImageBnd
             result_wrt_verts = result_wrt_verts_bnd_outside + result_wrt_verts_bar_outside + result_wrt_verts_bar_inside + result_wrt_verts_bar_outside_edge + result_wrt_verts_nonbnd
             # result_wrt_verts = result_wrt_verts_nonbnd
             result_wrt_vc = result_wrt_vc_bnd_outside + result_wrt_vc_bnd_outside_edge + result_wrt_vc_bnd_inside + result_wrt_vc_nonbnd
             # result_wrt_vc = sp.csc_matrix((width * height * num_channels, vc_size))
         else:
-            finalColor = self.render_resolved
             result_wrt_verts = result_wrt_verts_nonbnd
             # result_wrt_verts = sp.csc_matrix((image_width*image_height*n_channels, num_verts*2))
             result_wrt_vc = result_wrt_vc_nonbnd
             # result_wrt_vc = sp.csc_matrix((width * height * num_channels, vc_size))
+        return (result_wrt_verts, result_wrt_vc)
 
-
-        return finalColor, (result_wrt_verts, result_wrt_vc)
 
     def on_changed(self, which):
         super().on_changed(which)
