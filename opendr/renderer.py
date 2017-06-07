@@ -2959,14 +2959,13 @@ class AnalyticRenderer(ColoredRenderer):
 
 
         nonBoundaryFaces = visibility[zerosIm * ((~boundaryImage)&(visibility !=4294967295 ))]
-        boundaryFaces = visibility[zerosIm * (boundaryImage)]
+        boundaryFaces = visibility[zerosIm * (boundaryImage)&(visibility !=4294967295 )]
 
         if np.any(boundaryImage):
 
-            boundaryFaces = visibility[(boundaryImage)]
+            boundaryFaces = visibility[(boundaryImage)&(visibility !=4294967295 )]
             nBndFaces = len(boundaryFaces)
             projFacesBndTiled = np.tile(boundaryFaces[None, :], [self.nsamples, 1])
-
 
             facesInsideBnd = projFacesBndTiled == sampleFaces
             facesOutsideBnd = ~facesInsideBnd
@@ -3116,12 +3115,28 @@ class AnalyticRenderer(ColoredRenderer):
             bndColorsImage = np.zeros_like(self.render_resolved)
             bndColorsImage[(zerosIm * boundaryImage), :] = np.sum(finalColorBnd, axis=0)
 
+            bndColorsImage1 = np.zeros_like(self.render_resolved)
+            bndColorsImage1[(zerosIm * boundaryImage), :] = np.sum(finalColorBndOutside, axis=0)
+
+            bndColorsImage2 = np.zeros_like(self.render_resolved)
+            bndColorsImage2[(zerosIm * boundaryImage), :] = np.sum(finalColorBndOutside_edge, axis=0)
+
+            bndColorsImage3 = np.zeros_like(self.render_resolved)
+            bndColorsImage3[(zerosIm * boundaryImage), :] = np.sum(finalColorBndInside, axis=0)
+
+            pdb.set_trace()
+
+            bndColorsImage[(zerosIm * boundaryImage), :] = np.sum(finalColorBnd, axis=0)
+
             finalColorImageBnd = bndColorsImage
 
         if np.any(boundaryImage):
             finalColor = (1 - boundaryImage)[:, :, None] * self.render_resolved + boundaryImage[:, :, None] * finalColorImageBnd
         else:
             finalColor = self.render_resolved
+
+        finalColor[finalColor>1] = 1
+        finalColor[finalColor<0] = 0
 
         return finalColor
 
