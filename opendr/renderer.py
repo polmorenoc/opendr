@@ -3124,10 +3124,6 @@ class AnalyticRenderer(ColoredRenderer):
             bndColorsImage3 = np.zeros_like(self.render_resolved)
             bndColorsImage3[(zerosIm * boundaryImage), :] = np.sum(finalColorBndInside, axis=0)
 
-            pdb.set_trace()
-
-            bndColorsImage[(zerosIm * boundaryImage), :] = np.sum(finalColorBnd, axis=0)
-
             finalColorImageBnd = bndColorsImage
 
         if np.any(boundaryImage):
