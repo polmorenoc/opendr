@@ -2644,7 +2644,7 @@ class AnalyticRenderer(ColoredRenderer):
         barycentric = self.barycentric_image
 
         if self.updateRender:
-            render = self.compute_image(color, visible, visibility, self.f)
+            render = self.compute_image(visible, visibility, self.f)
             self.render_result = render
             self.updateRender = False
         return self.render_result
@@ -2904,6 +2904,12 @@ class AnalyticRenderer(ColoredRenderer):
         dp2 = np.concatenate([db0dp2wrt[:, None, :], db1dp2wrt[:, None, :], db2dp2wrt[:, None, :]], axis=1)
         #
         dp = np.concatenate([dp0[:, :, None], dp1[:, :, None], dp2[:, :, None]], 2)
+
+        #If dealing with degenerate triangles, ignore that gradient.
+        if np.any(nt_mag<=1e-10):
+            pdb.set_trace()
+        dp[nt_mag<=1e-10] = 0
+
         dp = dp[None, :]
 
         nFaces = len(faces)
@@ -2935,6 +2941,7 @@ class AnalyticRenderer(ColoredRenderer):
         visTriVC = self.vc.r[f[visibility.ravel()[visible]].ravel()].reshape([nVisF,3, 3])
 
         boundaryImage = self.boundarybool_image.astype(np.bool)
+
         rangeIm = np.arange(self.boundarybool_image.size)
         zerosIm = np.ones(self.boundarybool_image.shape).astype(np.bool)
 
@@ -2951,7 +2958,7 @@ class AnalyticRenderer(ColoredRenderer):
         sampleColors = self.renders.reshape([nsamples, -1, 3])[:,(zerosIm*boundaryImage).ravel().astype(np.bool),:].reshape([nsamples, -1, 3])
 
 
-        nonBoundaryFaces = visibility[zerosIm * (~boundaryImage)]
+        nonBoundaryFaces = visibility[zerosIm * ((~boundaryImage)&(visibility !=4294967295 ))]
         boundaryFaces = visibility[zerosIm * (boundaryImage)]
 
         if np.any(boundaryImage):
@@ -3144,7 +3151,8 @@ class AnalyticRenderer(ColoredRenderer):
         # projVertices = self.camera.r[f[visibility.ravel()[visible]].ravel()].reshape([nVisF,3, 2])
         visTriVC = self.vc.r[f[visibility.ravel()[visible]].ravel()].reshape([nVisF, 3, 3])
 
-        boundaryImage = self.boundarybool_image.astype(np.bool)
+        boundaryImage = self.boundarybool_image.astype(np.bool) & (visibility!=4294967295)
+
         rangeIm = np.arange(self.boundarybool_image.size)
         zerosIm = np.ones(self.boundarybool_image.shape).astype(np.bool)
 
@@ -3162,24 +3170,20 @@ class AnalyticRenderer(ColoredRenderer):
 
         sampleColors = self.renders.reshape([nsamples, -1, 3])[:, (zerosIm * boundaryImage).ravel().astype(np.bool), :].reshape([nsamples, -1, 3])
 
-        nonBoundaryFaces = visibility[zerosIm * (~boundaryImage)]
-
+        nonBoundaryFaces = visibility[zerosIm * (~boundaryImage)&(visibility !=4294967295 )]
 
         if np.any(boundaryImage):
 
-            boundaryFaces = visibility[(boundaryImage)]
+            boundaryFaces = visibility[boundaryImage]
             nBndFaces = len(boundaryFaces)
             projFacesBndTiled = np.tile(boundaryFaces[None, :], [self.nsamples, 1])
-
 
             facesInsideBnd = projFacesBndTiled == sampleFaces
             facesOutsideBnd = ~facesInsideBnd
 
-
             # vertsProjBnd[None, :] - sampleV[:,None,:]
             vertsProjBndSamples = np.tile(vertsProjBnd[None, :], [self.nsamples, 1,1,1])
             vertsProjBndSamplesOutside = vertsProjBndSamples[facesOutsideBnd]
-
 
             p1 = vertsProjBndSamplesOutside[:, 0, :]
             p2 = vertsProjBndSamplesOutside[:, 1, :]
@@ -3232,7 +3236,7 @@ class AnalyticRenderer(ColoredRenderer):
             dddp2 = 0 + np.einsum('ij,ijl->il', v1, dl_normdp2)
 
             dipdp1 = ident + (dddp1[:,None,:]*lnorm[:,:,None]) + d[:,None,None]*dl_normdp1
-            dipdp2 = (dddp1[:,None,:]*lnorm[:,:,None]) + d[:,None,None]*dl_normdp2
+            dipdp2 = (dddp2[:,None,:]*lnorm[:,:,None]) + d[:,None,None]*dl_normdp2
 
             dndp1 = -dipdp1
             dndp2 = -dipdp2
@@ -3254,6 +3258,9 @@ class AnalyticRenderer(ColoredRenderer):
 
             dImage_wrt_outside_v1 = finalColorBndOutside_for_dr[facesOutsideBnd][:,:,None]*dd_final_dp1[:,None,:] - dd_final_dp1[:,None,:]*finalColorBndOutside_edge_for_dr[facesOutsideBnd][:,:,None]
             dImage_wrt_outside_v2 = finalColorBndOutside_for_dr[facesOutsideBnd][:,:,None]*dd_final_dp2[:,None,:] - dd_final_dp2[:,None,:]*finalColorBndOutside_edge_for_dr[facesOutsideBnd][:,:,None]
+
+            if np.any(linedist<1e-10) or np.any(np.isnan(dImage_wrt_outside_v1)) or np.any(np.isnan(dImage_wrt_outside_v2)):
+                pdb.set_trace()
 
             ### Derivatives wrt V:
             pixels = np.tile(np.where(boundaryImage.ravel())[0][None, :], [self.nsamples, 1])[facesOutsideBnd]
@@ -3434,7 +3441,6 @@ class AnalyticRenderer(ColoredRenderer):
 
             dImage_wrt_bar_v_edge /= self.nsamples
 
-
             ### Derivatives wrt V:
             pixels = np.tile(np.where(boundaryImage.ravel())[0][None, :], [self.nsamples, 1])[facesOutsideBnd]
             IS = np.tile(col(pixels), (1, 3 * 2)).ravel()
@@ -3464,8 +3470,12 @@ class AnalyticRenderer(ColoredRenderer):
 
         verticesNonBnd = self.v.r[f[nonBoundaryFaces].ravel()]
 
-        barySample = self.renders_sample_barycentric[0].reshape([-1,3])[(~boundaryImage).ravel().astype(np.bool), :]
-        verts = np.sum(self.v.r[f[nonBoundaryFaces.ravel()].ravel()].reshape([-1, 3, 3]) * barySample[:, :,None], axis=1)
+        # barySample = self.renders_sample_barycentric[0].reshape([-1,3])[(~boundaryImage)&(visibility !=4294967295 ).ravel().astype(np.bool), :]
+
+        bc = barycentric[((~boundaryImage)&(visibility !=4294967295 ))].reshape((-1, 3))
+        # barySample[barycentric[((~boundaryImage)&(visibility !=4294967295 ))].reshape((-1, 3))]
+
+        verts = np.sum(self.v.r[f[nonBoundaryFaces.ravel()].ravel()].reshape([-1, 3, 3]) * bc[:, :,None], axis=1)
 
         # verts = np.sum(self.v.r[f[nonBoundaryFaces].ravel()].reshape([-1, 3, 3]) * self.barycentric_image.reshape([-1, 3])[~boundaryImage.ravel(), :][:, :, None], axis=1)
 
@@ -3476,11 +3486,12 @@ class AnalyticRenderer(ColoredRenderer):
         n_channels = np.atleast_3d(observed).shape[2]
         shape = visibility.shape
 
+
         ####### 2: Take the data and copy the corresponding dxs and dys to these new pixels.
 
         ### Derivatives wrt V:
         # IS = np.tile(col(visible), (1, 2*f.shape[1])).ravel()
-        pixels = np.where(~boundaryImage.ravel())[0]
+        pixels = np.where(((~boundaryImage)&(visibility !=4294967295 )).ravel())[0]
         IS = np.tile(col(pixels), (1, 2*f.shape[1])).ravel()
         JS = col(f[nonBoundaryFaces].ravel())
         JS = np.hstack((JS*2, JS*2+1)).ravel()
@@ -3500,12 +3511,12 @@ class AnalyticRenderer(ColoredRenderer):
         ### Derivatives wrt VC:
 
         # Each pixel relies on three verts
-        pixels = np.where(~boundaryImage.ravel())[0]
+        pixels = np.where(((~boundaryImage)&(visibility !=4294967295 )).ravel())[0]
         IS = np.tile(col(pixels), (1, 3)).ravel()
         JS = col(f[nonBoundaryFaces].ravel())
 
-        bc = barycentric.reshape((-1, 3))
-        bc = barySample.reshape((-1, 3))
+        bc = barycentric[((~boundaryImage) & (visibility != 4294967295))].reshape((-1, 3))
+        # bc = barySample.reshape((-1, 3))
 
         data = np.asarray(bc, order='C').ravel()
 
