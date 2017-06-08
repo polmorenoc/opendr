@@ -541,7 +541,6 @@ class BaseRenderer(Ch):
 
         GL.glDepthMask(GL.GL_TRUE)
         GL.glEnable(GL.GL_DEPTH_TEST)
-        GL.glDisable(GL.GL_CULL_FACE)
         GL.glClear(GL.GL_COLOR_BUFFER_BIT | GL.GL_DEPTH_BUFFER_BIT)
 
         GL.glEnable(GL.GL_POLYGON_OFFSET_FILL)
@@ -549,7 +548,7 @@ class BaseRenderer(Ch):
         self.draw_colored_verts(np.zeros_like(self.vc.r))
         GL.glDisable(GL.GL_POLYGON_OFFSET_FILL)
 
-        GL.glClear(GL.GL_COLOR_BUFFER_BIT)
+        # GL.glClear(GL.GL_COLOR_BUFFER_BIT)
 
         ec = np.arange(1, len(e)+1)
         ec = np.tile(ec.reshape((-1,1)), (1, 3))
@@ -558,17 +557,25 @@ class BaseRenderer(Ch):
         ec[:, 2] = (ec[:, 2] >> 16 ) & 255
         ec = np.asarray(ec, dtype=np.uint8)
 
+        # GL.glDepthFunc(GL.GL_GREATER)
+
+        # GL.glEnable(GL.GL_POLYGON_OFFSET_FILL)
+        # GL.glPolygonOffset(-10000.0, -10000.0)
+        # GL.glDepthMask(GL.GL_FALSE)
+        # self.projectionMatrix[2, 2] += 0.0000001
         self.draw_colored_primitives(self.vao_dyn_ub, v, e, ec)
+        # self.projectionMatrix[2, 2] -= 0.0000001
+        # GL.glDisable(GL.GL_POLYGON_OFFSET_FILL)
+        # GL.glDepthMask(GL.GL_TRUE)
 
         # if hidden_wireframe:
         #     GL.glEnable(GL.GL_DEPTH_TEST)
         #     GL.glEnable(GL.GL_POLYGON_OFFSET_FILL)
         #     #Pol change it to a smaller number to avoid double edges in my teapot.
-        #     GL.glPolygonOffset(10.0, 1.0)
-        #     # delta = -0.0
-        #     # self.projectionMatrix[2,2] += delta
-        #     # GL.glPolygonMode(GL.GL_FRONT_AND_BACK, GL.GL_FILL)
-        #     self.draw_colored_primitives(self.vao_dyn_ub, v, f, fc=np.zeros(f.shape).astype(np.uint8))
+        #     GL.glPolygonOffset(1.0, 1.0)
+        #     GL.glPolygonMode(GL.GL_FRONT_AND_BACK, GL.GL_FILL)
+        #     # self.draw_colored_primitives(self.vao_dyn_ub, v, f, fc=np.zeros(f.shape).astype(np.uint8))
+        #     self.draw_colored_verts(np.zeros_like(self.vc.r))
         #     # self.draw_colored_primitives(self.vaoub, v, e, np.zeros_like(ec).astype(np.uint8))
         #     # self.projectionMatrix[2,2] -= delta
         #     GL.glDisable(GL.GL_POLYGON_OFFSET_FILL)
@@ -643,7 +650,7 @@ class BaseRenderer(Ch):
 
         #Pol: FIX THIS (UNCOMMENT)
         if primtype == GL.GL_LINES:
-            GL.glPolygonMode(GL.GL_FRONT_AND_BACK, GL.GL_LINE)
+            # GL.glPolygonMode(GL.GL_FRONT_AND_BACK, GL.GL_FILL)
             f = np.fliplr(f).copy()
             verts_by_edge = v.reshape((-1,3))[f.ravel()]
             verts_by_edge = np.asarray(verts_by_edge, dtype=np.float32, order='C')
@@ -655,7 +662,7 @@ class BaseRenderer(Ch):
             self.vbo_indices_dyn.bind()
 
             GL.glDrawElements(GL.GL_LINES, len(self.vbo_indices_dyn), GL.GL_UNSIGNED_INT, None)
-            GL.glPolygonMode(GL.GL_FRONT_AND_BACK, GL.GL_FILL)
+            # GL.glPolygonMode(GL.GL_FRONT_AND_BACK, GL.GL_FILL)
 
 
     def compute_vpe_boundary_idxs(self, v, f, camera, fpe):
@@ -708,6 +715,8 @@ class BaseRenderer(Ch):
 
             if len(lines_e)==0:
                 return np.ones((self.frustum['height'], self.frustum['width'])).astype(np.int32) * 4294967295
+
+            # fpe = fpe[np.any(np.in1d(fpe, np.unique(self.visibility_image[self.visibility_image != 4294967295])).reshape([-1, 2]), 1)]
 
             visibility = self.draw_edge_visibility(lines_v, lines_e, f, hidden_wireframe=True)
             visibility_edge = visibility.copy()
@@ -3124,18 +3133,24 @@ class AnalyticRenderer(ColoredRenderer):
             bndColorsImage[(zerosIm * boundaryImage), :] = np.sum(finalColorBnd, axis=0)
 
             bndColorsImage1 = np.zeros_like(self.render_resolved)
-            bndColorsImage1[(zerosIm * boundaryImage), :] = np.sum(finalColorBndOutside, axis=0)
+            bndColorsImage1[(zerosIm * boundaryImage), :] = np.sum(self.finalColorBndOutside_for_dr, axis=0)
 
             bndColorsImage2 = np.zeros_like(self.render_resolved)
-            bndColorsImage2[(zerosIm * boundaryImage), :] = np.sum(finalColorBndOutside_edge, axis=0)
+            bndColorsImage2[(zerosIm * boundaryImage), :] = np.sum(self.finalColorBndOutside_edge_for_dr, axis=0)
 
             bndColorsImage3 = np.zeros_like(self.render_resolved)
             bndColorsImage3[(zerosIm * boundaryImage), :] = np.sum(finalColorBndInside, axis=0)
 
             finalColorImageBnd = bndColorsImage
 
+
+
         if np.any(boundaryImage):
             finalColor = (1 - boundaryImage)[:, :, None] * self.render_resolved + boundaryImage[:, :, None] * finalColorImageBnd
+            finalColor1 = (1 - boundaryImage)[:, :, None] * self.render_resolved + boundaryImage[:, :, None] * bndColorsImage1
+            finalColor2 = (1 - boundaryImage)[:, :, None] * self.render_resolved + boundaryImage[:, :, None] * bndColorsImage2
+            finalColor3 = (1 - boundaryImage)[:, :, None] * self.render_resolved + boundaryImage[:, :, None] * bndColorsImage3
+            pdb.set_trace()
         else:
             finalColor = self.render_resolved
 
