@@ -2913,7 +2913,12 @@ class AnalyticRenderer(ColoredRenderer):
         dp = dp[None, :]
 
         nFaces = len(faces)
-        visTriVC = self.vc.r[faces.ravel()].reshape([nFaces, 3, 3]).transpose([2, 0, 1])[:, :, :, None, None]
+        # visTriVC = self.vc.r[faces.ravel()].reshape([nFaces, 3, 3]).transpose([2, 0, 1])[:, :, :, None, None]
+        vc = self.vc.r[faces.ravel()].reshape([nFaces, 3, 3]).transpose([2, 0, 1])[:, :, :, None, None]
+        vc[vc > 1] = 1
+        vc[vc < 0] = 0
+
+        visTriVC = vc
 
         dxdp = dxdp[None, :, None, :, :]
         dbvc = np.sum(dp * visTriVC, 2)
@@ -2938,7 +2943,6 @@ class AnalyticRenderer(ColoredRenderer):
 
         nVisF = len(visibility.ravel()[visible])
         # projVertices = self.camera.r[f[visibility.ravel()[visible]].ravel()].reshape([nVisF,3, 2])
-        visTriVC = self.vc.r[f[visibility.ravel()[visible]].ravel()].reshape([nVisF,3, 3])
 
         boundaryImage = self.boundarybool_image.astype(np.bool)
 
@@ -3047,7 +3051,11 @@ class AnalyticRenderer(ColoredRenderer):
             verticesBndSamples = np.tile(verticesBnd[None,:,:],[self.nsamples,1,1, 1])
             verticesBndOutside = verticesBndSamples[facesOutsideBnd]
 
-            vcBnd = self.vc.r[self.vpe[edge_visibility.ravel()[(zerosIm * boundaryImage).ravel().astype(np.bool)]].ravel()].reshape([-1, 2 , 3])
+            vc = self.vc.r[self.vpe[edge_visibility.ravel()[(zerosIm * boundaryImage).ravel().astype(np.bool)]].ravel()].reshape([-1, 2 , 3])
+            vc[vc > 1] = 1
+            vc[vc < 0] = 0
+
+            vcBnd = vc
             vcBndSamples = np.tile(vcBnd[None,:,:],[self.nsamples,1,1,1])
             vcBndOutside = vcBndSamples[facesOutsideBnd]
 
@@ -3160,7 +3168,6 @@ class AnalyticRenderer(ColoredRenderer):
 
         nVisF = len(visibility.ravel()[visible])
         # projVertices = self.camera.r[f[visibility.ravel()[visible]].ravel()].reshape([nVisF,3, 2])
-        visTriVC = self.vc.r[f[visibility.ravel()[visible]].ravel()].reshape([nVisF, 3, 3])
 
         boundaryImage = self.boundarybool_image.astype(np.bool) & (visibility!=4294967295)
 
