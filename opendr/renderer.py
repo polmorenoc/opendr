@@ -3051,7 +3051,6 @@ class AnalyticRenderer(ColoredRenderer):
             p2 = vertsProjBndSamplesOutside[:,1,:]
 
             p = sampleV[facesOutsideBnd]
-            pdb.set_trace()
 
             l = (p2 - p1)
             linedist = np.sqrt((np.sum(l**2,axis=1)))[:,None]
@@ -3166,10 +3165,10 @@ class AnalyticRenderer(ColoredRenderer):
 
         if np.any(boundaryImage):
             finalColor = (1 - boundaryImage)[:, :, None] * self.color_image + boundaryImage[:, :, None] * finalColorImageBnd
-            finalColor1 = (1 - boundaryImage)[:, :, None] * self.color_image + boundaryImage[:, :, None] * bndColorsImage1
-            finalColor2 = (1 - boundaryImage)[:, :, None] * self.color_image + boundaryImage[:, :, None] * bndColorsImage2
-            finalColor3 = (1 - boundaryImage)[:, :, None] * self.color_image + boundaryImage[:, :, None] * bndColorsImage3
-            pdb.set_trace()
+            # finalColor1 = (1 - boundaryImage)[:, :, None] * self.color_image + boundaryImage[:, :, None] * bndColorsImage1
+            # finalColor2 = (1 - boundaryImage)[:, :, None] * self.color_image + boundaryImage[:, :, None] * bndColorsImage2
+            # finalColor3 = (1 - boundaryImage)[:, :, None] * self.color_image + boundaryImage[:, :, None] * bndColorsImage3
+
         else:
             finalColor = self.color_image
 
