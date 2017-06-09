@@ -543,10 +543,10 @@ class BaseRenderer(Ch):
         GL.glEnable(GL.GL_DEPTH_TEST)
         GL.glClear(GL.GL_COLOR_BUFFER_BIT | GL.GL_DEPTH_BUFFER_BIT)
 
-        GL.glEnable(GL.GL_POLYGON_OFFSET_FILL)
-        GL.glPolygonOffset(1, 1)
+        # GL.glEnable(GL.GL_POLYGON_OFFSET_FILL)
+        # GL.glPolygonOffset(1, 1)
         self.draw_colored_verts(np.zeros_like(self.vc.r))
-        GL.glDisable(GL.GL_POLYGON_OFFSET_FILL)
+        # GL.glDisable(GL.GL_POLYGON_OFFSET_FILL)
 
         # GL.glClear(GL.GL_COLOR_BUFFER_BIT)
 
@@ -559,13 +559,17 @@ class BaseRenderer(Ch):
 
         # GL.glDepthFunc(GL.GL_GREATER)
 
-        # GL.glEnable(GL.GL_POLYGON_OFFSET_FILL)
+        # GL.glEnable(GL.GL_POLYGON_OFFSET_LINE)
         # GL.glPolygonOffset(-10000.0, -10000.0)
         # GL.glDepthMask(GL.GL_FALSE)
         # self.projectionMatrix[2, 2] += 0.0000001
+        GL.glDepthFunc(GL.GL_LEQUAL)
+        GL.glPolygonMode(GL.GL_FRONT_AND_BACK, GL.GL_LINE)
         self.draw_colored_primitives(self.vao_dyn_ub, v, e, ec)
+        GL.glPolygonMode(GL.GL_FRONT_AND_BACK, GL.GL_FILL)
+        GL.glDepthFunc(GL.GL_LESS)
         # self.projectionMatrix[2, 2] -= 0.0000001
-        # GL.glDisable(GL.GL_POLYGON_OFFSET_FILL)
+        # GL.glDisable(GL.GL_POLYGON_OFFSET_LINE)
         # GL.glDepthMask(GL.GL_TRUE)
 
         # if hidden_wireframe:
@@ -626,17 +630,14 @@ class BaseRenderer(Ch):
                 self.vbo_colors_ub.bind()
             else:
                 raise Exception('Unknown color type for fc')
-
         else:
             self.vbo_colors.set_array(np.zeros_like(verts_by_face, dtype=np.float32))
             self.vbo_colors.bind()
-
 
         if f.shape[1]==2:
             primtype = GL.GL_LINES
         else:
             primtype = GL.GL_TRIANGLES
-
 
         self.vbo_indices_dyn.set_array(np.arange(f.size, dtype=np.uint32).ravel())
         self.vbo_indices_dyn.bind()
@@ -646,11 +647,16 @@ class BaseRenderer(Ch):
         view_mtx = self.camera.openglMat.dot(np.asarray(np.vstack((self.camera.view_matrix, np.array([0, 0, 0, 1]))),np.float32))
         GL.glUniformMatrix4fv(self.MVP_location, 1, GL.GL_TRUE, np.dot(self.projectionMatrix, view_mtx))
 
+        # if primtype == GL.GL_LINES:
+        #     GL.glPolygonMode(GL.GL_FRONT_AND_BACK, GL.GL_FILL)
+        # else:
+        #     GL.glPolygonMode(GL.GL_FRONT_AND_BACK, GL.GL_FILL)
         GL.glDrawElements(primtype, len(self.vbo_indices_dyn), GL.GL_UNSIGNED_INT, None)
 
         #Pol: FIX THIS (UNCOMMENT)
         if primtype == GL.GL_LINES:
             # GL.glPolygonMode(GL.GL_FRONT_AND_BACK, GL.GL_FILL)
+
             f = np.fliplr(f).copy()
             verts_by_edge = v.reshape((-1,3))[f.ravel()]
             verts_by_edge = np.asarray(verts_by_edge, dtype=np.float32, order='C')
@@ -664,6 +670,7 @@ class BaseRenderer(Ch):
             GL.glDrawElements(GL.GL_LINES, len(self.vbo_indices_dyn), GL.GL_UNSIGNED_INT, None)
             # GL.glPolygonMode(GL.GL_FRONT_AND_BACK, GL.GL_FILL)
 
+        GL.glPolygonMode(GL.GL_FRONT_AND_BACK, GL.GL_FILL)
 
     def compute_vpe_boundary_idxs(self, v, f, camera, fpe):
 
@@ -1096,6 +1103,8 @@ class TexturedRenderer(ColoredRenderer):
     def initGLTexture(self):
         print("Initializing Texture OpenGL.")
 
+        GL.glLineWidth(1.)
+
         FRAGMENT_SHADER = shaders.compileShader("""#version 330 core
         // Interpolated values from the vertex shaders
         //#extension GL_EXT_shader_image_load_store : enable 
@@ -1244,10 +1253,8 @@ class TexturedRenderer(ColoredRenderer):
 
         no_overdraw = self.draw_color_image(with_vertex_colors=True, with_texture_on=True)
 
-        if not self.overdraw:
+        if not self.overdraw or self.msaa:
             return no_overdraw
-
-        return no_overdraw
 
         GL.glPolygonMode(GL.GL_FRONT_AND_BACK, GL.GL_LINE)
 
@@ -1747,7 +1754,8 @@ class AnalyticRenderer(ColoredRenderer):
 
         # GL.glEnable(GL.GL_LINE_SMOOTH)
         # GL.glHint(GL.GL_LINE_SMOOTH_HINT, GL.GL_NICEST)
-        GL.glLineWidth(1.)
+        GL.glLineWidth(2.)
+
 
         for mesh in range(len(self.f_list)):
 
@@ -2950,7 +2958,6 @@ class AnalyticRenderer(ColoredRenderer):
         # xdiff = dEdx
         # ydiff = dEdy
 
-        nVisF = len(visibility.ravel()[visible])
         # projVertices = self.camera.r[f[visibility.ravel()[visible]].ravel()].reshape([nVisF,3, 2])
 
         boundaryImage = self.boundarybool_image.astype(np.bool)
@@ -2960,30 +2967,42 @@ class AnalyticRenderer(ColoredRenderer):
 
         edge_visibility = self.boundaryid_image
 
-        vertsProjBnd = self.camera.r[self.vpe[edge_visibility.ravel()[(zerosIm*boundaryImage).ravel().astype(np.bool)]].ravel()].reshape([-1,2,2])
-
         nsamples = self.nsamples
-        sampleV = self.renders_sample_pos.reshape([nsamples, -1, 2])[:,(zerosIm*boundaryImage).ravel().astype(np.bool),:].reshape([nsamples, -1, 2])
-
-        sampleFaces = self.renders_faces.reshape([nsamples, -1])[:,(zerosIm*boundaryImage).ravel().astype(np.bool)].reshape([nsamples, -1]) - 1
-
-        sampleBarycentric = self.renders_sample_barycentric.reshape([nsamples, -1, 3])[:,(zerosIm*boundaryImage).ravel().astype(np.bool),:].reshape([nsamples, -1, 3])
-        sampleColors = self.renders.reshape([nsamples, -1, 3])[:,(zerosIm*boundaryImage).ravel().astype(np.bool),:].reshape([nsamples, -1, 3])
-
-
-        nonBoundaryFaces = visibility[zerosIm * ((~boundaryImage)&(visibility !=4294967295 ))]
-        boundaryFaces = visibility[zerosIm * (boundaryImage)&(visibility !=4294967295 )]
 
         if np.any(boundaryImage):
+            boundaryFaces = visibility[(boundaryImage) & (visibility != 4294967295)]
+            nBndFaces = len(boundaryFaces)
+            projFacesBndTiled = np.tile(boundaryFaces[None, :], [self.nsamples, 1])
+
+            sampleFaces = self.renders_faces.reshape([nsamples, -1])[:, (zerosIm * boundaryImage).ravel().astype(np.bool)].reshape([nsamples, -1]) - 1
+
+            edgeFaces= np.tile(self.fpe[edge_visibility.ravel()[(zerosIm * boundaryImage).ravel().astype(np.bool)]][None, :, :], [8, 1, 1])
+
+            edgeSampled = np.any((edgeFaces[:,:, 0]== sampleFaces) | (edgeFaces[:,:, 1]== sampleFaces),0)
+
+            facesInsideBnd = projFacesBndTiled == sampleFaces
+            wrongBnd = ~edgeSampled
+            # wrongBnd = np.all(facesInsideBnd, 0)
+            whereBnd = np.where(boundaryImage.ravel())[0]
+            # boundaryImage.ravel()[whereBnd[wrongBnd]] = False
+
+        if np.any(boundaryImage):
+
+            sampleV = self.renders_sample_pos.reshape([nsamples, -1, 2])[:, (zerosIm * boundaryImage).ravel().astype(np.bool), :].reshape([nsamples, -1, 2])
+
+            # sampleBarycentric = self.renders_sample_barycentric.reshape([nsamples, -1, 3])[:,(zerosIm*boundaryImage).ravel().astype(np.bool),:].reshape([nsamples, -1, 3])
+            sampleColors = self.renders.reshape([nsamples, -1, 3])[:, (zerosIm * boundaryImage).ravel().astype(np.bool), :].reshape([nsamples, -1, 3])
 
             boundaryFaces = visibility[(boundaryImage)&(visibility !=4294967295 )]
             nBndFaces = len(boundaryFaces)
             projFacesBndTiled = np.tile(boundaryFaces[None, :], [self.nsamples, 1])
-
             facesInsideBnd = projFacesBndTiled == sampleFaces
             facesOutsideBnd = ~facesInsideBnd
 
-            # vertsProjBnd[None, :] - sampleV[:,None,:]
+            vertsProjBnd = self.camera.r[self.vpe[edge_visibility.ravel()[(zerosIm * boundaryImage).ravel().astype(np.bool)]].ravel()].reshape([-1, 2, 2])
+
+            self.vpe[edge_visibility.ravel()[(zerosIm * boundaryImage).ravel().astype(np.bool)]].ravel()
+
             vertsProjBndSamples = np.tile(vertsProjBnd[None, :], [self.nsamples, 1,1,1])
             vertsProjBndSamplesOutside = vertsProjBndSamples[facesOutsideBnd]
 
@@ -3032,6 +3051,7 @@ class AnalyticRenderer(ColoredRenderer):
             p2 = vertsProjBndSamplesOutside[:,1,:]
 
             p = sampleV[facesOutsideBnd]
+            pdb.set_trace()
 
             l = (p2 - p1)
             linedist = np.sqrt((np.sum(l**2,axis=1)))[:,None]
@@ -3118,15 +3138,16 @@ class AnalyticRenderer(ColoredRenderer):
             finalColorBndOutside[facesOutsideBnd] = sampleColorsOutside / self.nsamples
             self.finalColorBndOutside_for_dr = finalColorBndOutside.copy()
             finalColorBndOutside[facesOutsideBnd] *= d_finalNP[:,  None]
+
             finalColorBndOutside_edge[facesOutsideBnd] = colorVertsEdge/ self.nsamples
             self.finalColorBndOutside_edge_for_dr = finalColorBndOutside_edge.copy()
             finalColorBndOutside_edge[facesOutsideBnd] *= (1 - d_finalNP[:, None])
 
             sampleColorsInside = sampleColors[facesInsideBnd]
-
             self.sampleColorsInside = sampleColorsInside.copy()
             finalColorBndInside[facesInsideBnd] = sampleColorsInside / self.nsamples
 
+            finalColorBnd = finalColorBndOutside + finalColorBndOutside_edge + finalColorBndInside
             finalColorBnd = finalColorBndOutside + finalColorBndOutside_edge + finalColorBndInside
 
             bndColorsImage = np.zeros_like(self.render_resolved)
@@ -3143,16 +3164,14 @@ class AnalyticRenderer(ColoredRenderer):
 
             finalColorImageBnd = bndColorsImage
 
-
-
         if np.any(boundaryImage):
-            finalColor = (1 - boundaryImage)[:, :, None] * self.render_resolved + boundaryImage[:, :, None] * finalColorImageBnd
-            finalColor1 = (1 - boundaryImage)[:, :, None] * self.render_resolved + boundaryImage[:, :, None] * bndColorsImage1
-            finalColor2 = (1 - boundaryImage)[:, :, None] * self.render_resolved + boundaryImage[:, :, None] * bndColorsImage2
-            finalColor3 = (1 - boundaryImage)[:, :, None] * self.render_resolved + boundaryImage[:, :, None] * bndColorsImage3
+            finalColor = (1 - boundaryImage)[:, :, None] * self.color_image + boundaryImage[:, :, None] * finalColorImageBnd
+            finalColor1 = (1 - boundaryImage)[:, :, None] * self.color_image + boundaryImage[:, :, None] * bndColorsImage1
+            finalColor2 = (1 - boundaryImage)[:, :, None] * self.color_image + boundaryImage[:, :, None] * bndColorsImage2
+            finalColor3 = (1 - boundaryImage)[:, :, None] * self.color_image + boundaryImage[:, :, None] * bndColorsImage3
             pdb.set_trace()
         else:
-            finalColor = self.render_resolved
+            finalColor = self.color_image
 
         finalColor[finalColor>1] = 1
         finalColor[finalColor<0] = 0
@@ -3707,9 +3726,10 @@ class AnalyticRenderer(ColoredRenderer):
 
         no_overdraw = self.draw_color_image(with_vertex_colors=True, with_texture_on=True)
 
+        return no_overdraw
+
         if not self.overdraw:
             return no_overdraw
-
 
         GL.glPolygonMode(GL.GL_FRONT_AND_BACK, GL.GL_LINE)
         overdraw = self.draw_color_image()
