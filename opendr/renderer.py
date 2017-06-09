@@ -3916,7 +3916,6 @@ class AnalyticRenderer(ColoredRenderer):
                 vbo_color = self.vbo_colors_mesh[mesh][polygons]
                 colors_by_face = np.asarray(self.vc_list[mesh].reshape((-1, 3))[f.ravel()], dtype=np.float32, order='C')
                 vc = colors_by_face
-                colors = None
 
                 if with_vertex_colors:
                     colors = vc.astype(np.float32)
@@ -3945,7 +3944,8 @@ class AnalyticRenderer(ColoredRenderer):
 
                 GL.glUniformMatrix4fv(self.MVP_texture_location, 1, GL.GL_TRUE, MVP)
 
-                GL.glDrawElements(primtype, len(vbo_f)*vbo_f.data.shape[1], GL.GL_UNSIGNED_INT, None)
+                GL.glDrawArrays(primtype, 0, len(vbo_f) * vbo_f.data.shape[1])
+                # GL.glDrawElements(primtype, len(vbo_f)*vbo_f.data.shape[1], GL.GL_UNSIGNED_INT, None)
 
         if self.msaa:
             GL.glBindFramebuffer(GL.GL_READ_FRAMEBUFFER, self.fbo_ms)
