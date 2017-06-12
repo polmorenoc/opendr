@@ -2519,7 +2519,8 @@ class AnalyticRenderer(ColoredRenderer):
         self.render_resolved = np.mean(self.renders, 0)
 
         self.updateRender = True
-        self.updateDerivatives = True
+        self.updateDerivatives_verts = True
+        self.updateDerivatives_vc = True
 
 
 
@@ -2592,15 +2593,15 @@ class AnalyticRenderer(ColoredRenderer):
         visibility = self.visibility_image
 
         if wrt is self.camera:
-            derivatives = self.get_derivatives()
+            derivatives_verts = self.get_derivatives_verts()
 
-            return derivatives[0]
+            return derivatives_verts
 
         elif wrt is self.vc:
 
-            derivatives = self.get_derivatives()
+            derivatives_vc = self.get_derivatives_vc()
 
-            return derivatives[1]
+            return derivatives_vc
 
         # Not working atm.:
         elif wrt is self.bgcolor:
@@ -2666,7 +2667,7 @@ class AnalyticRenderer(ColoredRenderer):
             self.updateRender = False
         return self.render_result
 
-    def get_derivatives(self):
+    def get_derivatives_verts(self):
         self._call_on_changed()
 
         visibility = self.visibility_image
@@ -2676,14 +2677,31 @@ class AnalyticRenderer(ColoredRenderer):
         visible = np.nonzero(visibility.ravel() != 4294967295)[0]
         barycentric = self.barycentric_image
 
-        if self.updateDerivatives:
+        if self.updateDerivatives_verts:
             if self.updateRender:
                 self.render()
-            derivatives = self.compute_derivatives(color, visible, visibility, barycentric, self.frustum['width'], self.frustum['height'], self.v.r.size / 3, self.f)
-            self.derivatives = derivatives
-            self.updateDerivatives = False
-        return self.derivatives
+            derivatives_verts = self.compute_derivatives_verts(color, visible, visibility, barycentric, self.frustum['width'], self.frustum['height'], self.v.r.size / 3, self.f)
+            self.derivatives_verts = derivatives_verts
+            self.updateDerivatives_verts = False
+        return self.derivatives_verts
 
+    def get_derivatives_vc(self):
+        self._call_on_changed()
+
+        visibility = self.visibility_image
+
+        color = self.render_resolved
+
+        visible = np.nonzero(visibility.ravel() != 4294967295)[0]
+        barycentric = self.barycentric_image
+
+        if self.updateDerivatives_vc:
+            if self.updateRender:
+                self.render()
+            derivatives_vc = self.compute_derivatives_vc(color, visible, visibility, barycentric, self.frustum['width'], self.frustum['height'], self.v.r.size / 3, self.f)
+            self.derivatives_vc = derivatives_vc
+            self.updateDerivatives_vc = False
+        return self.derivatives_vc
 
     # # @depends_on(dterms+terms)
     # def image_and_derivatives(self):
@@ -2723,8 +2741,8 @@ class AnalyticRenderer(ColoredRenderer):
         # y = v*c/(cam_f - a*u - b*v)
         # z = c*cam_f/(cam_f - a*u - b*v)
 
-        # Check with autodiff:
-
+        # # Check with autodiff:
+        #
         # view_mtx = np.r_[self.camera.view_mtx, np.array([[0, 0, 0, 1]])]
         # # negYMat = ch.array([[1,0,self.camera.c.r[0]],[0,-1,self.camera.c.r[1]],[0,0,1]])
         # verts_hom_ch = ch.Ch(verts_hom)
@@ -2744,14 +2762,16 @@ class AnalyticRenderer(ColoredRenderer):
         #
         # # D = np.linalg.det(np.concatenate([(p3 - p1).reshape([nNonBndFaces, 1, 3]), (p1 - p2).reshape([nNonBndFaces, 1, 3])], axis=1))
         # nt = ch.cross(p1 - p0, p2 - p0)
+        # chnt = nt
         # A = 0.5 * ch.sqrt(ch.sum(nt ** 2, axis=1))
         # chnt_norm = nt / ch.sqrt(ch.sum(nt ** 2, axis=1))[:, None]
         # # nt = nt / A
         #
+        # chb0part2 = ch.sum(ch.cross(chnt_norm, p2 - p1) * (viewVerts - p1), axis=1)
         # chb0 = 0.5 * ch.sum(ch.cross(chnt_norm, p2 - p1) * (viewVerts - p1), axis=1) / A
-        #
+        # chb1part2 = ch.sum(ch.cross(chnt_norm, p0 - p2) * (viewVerts - p2), axis=1)
         # chb1 = 0.5 * ch.sum(ch.cross(chnt_norm, p0 - p2) * (viewVerts - p2), axis=1) / A
-        #
+        # chb2part2 = ch.sum(ch.cross(chnt_norm, p1 - p0) * (viewVerts - p0), axis=1)
         # chb2 = 0.5 * ch.sum(ch.cross(chnt_norm, p1 - p0) * (viewVerts - p0), axis=1) / A
         #
         # drb0p0 = chb0.dr_wrt(p0)
@@ -2765,7 +2785,6 @@ class AnalyticRenderer(ColoredRenderer):
         # drb2p0 = chb2.dr_wrt(p0)
         # drb2p1 = chb2.dr_wrt(p1)
         # drb2p2 = chb2.dr_wrt(p2)
-        #
         #
         # rows = np.tile(np.arange(drb0p0.shape[0])[None, :], [3, 1]).T.ravel()
         # cols = np.arange(drb0p0.shape[0] * 3)
@@ -2787,7 +2806,6 @@ class AnalyticRenderer(ColoredRenderer):
         # dp = np.concatenate([dp0[:, :, None], dp1[:, :, None], dp2[:, :, None]], 2)
         # dp = dp[None, :]
 
-
         view_mtx = np.r_[self.camera.view_mtx, np.array([[0, 0, 0, 1]])]
         camMtx = np.r_[np.c_[self.camera.camera_mtx, np.array([0, 0, 0])], np.array([[0, 0, 0, 1]])]
         verts_hom = np.concatenate([verts.reshape([-1, 3]), np.ones([verts.size // 3, 1])], axis=1)
@@ -2802,7 +2820,7 @@ class AnalyticRenderer(ColoredRenderer):
         p2 = viewVerticesNonBnd[:, 2, :]
 
         # D = np.linalg.det(np.concatenate([(p3 - p1).reshape([nNonBndFaces, 1, 3]), (p1 - p2).reshape([nNonBndFaces, 1, 3])], axis=1))
-        nt = np.cross(p2 - p0, p1 - p0)
+        nt = np.cross(p1 - p0, p2 - p0)
         nt_norm = nt / np.linalg.norm(nt, axis=1)[:, None]
 
         a = -nt_norm[:, 0] / nt_norm[:, 2]
@@ -2832,7 +2850,7 @@ class AnalyticRenderer(ColoredRenderer):
         # viewVerts - p0
         nt = np.cross(p1 - p0, p2 - p0)
 
-        A = 0.5*np.linalg.norm(np.cross(p2 - p0, p1 - p0),axis=1)
+        A = 0.5*np.linalg.norm(np.cross(p1 - p0, p2 - p0),axis=1)
         nt_mag = A*2
         # nt = nt / A
         # db1 = 0.5*np.cross(nt_norm, p2-p1)/A[:, None]
@@ -2845,72 +2863,76 @@ class AnalyticRenderer(ColoredRenderer):
 
         ident = np.identity(3)
         ident = np.tile(ident[None,:],[len(p2),1,1])
-        dntdp0 = -np.cross(ident,(p2-p0)[:,None,:]) - np.cross((p1-p0)[:,None,:],ident)
-        dntdp1 = np.cross(ident,(p2-p0)[:,None,:])
-        dntdp2 = np.cross((p1-p0)[:,None,:], ident)
+
+        dntdp0 = np.cross((p2-p0)[:,None,:], -ident) + np.cross(-ident, (p1-p0)[:,None,:])
+        dntdp1 = np.cross((p2-p0)[:,None,:],ident)
+        dntdp2 = np.cross(ident,(p1-p0)[:,None,:])
 
         #Pol check this!:
-        dntnorm = (ident - np.einsum('ij,ik->ijk',nt,nt_norm))/nt_mag[:,None,None]**2
+        dntnorm = (ident - np.einsum('ij,ik->ijk',nt_norm,nt_norm))/nt_mag[:,None,None]
         # dntnorm = (ident - np.einsum('ij,ik->ijk',nt_norm,nt_norm))/nt_mag[:,None,None]
 
         dntnormdp0 = np.einsum('ijk,ikl->ijl',dntnorm, dntdp0)
         dntnormdp1 = np.einsum('ijk,ikl->ijl',dntnorm, dntdp1)
         dntnormdp2 = np.einsum('ijk,ikl->ijl',dntnorm, dntdp2)
 
-        b0 = np.sum(np.cross(nt_norm, p1 - p2) * (p - p1), axis=1)[:,None]
-        dpart2p0 = np.einsum('ikj,ij->ik',np.cross(dntnormdp0, (p1 - p2)[:, None, :]), p - p1)
-        dpart2p1 = np.einsum('ikj,ij->ik',np.cross(dntnormdp1, (p1 - p2)[:, None, :]), p - p1) + np.einsum('ikj,ij->ik', np.cross(nt_norm[:, None, :], ident), p - p1) + np.einsum('ik,ikj->ik', np.cross(nt_norm[:, :], p1-p2), -ident)
-        dpart2p2 =  np.einsum('ikj,ij->ik',np.cross(dntnormdp2, (p1 - p2)[:, None, :]), p - p1) + np.einsum('ikj,ij->ik', np.cross(nt_norm[:, None, :], -ident), p - p1)
-
         dpart1p0 = np.einsum('ij,ijk->ik', pre1, dntdp0)
         dpart1p1 = np.einsum('ij,ijk->ik', pre1, dntdp1)
         dpart1p2 = np.einsum('ij,ijk->ik', pre1, dntdp2)
+
+        b0 = np.sum(np.cross(nt_norm, p2 - p1) * (p - p1), axis=1)[:,None]
+
+        db0part2p0 = np.einsum('ikj,ij->ik',np.cross(dntnormdp0.swapaxes(1,2), (p2 - p1)[:, None, :]), p - p1)
+        # db0part2p1 = np.einsum('ikj,ij->ik',np.cross((p2 - p1)[:, None, :], dntnormdp0), p - p1) + np.einsum('ikj,ij->ik', np.cross(-ident,nt_norm[:, None, :]), p - p1) + np.einsum('ik,ikj->ik', np.cross(nt_norm[:, :], p2-p1),-ident)
+        # db0part2p1 = np.einsum('ikj,ij->ik',np.cross((p2 - p1)[:, None, :], dntnormdp0.swapaxes(1,2)), p - p1) + np.einsum('ikj,ij->ik', np.cross(-ident, nt_norm[:, None, :]), p - p1) + np.einsum('ik,ikj->ik', np.cross(p2-p1,nt_norm[:, :]),-ident)
+        db0part2p1 = np.einsum('ikj,ij->ik',np.cross(dntnormdp1.swapaxes(1,2), (p2 - p1)[:, None, :]), p - p1) + np.einsum('ikj,ij->ik', np.cross(nt_norm[:, None, :],-ident), p - p1) + np.einsum('ik,ikj->ik', np.cross(nt_norm[:, :], p2-p1), -ident)
+        db0part2p2 = np.einsum('ikj,ij->ik',np.cross(dntnormdp2.swapaxes(1,2), (p2 - p1)[:, None, :]), p - p1) + np.einsum('ikj,ij->ik', np.cross(nt_norm[:, None, :], ident), p - p1)
 
         db0dp0wrtpart1 = dpart1p0*b0
         db0dp1wrtpart1 = dpart1p1*b0
         db0dp2wrtpart1 = dpart1p2*b0
 
-        db0dp0wrtpart2 = 1./(nt_mag[:,None])*dpart2p0
-        db0dp1wrtpart2 = 1./(nt_mag[:,None])*dpart2p1
-        db0dp2wrtpart2 = 1./(nt_mag[:,None])*dpart2p2
+        db0dp0wrtpart2 = 1./(nt_mag[:,None])*db0part2p0
+        db0dp1wrtpart2 = 1./(nt_mag[:,None])*db0part2p1
+        db0dp2wrtpart2 = 1./(nt_mag[:,None])*db0part2p2
 
         db0dp0wrt = db0dp0wrtpart1 +  db0dp0wrtpart2
         db0dp1wrt = db0dp1wrtpart1 +  db0dp1wrtpart2
         db0dp2wrt = db0dp2wrtpart1 +  db0dp2wrtpart2
 
         ######
-        b1 = np.sum(np.cross(nt_norm, p2 - p0) * (p - p0), axis=1)[:, None]
+        b1 = np.sum(np.cross(nt_norm, p0 - p2) * (p - p2), axis=1)[:, None]
 
-        dpart2p0 = np.einsum('ikj,ij->ik',np.cross(dntnormdp0, (p2 - p0)[:, None, :]), p - p0) + np.einsum('ikj,ij->ik', np.cross(nt_norm[:, None, :], -ident), p - p0) + np.einsum('ik,ikj->ik', np.cross(nt_norm[:, :], p2-p0), -ident)
-        dpart2p1 = np.einsum('ikj,ij->ik',np.cross(dntnormdp1, (p2 - p0)[:, None, :]), p - p0)
-        dpart2p2 =  np.einsum('ikj,ij->ik',np.cross(dntnormdp2, (p2 - p0)[:, None, :]), p - p0) + np.einsum('ikj,ij->ik', np.cross(nt_norm[:, None, :], ident), p - p0)
+        db1part2p0 = np.einsum('ikj,ij->ik',np.cross(dntnormdp0.swapaxes(1, 2),(p0 - p2)[:, None, :]), p - p2) + np.einsum('ikj,ij->ik', np.cross(nt_norm[:, None, :], ident), p - p2)
+        db1part2p1 = np.einsum('ikj,ij->ik',np.cross(dntnormdp1.swapaxes(1, 2),(p0 - p2)[:, None, :]), p - p2)
+        db1part2p2 = np.einsum('ikj,ij->ik',np.cross(dntnormdp2.swapaxes(1, 2),(p0 - p2)[:, None, :]), p - p2) + np.einsum('ikj,ij->ik', np.cross(nt_norm[:, None, :], -ident), p - p2) + np.einsum('ik,ikj->ik', np.cross(nt_norm[:, :], p0-p2), -ident)
 
         db1dp0wrtpart1 = dpart1p0*b1
         db1dp1wrtpart1 = dpart1p1*b1
         db1dp2wrtpart1 = dpart1p2*b1
 
-        db1dp0wrtpart2 = 1./(nt_mag[:,None])*dpart2p0
-        db1dp1wrtpart2 = 1./(nt_mag[:,None])*dpart2p1
-        db1dp2wrtpart2 = 1./(nt_mag[:,None])*dpart2p2
+        db1dp0wrtpart2 = 1./(nt_mag[:,None])*db1part2p0
+        db1dp1wrtpart2 = 1./(nt_mag[:,None])*db1part2p1
+        db1dp2wrtpart2 = 1./(nt_mag[:,None])*db1part2p2
 
         db1dp0wrt = db1dp0wrtpart1 + db1dp0wrtpart2
         db1dp1wrt = db1dp1wrtpart1 +  db1dp1wrtpart2
         db1dp2wrt = db1dp2wrtpart1 +  db1dp2wrtpart2
 
         ######
-        b2 = np.sum(np.cross(nt_norm, p0 - p1) * (p - p1), axis=1)[:, None]
+        b2 = np.sum(np.cross(nt_norm, p1 - p0) * (p - p0), axis=1)[:, None]
 
-        dpart2p0 = np.einsum('ikj,ij->ik',np.cross(dntnormdp0, (p0-p1)[:, None, :]), p - p1) + np.einsum('ikj,ij->ik', np.cross(nt_norm[:, None, :], ident), p - p1)
-        dpart2p1 = np.einsum('ikj,ij->ik',np.cross(dntnormdp1, (p0-p1)[:, None, :]), p - p1) + np.einsum('ikj,ij->ik', np.cross(nt_norm[:, None, :], -ident), p - p1) + np.einsum('ik,ikj->ik', np.cross(nt_norm[:, :], p0-p1), -ident)
-        dpart2p2 =  np.einsum('ikj,ij->ik',np.cross(dntnormdp2, (p0-p1)[:, None, :]), p - p1)
+        db2part2p0 = np.einsum('ikj,ij->ik',np.cross(dntnormdp0.swapaxes(1, 2),(p1 - p0)[:, None, :]), p - p0) + np.einsum('ikj,ij->ik', np.cross(nt_norm[:, None, :], -ident), p - p0) + np.einsum('ik,ikj->ik', np.cross(nt_norm[:, :], p1 - p0), -ident)
+        db2part2p1 = np.einsum('ikj,ij->ik',np.cross(dntnormdp1.swapaxes(1, 2),(p1 - p0)[:, None, :]), p - p0) + np.einsum('ikj,ij->ik', np.cross(nt_norm[:, None, :], ident), p - p0)
+        db2part2p2 =  np.einsum('ikj,ij->ik',np.cross(dntnormdp2.swapaxes(1, 2), (p1 - p0)[:, None, :]), p - p0)
 
         db2dp0wrtpart1 = dpart1p0*b2
         db2dp1wrtpart1 = dpart1p1*b2
         db2dp2wrtpart1 = dpart1p2*b2
 
-        db2dp0wrtpart2 = 1./(nt_mag[:,None])*dpart2p0
-        db2dp1wrtpart2 = 1./(nt_mag[:,None])*dpart2p1
-        db2dp2wrtpart2 = 1./(nt_mag[:,None])*dpart2p2
+        db2dp0wrtpart2 = 1./(nt_mag[:,None])*db2part2p0
+        db2dp1wrtpart2 = 1./(nt_mag[:,None])*db2part2p1
+        db2dp2wrtpart2 = 1./(nt_mag[:,None])*db2part2p2
 
         db2dp0wrt = db2dp0wrtpart1 + db2dp0wrtpart2
         db2dp1wrt = db2dp1wrtpart1 +  db2dp1wrtpart2
@@ -2923,9 +2945,9 @@ class AnalyticRenderer(ColoredRenderer):
         dp = np.concatenate([dp0[:, :, None], dp1[:, :, None], dp2[:, :, None]], 2)
 
         #If dealing with degenerate triangles, ignore that gradient.
-        if np.any(nt_mag<=1e-10):
+        if np.any(nt_mag<=1e-15):
             pdb.set_trace()
-        dp[nt_mag<=1e-10] = 0
+        dp[nt_mag<=1e-15] = 0
 
         dp = dp[None, :]
 
@@ -2941,6 +2963,27 @@ class AnalyticRenderer(ColoredRenderer):
         dbvc = np.sum(dp * visTriVC, 2)
 
         didp = np.sum(dbvc[:, :, :, :, None] * dxdp, 3)
+
+        # drb0p0
+        # drb0p1
+        # drb0p2
+        # drb1p0
+        # drb1p1
+        # drb1p2
+        # drb2p0
+        # drb2p1
+        # drb2p2
+        #
+        # db0dp0wrt
+
+        # db0dp1wrt
+        # db0dp2wrt
+        # db1dp0wrt
+        # db1dp1wrt
+        # db1dp2wrt
+        # db2dp0wrt
+        # db2dp1wrt
+        # db2dp2wrt
 
         return didp
 
@@ -3075,6 +3118,10 @@ class AnalyticRenderer(ColoredRenderer):
 
             d_final = dist.squeeze()
 
+            max_nx_ny = np.maximum(np.abs(n_norm[:, 0]), np.abs(n_norm[:, 1]))
+
+            d_final = d_final/max_nx_ny
+
             verticesBnd = self.v.r[self.vpe[edge_visibility.ravel()[(zerosIm * boundaryImage).ravel().astype(np.bool)]].ravel()].reshape([-1, 2 , 3])
             verticesBndSamples = np.tile(verticesBnd[None,:,:],[self.nsamples,1,1, 1])
             verticesBndOutside = verticesBndSamples[facesOutsideBnd]
@@ -3108,6 +3155,7 @@ class AnalyticRenderer(ColoredRenderer):
 
             projPointVec4 = np.concatenate([projPoint, np.ones([projPoint.shape[0],1])], axis=1)
             viewPointIntersect = (invViewMtx.dot(np.linalg.inv(camMtx)).dot(projPointVec4.T.reshape([4,-1])).reshape([4,-1])).T[:,:3]
+            self.viewPointIntersect = viewPointIntersect
 
             barycentricVertsDistIntesect = np.linalg.norm(viewPointIntersect - verticesBndOutside[:,0:3].reshape([-1, 2, 3])[:,0,:], axis=1)
             barycentricVertsDistIntesect2 = np.linalg.norm(viewPointIntersect - verticesBndOutside[:,0:3].reshape([-1, 2, 3])[:,1,:], axis=1)
@@ -3125,7 +3173,7 @@ class AnalyticRenderer(ColoredRenderer):
 
             #Point IN edge barycentric
 
-            d_finalNP = d_final.copy()
+            d_finalNP = np.minimum(d_final.copy(),1.)
             self.d_final_outside = d_finalNP
 
             finalColorBndOutside = np.zeros([self.nsamples, boundaryFaces.size, 3])
@@ -3146,20 +3194,20 @@ class AnalyticRenderer(ColoredRenderer):
             self.sampleColorsInside = sampleColorsInside.copy()
             finalColorBndInside[facesInsideBnd] = sampleColorsInside / self.nsamples
 
-            finalColorBnd = finalColorBndOutside + finalColorBndOutside_edge + finalColorBndInside
+            # finalColorBnd = finalColorBndOutside + finalColorBndOutside_edge + finalColorBndInside
             finalColorBnd = finalColorBndOutside + finalColorBndOutside_edge + finalColorBndInside
 
             bndColorsImage = np.zeros_like(self.render_resolved)
             bndColorsImage[(zerosIm * boundaryImage), :] = np.sum(finalColorBnd, axis=0)
 
-            bndColorsImage1 = np.zeros_like(self.render_resolved)
-            bndColorsImage1[(zerosIm * boundaryImage), :] = np.sum(self.finalColorBndOutside_for_dr, axis=0)
-
-            bndColorsImage2 = np.zeros_like(self.render_resolved)
-            bndColorsImage2[(zerosIm * boundaryImage), :] = np.sum(self.finalColorBndOutside_edge_for_dr, axis=0)
-
-            bndColorsImage3 = np.zeros_like(self.render_resolved)
-            bndColorsImage3[(zerosIm * boundaryImage), :] = np.sum(finalColorBndInside, axis=0)
+            # bndColorsImage1 = np.zeros_like(self.render_resolved)
+            # bndColorsImage1[(zerosIm * boundaryImage), :] = np.sum(self.finalColorBndOutside_for_dr, axis=0)
+            #
+            # bndColorsImage2 = np.zeros_like(self.render_resolved)
+            # bndColorsImage2[(zerosIm * boundaryImage), :] = np.sum(self.finalColorBndOutside_edge_for_dr, axis=0)
+            #
+            # bndColorsImage3 = np.zeros_like(self.render_resolved)
+            # bndColorsImage3[(zerosIm * boundaryImage), :] = np.sum(finalColorBndInside, axis=0)
 
             finalColorImageBnd = bndColorsImage
 
@@ -3177,7 +3225,7 @@ class AnalyticRenderer(ColoredRenderer):
 
         return finalColor
 
-    def compute_derivatives(self, observed, visible, visibility, barycentric, image_width, image_height, num_verts, f):
+    def compute_derivatives_verts(self, observed, visible, visibility, barycentric, image_width, image_height, num_verts, f):
         width = self.frustum['width']
         height = self.frustum['height']
         num_channels = 3
@@ -3193,7 +3241,7 @@ class AnalyticRenderer(ColoredRenderer):
         finalColorBndOutside_for_dr = self.finalColorBndOutside_for_dr
         finalColorBndOutside_edge_for_dr = self.finalColorBndOutside_edge_for_dr
         d_final_outside = self.d_final_outside
-        d_final_outside = self.d_final_outside
+
         barycentricVertsIntersect = self.barycentricVertsIntersect
 
         # xdiff = dEdx
@@ -3310,7 +3358,7 @@ class AnalyticRenderer(ColoredRenderer):
             dImage_wrt_outside_v1 = finalColorBndOutside_for_dr[facesOutsideBnd][:,:,None]*dd_final_dp1[:,None,:] - dd_final_dp1[:,None,:]*finalColorBndOutside_edge_for_dr[facesOutsideBnd][:,:,None]
             dImage_wrt_outside_v2 = finalColorBndOutside_for_dr[facesOutsideBnd][:,:,None]*dd_final_dp2[:,None,:] - dd_final_dp2[:,None,:]*finalColorBndOutside_edge_for_dr[facesOutsideBnd][:,:,None]
 
-            if np.any(linedist<1e-10) or np.any(np.isnan(dImage_wrt_outside_v1)) or np.any(np.isnan(dImage_wrt_outside_v2)):
+            if np.any(linedist<1e-15) or np.any(np.isnan(dImage_wrt_outside_v1)) or np.any(np.isnan(dImage_wrt_outside_v2)):
                 pdb.set_trace()
 
             ### Derivatives wrt V:
@@ -3338,73 +3386,10 @@ class AnalyticRenderer(ColoredRenderer):
             result_wrt_verts_bnd_outside = sp.csc_matrix((data, ij), shape=(image_width*image_height*n_channels, num_verts*2))
             # result_wrt_verts_bnd_outside.sum_duplicates()
 
-            ####### 4 derivatives samples outside wrt vc : (w * (bar) )/ nsamples for faces sample
-            dImage_wrt_outside_vc_outside = d_final_outside[:,None] * sampleBarycentric[facesOutsideBnd] / self.nsamples
-
-            ### Derivatives wrt VC:
-
-            # Each pixel relies on three verts
-            pixels = np.tile(np.where(boundaryImage.ravel())[0][None,:], [self.nsamples, 1])[facesOutsideBnd]
-            IS = np.tile(col(pixels), (1, 3)).ravel()
-
-            faces = f[sampleFaces[facesOutsideBnd]].ravel()
-            JS = col(faces)
-
-            data = dImage_wrt_outside_vc_outside.ravel()
-
-            IS = np.concatenate([IS * num_channels + k for k in range(num_channels)])
-            JS = np.concatenate([JS * num_channels + k for k in range(num_channels)])
-            data = np.concatenate([data for i in range(num_channels)])
-
-            ij = np.vstack((IS.ravel(), JS.ravel()))
-            result = sp.csc_matrix((data, ij), shape=(width * height * num_channels, vc_size))
-
-            result_wrt_vc_bnd_outside = result
-            # result_wrt_vc_bnd_outside.sum_duplicates()
-
-            ######## 5 derivatives samples outside wrt vc : (1-w) (bar')/ nsamples for faces edge
-            dImage_wrt_outside_vc_edge = (1-d_final_outside[:, None]) * np.c_[barycentricVertsIntersect, 1-barycentricVertsIntersect] / self.nsamples
-
-            ### Derivatives wrt VC:
-
-            # Each pixel relies on three verts
-            pixels = np.tile(np.where(boundaryImage.ravel())[0][None,:], [self.nsamples, 1])[facesOutsideBnd]
-            IS = np.tile(col(pixels), (1, 2)).ravel()
-            faces = self.vpe[edge_visibility.ravel()[(zerosIm * boundaryImage).ravel().astype(np.bool)]].ravel()
-            faces = np.tile(faces.reshape([1,-1,2]),[self.nsamples, 1, 1])[facesOutsideBnd].ravel()
-            JS = col(faces)
-
-            data = dImage_wrt_outside_vc_edge.ravel()
-
-            IS = np.concatenate([IS * num_channels + k for k in range(num_channels)])
-            JS = np.concatenate([JS * num_channels + k for k in range(num_channels)])
-
-            data = np.concatenate([data for i in range(num_channels)])
-
-            ij = np.vstack((IS.ravel(), JS.ravel()))
-            result_wrt_vc_bnd_outside_edge = sp.csc_matrix((data, ij), shape=(width * height * num_channels, vc_size))
-            # result_wrt_vc_bnd_outside_edge.sum_duplicates()
 
             ######## 7 derivatives samples inside wrt vc : (bar)/ nsamples for faces sample
             dImage_wrt_outside_vc_inside = sampleBarycentric[facesInsideBnd] / self.nsamples
 
-            ### Derivatives wrt VC:
-
-            # Each pixel relies on three verts
-            pixels = np.tile(np.where(boundaryImage.ravel())[0][None,:], [self.nsamples, 1])[facesInsideBnd]
-            IS = np.tile(col(pixels), (1, 3)).ravel()
-            faces = f[sampleFaces[facesInsideBnd]].ravel()
-            JS = col(faces)
-
-            data = dImage_wrt_outside_vc_inside.ravel()
-
-            IS = np.concatenate([IS * num_channels + k for k in range(num_channels)])
-            JS = np.concatenate([JS * num_channels + k for k in range(num_channels)])
-            data = np.concatenate([data for i in range(num_channels)])
-
-            ij = np.vstack((IS.ravel(), JS.ravel()))
-            result_wrt_vc_bnd_inside = sp.csc_matrix((data, ij), shape=(width * height * num_channels, vc_size))
-            # result_wrt_vc_bnd_inside.sum_duplicates()
 
             ######## 2 derivatives samples outside wrt v bar outside: (w * (dbar*vc) )/ nsamples for faces sample
             ######## 6 derivatives samples inside wrt v : (dbar'*vc')/ nsamples for faces sample
@@ -3456,7 +3441,6 @@ class AnalyticRenderer(ColoredRenderer):
                 JS = np.concatenate([JS for i in range(n_channels)])
 
             # data = np.concatenate(((visTriVC[:,0,:] * dBar1dxBnd[:,None])[:,:,None],(visTriVC[:, 0, :] * dBar1dyBnd[:, None])[:,:,None], (visTriVC[:,1,:]* dBar2dxBnd[:,None])[:,:,None], (visTriVC[:, 1, :] * dBar2dyBnd[:, None])[:,:,None],(visTriVC[:,2,:]* dBar3dx[:,None])[:,:,None],(visTriVC[:, 2, :] * dBar3dy[:, None])[:,:,None]),axis=2).swapaxes(0,1).ravel()
-            # dImage_wrt_bar_v =
 
             # data = np.tile(dImage_wrt_bar_v[facesInsideBnd.ravel()][None,:],[3,1,1,1]).ravel()
             # data = np.transpose(dImage_wrt_bar_v[facesInsideBnd.ravel()], [2, 0, 1, 3]).ravel()
@@ -3478,11 +3462,13 @@ class AnalyticRenderer(ColoredRenderer):
             verticesBnd = np.tile(verticesBnd, [self.nsamples, 1,1])
             verticesBnd = verticesBnd.reshape([-1,3,3])[facesOutsideBnd.ravel()].reshape([-1,3])
 
-            sampleFaces = self.renders_faces.reshape([nsamples, -1])[:, (zerosIm * boundaryImage).ravel().astype(np.bool)].reshape([nsamples, -1]) - 1
-            sampleBarycentricBar = self.renders_sample_barycentric.reshape([nsamples, -1, 3])[:, (zerosIm * boundaryImage).ravel().astype(np.bool), :].reshape([-1, 3, 1])
+            # sampleFaces = self.renders_faces.reshape([nsamples, -1])[:, (zerosIm * boundaryImage).ravel().astype(np.bool)].reshape([nsamples, -1]) - 1
+            # sampleBarycentricBar = self.renders_sample_barycentric.reshape([nsamples, -1, 3])[:, (zerosIm * boundaryImage).ravel().astype(np.bool), :].reshape([-1, 3, 1])
 
-            verts = np.sum(self.v.r[f[sampleFaces.ravel()].ravel()].reshape([-1, 3, 3]) * sampleBarycentricBar, axis=1)
-            verts = verts.reshape([-1,3])[facesOutsideBnd.ravel()]
+            # verts = np.sum(self.v.r[f[sampleFaces.ravel()].ravel()].reshape([-1, 3, 3]) * sampleBarycentricBar, axis=1)
+            # verts = verts.reshape([-1,3])[facesOutsideBnd.ravel()]
+
+            verts = self.viewPointIntersect
 
             fFrontEdge = np.tile(f[frontFacingEdgeFaces][None,:], [self.nsamples, 1, 1]).reshape([-1,3])[facesOutsideBnd.ravel()]
 
@@ -3559,6 +3545,151 @@ class AnalyticRenderer(ColoredRenderer):
         result_wrt_verts_nonbnd = sp.csc_matrix((data, ij), shape=(image_width*image_height*n_channels, num_verts*2))
         # result_wrt_verts_nonbnd.sum_duplicates()
 
+        if np.any(boundaryImage):
+            result_wrt_verts = result_wrt_verts_bnd_outside + result_wrt_verts_bar_inside + result_wrt_verts_bar_outside_edge + result_wrt_verts_nonbnd
+            # result_wrt_verts = result_wrt_verts_bar_outside_edge
+
+        else:
+            result_wrt_verts = result_wrt_verts_nonbnd
+
+            # result_wrt_vc = sp.csc_matrix((width * height * num_channels, vc_size))
+        return result_wrt_verts
+
+
+    def compute_derivatives_vc(self, observed, visible, visibility, barycentric, image_width, image_height, num_verts, f):
+        width = self.frustum['width']
+        height = self.frustum['height']
+        num_channels = 3
+        n_channels = num_channels
+        vc_size = self.vc.size
+
+        d_final_outside = self.d_final_outside
+
+        barycentricVertsIntersect = self.barycentricVertsIntersect
+
+
+        boundaryImage = self.boundarybool_image.astype(np.bool) & (visibility!=4294967295)
+        zerosIm = np.ones(self.boundarybool_image.shape).astype(np.bool)
+
+        edge_visibility = self.boundaryid_image
+
+        vertsProjBnd = self.camera.r[self.vpe[edge_visibility.ravel()[(zerosIm * boundaryImage).ravel().astype(np.bool)]].ravel()].reshape([-1, 2, 2])
+
+        nsamples = self.nsamples
+
+        sampleFaces = self.renders_faces.reshape([nsamples, -1])[:, (zerosIm * boundaryImage).ravel().astype(np.bool)].reshape([nsamples, -1]) - 1
+
+        sampleBarycentric = self.renders_sample_barycentric.reshape([nsamples, -1, 3])[:, (zerosIm * boundaryImage).ravel().astype(np.bool),:].reshape([nsamples, -1, 3])
+
+        nonBoundaryFaces = visibility[zerosIm * (~boundaryImage)&(visibility !=4294967295 )]
+
+        if np.any(boundaryImage):
+
+            boundaryFaces = visibility[boundaryImage]
+            nBndFaces = len(boundaryFaces)
+            projFacesBndTiled = np.tile(boundaryFaces[None, :], [self.nsamples, 1])
+
+            facesInsideBnd = projFacesBndTiled == sampleFaces
+            facesOutsideBnd = ~facesInsideBnd
+
+            # vertsProjBnd[None, :] - sampleV[:,None,:]
+            vertsProjBndSamples = np.tile(vertsProjBnd[None, :], [self.nsamples, 1,1,1])
+            vertsProjBndSamplesOutside = vertsProjBndSamples[facesOutsideBnd]
+
+            #Computing gradients:
+            #A multisampled pixel color is given by: w R + (1-w) R' thus:
+            #1 derivatives samples outside wrt v 1: (dw * (svc) - dw (bar'*vc') )/ nsamples for face sample
+            #2 derivatives samples outside wrt v bar outside: (w * (dbar*vc) )/ nsamples for faces sample
+            #3 derivatives samples outside wrt v bar edge: (1-w) (dbar'*vc') )/ nsamples for faces edge (barv1', barv2', 0)
+            #4 derivatives samples outside wrt vc : (w * (bar) )/ nsamples for faces sample
+            #5 derivatives samples outside wrt vc : (1-w) (bar')/ nsamples for faces edge
+
+            #6 derivatives samples inside wrt v : (dbar'*vc')/ nsamples for faces sample
+            #7 derivatives samples inside wrt vc : (bar)/ nsamples for faces sample
+
+            #for every boundary pixel i,j we have list of sample faces. compute gradients at each and sum them according to face identity, options:
+            #   - Best: create sparse matrix for every matrix. sum them! same can be done with boundary.
+
+            ####### 4 derivatives samples outside wrt vc : (w * (bar) )/ nsamples for faces sample
+            dImage_wrt_outside_vc_outside = d_final_outside[:,None] * sampleBarycentric[facesOutsideBnd] / self.nsamples
+
+            ### Derivatives wrt VC:
+
+            # Each pixel relies on three verts
+            pixels = np.tile(np.where(boundaryImage.ravel())[0][None,:], [self.nsamples, 1])[facesOutsideBnd]
+            IS = np.tile(col(pixels), (1, 3)).ravel()
+
+            faces = f[sampleFaces[facesOutsideBnd]].ravel()
+            JS = col(faces)
+
+            data = dImage_wrt_outside_vc_outside.ravel()
+
+            IS = np.concatenate([IS * num_channels + k for k in range(num_channels)])
+            JS = np.concatenate([JS * num_channels + k for k in range(num_channels)])
+            data = np.concatenate([data for i in range(num_channels)])
+
+            ij = np.vstack((IS.ravel(), JS.ravel()))
+            result = sp.csc_matrix((data, ij), shape=(width * height * num_channels, vc_size))
+
+            result_wrt_vc_bnd_outside = result
+            # result_wrt_vc_bnd_outside.sum_duplicates()
+
+            ######## 5 derivatives samples outside wrt vc : (1-w) (bar')/ nsamples for faces edge
+            dImage_wrt_outside_vc_edge = (1-d_final_outside[:, None]) * np.c_[barycentricVertsIntersect, 1-barycentricVertsIntersect] / self.nsamples
+
+            ### Derivatives wrt VC:
+
+            # Each pixel relies on three verts
+            pixels = np.tile(np.where(boundaryImage.ravel())[0][None,:], [self.nsamples, 1])[facesOutsideBnd]
+            IS = np.tile(col(pixels), (1, 2)).ravel()
+            faces = self.vpe[edge_visibility.ravel()[(zerosIm * boundaryImage).ravel().astype(np.bool)]].ravel()
+            faces = np.tile(faces.reshape([1,-1,2]),[self.nsamples, 1, 1])[facesOutsideBnd].ravel()
+            JS = col(faces)
+
+            data = dImage_wrt_outside_vc_edge.ravel()
+
+            IS = np.concatenate([IS * num_channels + k for k in range(num_channels)])
+            JS = np.concatenate([JS * num_channels + k for k in range(num_channels)])
+
+            data = np.concatenate([data for i in range(num_channels)])
+
+            ij = np.vstack((IS.ravel(), JS.ravel()))
+            result_wrt_vc_bnd_outside_edge = sp.csc_matrix((data, ij), shape=(width * height * num_channels, vc_size))
+            # result_wrt_vc_bnd_outside_edge.sum_duplicates()
+
+            ######## 7 derivatives samples inside wrt vc : (bar)/ nsamples for faces sample
+            dImage_wrt_outside_vc_inside = sampleBarycentric[facesInsideBnd] / self.nsamples
+
+            ### Derivatives wrt VC:
+
+            # Each pixel relies on three verts
+            pixels = np.tile(np.where(boundaryImage.ravel())[0][None,:], [self.nsamples, 1])[facesInsideBnd]
+            IS = np.tile(col(pixels), (1, 3)).ravel()
+            faces = f[sampleFaces[facesInsideBnd]].ravel()
+            JS = col(faces)
+
+            data = dImage_wrt_outside_vc_inside.ravel()
+
+            IS = np.concatenate([IS * num_channels + k for k in range(num_channels)])
+            JS = np.concatenate([JS * num_channels + k for k in range(num_channels)])
+            data = np.concatenate([data for i in range(num_channels)])
+
+            ij = np.vstack((IS.ravel(), JS.ravel()))
+            result_wrt_vc_bnd_inside = sp.csc_matrix((data, ij), shape=(width * height * num_channels, vc_size))
+            # result_wrt_vc_bnd_inside.sum_duplicates()
+
+
+        ########### Non boundary derivatives: ####################
+
+        nNonBndFaces = nonBoundaryFaces.size
+
+        verticesNonBnd = self.v.r[f[nonBoundaryFaces].ravel()]
+
+        # barySample = self.renders_sample_barycentric[0].reshape([-1,3])[(~boundaryImage)&(visibility !=4294967295 ).ravel().astype(np.bool), :]
+
+        bc = barycentric[((~boundaryImage)&(visibility !=4294967295 ))].reshape((-1, 3))
+        # barySample[barycentric[((~boundaryImage)&(visibility !=4294967295 ))].reshape((-1, 3))]
+
         ### Derivatives wrt VC:
 
         # Each pixel relies on three verts
@@ -3585,16 +3716,16 @@ class AnalyticRenderer(ColoredRenderer):
         # result_wrt_vc_nonbnd.sum_duplicates()
 
         if np.any(boundaryImage):
-            result_wrt_verts = result_wrt_verts_bnd_outside + result_wrt_verts_bar_outside + result_wrt_verts_bar_inside + result_wrt_verts_bar_outside_edge + result_wrt_verts_nonbnd
+            # result_wrt_verts = result_wrt_verts_bar_outside_edge
+
             # result_wrt_verts = result_wrt_verts_nonbnd
             result_wrt_vc = result_wrt_vc_bnd_outside + result_wrt_vc_bnd_outside_edge + result_wrt_vc_bnd_inside + result_wrt_vc_nonbnd
             # result_wrt_vc = sp.csc_matrix((width * height * num_channels, vc_size))
         else:
-            result_wrt_verts = result_wrt_verts_nonbnd
             # result_wrt_verts = sp.csc_matrix((image_width*image_height*n_channels, num_verts*2))
             result_wrt_vc = result_wrt_vc_nonbnd
             # result_wrt_vc = sp.csc_matrix((width * height * num_channels, vc_size))
-        return (result_wrt_verts, result_wrt_vc)
+        return result_wrt_vc
 
 
     def on_changed(self, which):
