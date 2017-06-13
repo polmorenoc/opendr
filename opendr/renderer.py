@@ -752,8 +752,6 @@ class BaseRenderer(Ch):
         result = self.draw_visibility_image_internal(v, f)
         if boundarybool_image is None:
             return result
-        #
-        # #Pol, remove all the rest as seems unnecessary?
 
         rr = result.ravel()
         faces_to_draw = np.unique(rr[rr != 4294967295])
@@ -762,19 +760,16 @@ class BaseRenderer(Ch):
             return result
         GL.glPolygonMode(GL.GL_FRONT_AND_BACK, GL.GL_LINE)
 
-        result2 = self.draw_visibility_image_internal(v, f[faces_to_draw])
+        result2 = self.draw_visibility_image_internal(v, f)
+
         GL.glPolygonMode(GL.GL_FRONT_AND_BACK, GL.GL_FILL)
         bbi = boundarybool_image
 
-        result2 = result2.ravel()
-        idxs = result2 != 4294967295
-        result2[idxs] = faces_to_draw[result2[idxs]]
-
-        #Pol: changed to be outside the 'if'
-        result2[result2 == 4294967295] = 0
+        # result2 = result2.ravel()
+        # idxs = result2 != 4294967295
+        # result2[idxs] = faces_to_draw[result2[idxs]]
 
         if False:
-
             import matplotlib.pyplot as plt
             result2 = result2.reshape(result.shape[:2])
             plt.figure()
@@ -783,6 +778,7 @@ class BaseRenderer(Ch):
             plt.subplot(122)
             plt.imshow(result2.squeeze())
             plt.show()
+            pdb.set_trace()
 
         result2 = result2.reshape(result.shape[:2])
 
@@ -1039,8 +1035,6 @@ class ColoredRenderer(BaseRenderer):
         GL.glPolygonMode(GL.GL_FRONT_AND_BACK, GL.GL_LINE)
         overdraw = self.draw_color_image()
         GL.glPolygonMode(GL.GL_FRONT_AND_BACK, GL.GL_FILL)
-
-        # return overdraw * np.atleast_3d(self.boundarybool_image)
 
         boundarybool_image = self.boundarybool_image
         if self.num_channels > 1:
@@ -2320,10 +2314,12 @@ class AnalyticRenderer(ColoredRenderer):
 
         GL.glBindFramebuffer(GL.GL_DRAW_FRAMEBUFFER, self.fbo_ms_errors)
 
-        GL.glClear(GL.GL_COLOR_BUFFER_BIT | GL.GL_DEPTH_BUFFER_BIT)
-
         drawingBuffers = [GL.GL_COLOR_ATTACHMENT0, GL.GL_COLOR_ATTACHMENT1, GL.GL_COLOR_ATTACHMENT2, GL.GL_COLOR_ATTACHMENT3, GL.GL_COLOR_ATTACHMENT4]
         GL.glDrawBuffers(5, drawingBuffers)
+
+        # GL.glClearBufferiv(GL.GL_COLOR​, 0​, 0)
+        GL.glClearColor(0., 0., 0., 0.)
+        GL.glClear(GL.GL_COLOR_BUFFER_BIT | GL.GL_DEPTH_BUFFER_BIT)
 
         wwLoc = GL.glGetUniformLocation(self.errorTextureProgram, 'ww')
         whLoc = GL.glGetUniformLocation(self.errorTextureProgram, 'wh')
@@ -2437,12 +2433,15 @@ class AnalyticRenderer(ColoredRenderer):
 
         GL.glDisable(GL.GL_DEPTH_TEST)
 
-        for sample in np.arange(self.nsamples):
+        GL.glBindFramebuffer(GL.GL_DRAW_FRAMEBUFFER, self.fbo_sample_fetch)
+        drawingBuffers = [GL.GL_COLOR_ATTACHMENT0, GL.GL_COLOR_ATTACHMENT1, GL.GL_COLOR_ATTACHMENT2, GL.GL_COLOR_ATTACHMENT3,
+                          GL.GL_COLOR_ATTACHMENT4]
+        GL.glDrawBuffers(5, drawingBuffers)
 
-            GL.glBindFramebuffer(GL.GL_DRAW_FRAMEBUFFER, self.fbo_sample_fetch)
-            drawingBuffers = [GL.GL_COLOR_ATTACHMENT0, GL.GL_COLOR_ATTACHMENT1, GL.GL_COLOR_ATTACHMENT2, GL.GL_COLOR_ATTACHMENT3,
-                              GL.GL_COLOR_ATTACHMENT4]
-            GL.glDrawBuffers(5, drawingBuffers)
+        GL.glClearColor(0., 0., 0., 0.)
+        GL.glClear(GL.GL_COLOR_BUFFER_BIT | GL.GL_DEPTH_BUFFER_BIT)
+
+        for sample in np.arange(self.nsamples):
 
             sampleLoc = GL.glGetUniformLocation(self.fetchSamplesProgram, 'sample')
             GL.glUniform1i(sampleLoc, sample)
@@ -2521,7 +2520,6 @@ class AnalyticRenderer(ColoredRenderer):
         self.updateRender = True
         self.updateDerivatives_verts = True
         self.updateDerivatives_vc = True
-
 
 
     def draw_visibility_image_ms(self, v, f):
@@ -2734,12 +2732,7 @@ class AnalyticRenderer(ColoredRenderer):
         # viewVerts = negYMat.dot(view_mtx.dot(verts_hom.T).T[:, :3].T).T.reshape([-1, 3])
         projVerts = (camMtx.dot(view_mtx)).dot(verts_hom.T).T[:, :3].reshape([-1, 3])
 
-        # viewVerticesNonBnd = negYMat.dot(view_mtx.dot(vertices.T).T[:, :3].T).T.reshape([-1, 3, 3])
         viewVerticesNonBnd = camMtx[0:3, 0:3].dot(view_mtx.dot(vertices.T).T[:, :3].T).T.reshape([-1, 3, 3])
-
-        # x = u * c / (cam_f - a * u - b * v)
-        # y = v*c/(cam_f - a*u - b*v)
-        # z = c*cam_f/(cam_f - a*u - b*v)
 
         # # Check with autodiff:
         #
@@ -2751,6 +2744,7 @@ class AnalyticRenderer(ColoredRenderer):
         # viewVerts = ch.Ch(np.array(projVerts))
         # projVerts = projVerts[:, :2] / projVerts[:, 2:3]
         #
+        # chViewVerticesNonBnd = camMtx[0:3, 0:3].dot(view_mtx.dot(vertices.T).T[:, :3].T).T.reshape([-1, 3, 3])
         # p0 = ch.Ch(viewVerticesNonBnd[:, 0, :])
         # chp0 = p0
         #
@@ -2828,18 +2822,48 @@ class AnalyticRenderer(ColoredRenderer):
         c = np.sum(nt_norm * p0, 1) / nt_norm[:, 2]
 
         cam_f = 1
-        u = projVerts[:, 0]
-        v = projVerts[:, 1]
+        # u = projVerts[:, 0]
+        # v = projVerts[:, 1]
+
+        u = p0[:, 0]/p0[:, 2]
+        v = p0[:, 1]/p0[:, 2]
 
         xudiv = (cam_f - a * u - b * v) ** 2
         xu = np.c_[c * (cam_f - b * v) / xudiv, a * v * c / xudiv, a * cam_f * c / xudiv]
         xv = np.c_[b * u * c / xudiv, c * (cam_f - a * u) / xudiv, b * cam_f * c / xudiv]
 
+        xu = np.c_[p0[:, 2][:,None], np.zeros([len(p0),1]), (-p0[:,0]/u**2)[:,None]]
+        xv = np.c_[np.zeros([len(p0),1]), p0[:, 2][:,None], (-p0[:,1]/v**2)[:,None]]
+
+        dxdp_0 = np.concatenate([xu[:, :, None], xv[:, :, None]], axis=2)
+
+        u = p1[:, 0]/p1[:, 2]
+        v = p1[:, 1]/p1[:, 2]
+
+        xudiv = (cam_f - a * u - b * v) ** 2
+        xu = np.c_[c * (cam_f - b * v) / xudiv, a * v * c / xudiv, a * cam_f * c / xudiv]
+        xv = np.c_[b * u * c / xudiv, c * (cam_f - a * u) / xudiv, b * cam_f * c / xudiv]
+
+        xu = np.c_[p1[:, 2][:,None], np.zeros([len(p1),1]), (-p1[:,0]/u**2)[:,None]]
+        xv = np.c_[np.zeros([len(p1),1]), p1[:, 2][:,None], (-p1[:,1]/v**2)[:,None]]
+
+        dxdp_1 = np.concatenate([xu[:, :, None], xv[:, :, None]], axis=2)
+
+        u = p2[:, 0]/p2[:, 2]
+        v = p2[:, 1]/p2[:, 2]
+
+        xudiv = (cam_f - a * u - b * v) ** 2
+        xu = np.c_[c * (cam_f - b * v) / xudiv, a * v * c / xudiv, a * cam_f * c / xudiv]
+        xv = np.c_[b * u * c / xudiv, c * (cam_f - a * u) / xudiv, b * cam_f * c / xudiv]
+
+        xu = np.c_[p2[:, 2][:,None], np.zeros([len(p2),1]), (-p2[:,0]/u**2)[:,None]]
+        xv = np.c_[np.zeros([len(p2),1]), p2[:, 2][:,None], (-p2[:,1]/v**2)[:,None]]
+
+        dxdp_2 = np.concatenate([xu[:, :, None], xv[:, :, None]], axis=2)
+
         # x = u * c / (cam_f - a * u - b * v)
         # y = v*c/(cam_f - a*u - b*v)
         # z = c*cam_f/(cam_f - a*u - b*v)
-
-        dxdp = np.concatenate([xu[:, :, None], xv[:, :, None]], axis=2)
 
         # (p1 - p0, p2 - p0)
         # p2 - p1
@@ -2959,10 +2983,17 @@ class AnalyticRenderer(ColoredRenderer):
 
         visTriVC = vc
 
-        dxdp = dxdp[None, :, None, :, :]
-        dbvc = np.sum(dp * visTriVC, 2)
+        dxdp = np.concatenate([dxdp_0[:,None,:],dxdp_1[:,None,:],dxdp_2[:,None,:]], axis=1)
 
-        didp = np.sum(dbvc[:, :, :, :, None] * dxdp, 3)
+        dxdp = dxdp[None, :, None]
+        # dbvc = np.sum(dp * visTriVC, 2)
+        dbvc = dp * visTriVC
+
+        didp = np.sum(dbvc[:, :, :, :, :, None] * dxdp, 4).sum(2)
+
+        pdb.set_trace()
+
+        #output should be shape: VC x Ninput x Tri Points x UV
 
         # drb0p0
         # drb0p1
@@ -2975,7 +3006,6 @@ class AnalyticRenderer(ColoredRenderer):
         # drb2p2
         #
         # db0dp0wrt
-
         # db0dp1wrt
         # db0dp2wrt
         # db1dp0wrt
@@ -3003,7 +3033,7 @@ class AnalyticRenderer(ColoredRenderer):
 
         # projVertices = self.camera.r[f[visibility.ravel()[visible]].ravel()].reshape([nVisF,3, 2])
 
-        boundaryImage = self.boundarybool_image.astype(np.bool)
+        boundaryImage = self.boundarybool_image.astype(np.bool) & (visibility != 4294967295)
 
         rangeIm = np.arange(self.boundarybool_image.size)
         zerosIm = np.ones(self.boundarybool_image.shape).astype(np.bool)
@@ -3182,6 +3212,7 @@ class AnalyticRenderer(ColoredRenderer):
 
             sampleColorsOutside = sampleColors[facesOutsideBnd]
             self.sampleColorsOutside = sampleColors.copy()
+
             finalColorBndOutside[facesOutsideBnd] = sampleColorsOutside / self.nsamples
             self.finalColorBndOutside_for_dr = finalColorBndOutside.copy()
             finalColorBndOutside[facesOutsideBnd] *= d_finalNP[:,  None]
@@ -3549,6 +3580,7 @@ class AnalyticRenderer(ColoredRenderer):
             result_wrt_verts = result_wrt_verts_bnd_outside + result_wrt_verts_bar_inside + result_wrt_verts_bar_outside_edge + result_wrt_verts_nonbnd
             # result_wrt_verts = result_wrt_verts_bar_outside_edge
 
+
         else:
             result_wrt_verts = result_wrt_verts_nonbnd
 
@@ -3858,21 +3890,33 @@ class AnalyticRenderer(ColoredRenderer):
 
         return no_overdraw
 
-        if not self.overdraw:
-            return no_overdraw
+        # if not self.overdraw:
+        #     return no_overdraw
+        #
+        # GL.glPolygonMode(GL.GL_FRONT_AND_BACK, GL.GL_LINE)
+        # overdraw = self.draw_color_image()
+        # GL.glPolygonMode(GL.GL_FRONT_AND_BACK, GL.GL_FILL)
+        #
+        # # return overdraw * np.atleast_3d(self.boundarybool_image)
+        #
+        # boundarybool_image = self.boundarybool_image
+        # if self.num_channels > 1:
+        #     boundarybool_image = np.atleast_3d(boundarybool_image)
+        #
+        # return np.asarray((overdraw*boundarybool_image + no_overdraw*(1-boundarybool_image)), order='C')
 
-        GL.glPolygonMode(GL.GL_FRONT_AND_BACK, GL.GL_LINE)
-        overdraw = self.draw_color_image()
-        GL.glPolygonMode(GL.GL_FRONT_AND_BACK, GL.GL_FILL)
 
-        # return overdraw * np.atleast_3d(self.boundarybool_image)
+    @depends_on('f', 'frustum', 'camera', 'overdraw')
+    def barycentric_image(self):
+        self._call_on_changed()
+        # Overload method to call without overdraw.
+        return self.draw_barycentric_image(self.boundarybool_image if self.overdraw else None)
 
-        boundarybool_image = self.boundarybool_image
-        if self.num_channels > 1:
-            boundarybool_image = np.atleast_3d(boundarybool_image)
-
-        return np.asarray((overdraw*boundarybool_image + no_overdraw*(1-boundarybool_image)), order='C')
-
+    @depends_on('f', 'frustum', 'camera', 'overdraw')
+    def visibility_image(self):
+        self._call_on_changed()
+        #Overload method to call without overdraw.
+        return self.draw_visibility_image(self.v.r, self.f, self.boundarybool_image if self.overdraw else None)
 
     def image_mesh_bool(self, meshes):
         self.makeCurrentContext()
