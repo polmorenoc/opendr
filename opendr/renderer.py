@@ -494,12 +494,11 @@ class BaseRenderer(Ch):
         # self.projectionMatrix = np.array([[fx/w, 0,0,0], [0, fy/cy, 0,0], [0,0, -(near + far)/(far - near), -2*near*far/(far-near)], [0,0,-1,1]], dtype=np.float64)
 
 
-
     def draw_colored_verts(self, vc):
 
         GL.glUseProgram(self.colorProgram)
 
-        GL.glEnable(GL.GL_CULL_FACE)
+        GL.glDisable(GL.GL_CULL_FACE)
 
         # GL.glClear(GL.GL_COLOR_BUFFER_BIT | GL.GL_DEPTH_BUFFER_BIT)
         if vc.shape[1] != 3:
@@ -543,10 +542,10 @@ class BaseRenderer(Ch):
         GL.glEnable(GL.GL_DEPTH_TEST)
         GL.glClear(GL.GL_COLOR_BUFFER_BIT | GL.GL_DEPTH_BUFFER_BIT)
 
-        # GL.glEnable(GL.GL_POLYGON_OFFSET_FILL)
-        # GL.glPolygonOffset(1, 1)
+        GL.glEnable(GL.GL_POLYGON_OFFSET_FILL)
+        GL.glPolygonOffset(1, 1)
         self.draw_colored_verts(np.zeros_like(self.vc.r))
-        # GL.glDisable(GL.GL_POLYGON_OFFSET_FILL)
+        GL.glDisable(GL.GL_POLYGON_OFFSET_FILL)
 
         # GL.glClear(GL.GL_COLOR_BUFFER_BIT)
 
@@ -563,11 +562,13 @@ class BaseRenderer(Ch):
         # GL.glPolygonOffset(-10000.0, -10000.0)
         # GL.glDepthMask(GL.GL_FALSE)
         # self.projectionMatrix[2, 2] += 0.0000001
+
         GL.glDepthFunc(GL.GL_LEQUAL)
         GL.glPolygonMode(GL.GL_FRONT_AND_BACK, GL.GL_LINE)
         self.draw_colored_primitives(self.vao_dyn_ub, v, e, ec)
         GL.glPolygonMode(GL.GL_FRONT_AND_BACK, GL.GL_FILL)
         GL.glDepthFunc(GL.GL_LESS)
+
         # self.projectionMatrix[2, 2] -= 0.0000001
         # GL.glDisable(GL.GL_POLYGON_OFFSET_LINE)
         # GL.glDepthMask(GL.GL_TRUE)
@@ -667,7 +668,7 @@ class BaseRenderer(Ch):
             self.vbo_indices_dyn.set_array(np.arange(f.size, dtype=np.uint32).ravel())
             self.vbo_indices_dyn.bind()
 
-            GL.glDrawElements(GL.GL_LINES, len(self.vbo_indices_dyn), GL.GL_UNSIGNED_INT, None)
+            # GL.glDrawElements(GL.GL_LINES, len(self.vbo_indices_dyn), GL.GL_UNSIGNED_INT, None)
             # GL.glPolygonMode(GL.GL_FRONT_AND_BACK, GL.GL_FILL)
 
         GL.glPolygonMode(GL.GL_FRONT_AND_BACK, GL.GL_FILL)
@@ -1322,7 +1323,7 @@ class TexturedRenderer(ColoredRenderer):
 
         vbo_color = self.vbo_colors_mesh[mesh]
         vc = self.vc_list[mesh]
-        colors = np.array(np.ones_like(vc)*(index+1)/255.0, dtype=np.float32)
+        colors = np.array(np.ones_like(vc)*(index)/255.0, dtype=np.float32)
 
         #Pol: Make a static zero vbo_color to make it more efficient?
         vbo_color.set_array(colors)
@@ -1748,7 +1749,7 @@ class AnalyticRenderer(ColoredRenderer):
 
         # GL.glEnable(GL.GL_LINE_SMOOTH)
         # GL.glHint(GL.GL_LINE_SMOOTH_HINT, GL.GL_NICEST)
-        GL.glLineWidth(2.)
+        GL.glLineWidth(1.)
 
 
         for mesh in range(len(self.f_list)):
@@ -3094,54 +3095,6 @@ class AnalyticRenderer(ColoredRenderer):
             t_area_bnd_inside = np.abs(np.linalg.det(np.concatenate([p0_proj[:,None], p1_proj[:,None], p2_proj[:,None]], axis=1))*0.5)
             t_area_bnd_inside[t_area_bnd_inside > 1] = 1
 
-            areaWeights = np.zeros([nsamples, nBndFaces])
-            areaWeights[facesOutsideBnd] = t_area_bnd_outside + t_area_bnd_edge
-            areaWeights[facesInsideBnd] = t_area_bnd_inside
-            areaWeightsTotal = areaWeights.sum(0)
-            self.areaWeightsTotal = areaWeightsTotal
-            self.t_area_bnd_outside = t_area_bnd_outside
-            self.t_area_bnd_edge = t_area_bnd_edge
-            self.t_area_bnd_inside = t_area_bnd_inside
-
-            #Chumpy autodiff code to check derivatives here:
-            # chEdgeVerts = ch.Ch(vertsProjBndSamplesOutside)
-            #
-            # chEdgeVerts1 = chEdgeVerts[:,0,:]
-            # chEdgeVerts2 = chEdgeVerts[:,1,:]
-            #
-            # chSampleVerts = ch.Ch(sampleV[facesOutsideBnd])
-            # # c1 = (chEdgeVerts1 - chSampleVerts)
-            # # c2 = (chEdgeVerts2 - chSampleVerts)
-            # # n = (chEdgeVerts2 - chEdgeVerts1)
-
-            # #Code to check computation of distance below
-            # # d2 = ch.abs(c1[:,:,0]*c2[:,:,1] - c1[:,:,1]*c2[:,:,0]) / ch.sqrt((ch.sum(n**2,2)))
-            # # # np_mat = ch.dot(ch.array([[0,-1],[1,0]]), n)
-            # # np_mat2 = -ch.concatenate([-n[:,:,1][:,:,None], n[:,:,0][:,:,None]],2)
-            # # np_vec2 = np_mat2 / ch.sqrt((ch.sum(np_mat2**2,2)))[:,:,None]
-            # # d2 =  d2 / ch.maximum(ch.abs(np_vec2[:,:,0]),ch.abs(np_vec2[:,:,1]))
-            #
-            # chl = (chEdgeVerts2 - chEdgeVerts1)
-            # chlinedist = ch.sqrt((ch.sum(chl**2,axis=1)))[:,None]
-            # chlnorm = chl/chlinedist
-            #
-            # chv1 = chSampleVerts - chEdgeVerts1
-            # chd = chv1[:,0]* chlnorm[:,0] + chv1[:,1]* chlnorm[:,1]
-            # chintersectPoint = chEdgeVerts1 + chd[:,None] * chlnorm
-            # # intersectPointDist1 = intersectPoint - chEdgeVerts1
-            # # intersectPointDist2 = intersectPoint - chEdgeVerts2
-            # # Code to check computation of distances below:
-            # # lengthIntersectToPoint1 = np.linalg.norm(intersectPointDist1.r,axis=1)
-            # # lengthIntersectToPoint2 = np.linalg.norm(intersectPointDist2.r,axis=1)
-            #
-            # chintersectPoint = chEdgeVerts1 + chd[:,None] * chlnorm
-            #
-            # chlineToPoint = (chSampleVerts - chintersectPoint)
-            # chn_norm = chlineToPoint / ch.sqrt((ch.sum(chlineToPoint ** 2, axis=1)))[:, None]
-            #
-            # chdist = chlineToPoint[:,0]*chn_norm[:,0] + chlineToPoint[:,1]*chn_norm[:,1]
-            #
-            # d_final_ch = chdist / ch.maximum(ch.abs(chn_norm[:, 0]), ch.abs(chn_norm[:, 1]))
             #Trick to cap to 1 while keeping gradients.
 
             p1 = vertsProjBndSamplesOutside[:,0,:]
@@ -3256,30 +3209,44 @@ class AnalyticRenderer(ColoredRenderer):
             d_finalNP = np.minimum(d_final.copy(),1.)
             self.d_final_outside = d_finalNP
 
+            self.t_area_bnd_outside =  t_area_bnd_outside
+            self.t_area_bnd_edge =  t_area_bnd_edge
+            self.t_area_bnd_inside = t_area_bnd_inside
+            areaWeights = np.zeros([nsamples, nBndFaces])
+            areaWeights[facesOutsideBnd] = (1-d_finalNP)*t_area_bnd_edge + d_finalNP *t_area_bnd_outside
+            areaWeights[facesInsideBnd] = t_area_bnd_inside
+            areaWeightsTotal = areaWeights.sum(0)
+            self.areaWeightsTotal = areaWeightsTotal
+
             finalColorBndOutside = np.zeros([self.nsamples, boundaryFaces.size, 3])
             finalColorBndOutside_edge = np.zeros([self.nsamples, boundaryFaces.size, 3])
             finalColorBndInside = np.zeros([self.nsamples, boundaryFaces.size, 3])
 
+
+
             sampleColorsOutside = sampleColors[facesOutsideBnd]
             self.sampleColorsOutside = sampleColors.copy()
 
-            finalColorBndOutside[facesOutsideBnd] = sampleColorsOutside * t_area_bnd_outside[:,  None]
+            finalColorBndOutside[facesOutsideBnd] = sampleColorsOutside
             # finalColorBndOutside[facesOutsideBnd] = sampleColorsOutside / self.nsamples
             self.finalColorBndOutside_for_dr = finalColorBndOutside.copy()
-            finalColorBndOutside[facesOutsideBnd] *= d_finalNP[:,  None]
+            finalColorBndOutside[facesOutsideBnd] *= d_finalNP[:,  None] * t_area_bnd_outside[:,  None]
 
-            finalColorBndOutside_edge[facesOutsideBnd] = colorVertsEdge * t_area_bnd_edge[:,  None]
+            finalColorBndOutside_edge[facesOutsideBnd] = colorVertsEdge
             # finalColorBndOutside_edge[facesOutsideBnd] = colorVertsEdge/ self.nsamples
             self.finalColorBndOutside_edge_for_dr = finalColorBndOutside_edge.copy()
-            finalColorBndOutside_edge[facesOutsideBnd] *= (1 - d_finalNP[:, None])
+            finalColorBndOutside_edge[facesOutsideBnd] *= (1 - d_finalNP[:, None]) * t_area_bnd_edge[:,  None]
 
             sampleColorsInside = sampleColors[facesInsideBnd]
             self.sampleColorsInside = sampleColorsInside.copy()
-            finalColorBndInside[facesInsideBnd] = sampleColorsInside * t_area_bnd_inside[:,  None]
+            finalColorBndInside[facesInsideBnd] = sampleColorsInside * self.t_area_bnd_inside[:,  None]
+
             # finalColorBndInside[facesInsideBnd] = sampleColorsInside / self.nsamples
 
             # finalColorBnd = finalColorBndOutside + finalColorBndOutside_edge + finalColorBndInside
             finalColorBnd = finalColorBndOutside + finalColorBndOutside_edge + finalColorBndInside
+
+            finalColorBnd /= areaWeightsTotal[None, :, None]
 
             bndColorsImage = np.zeros_like(self.render_resolved)
             bndColorsImage[(zerosIm * boundaryImage), :] = np.sum(finalColorBnd, axis=0)
@@ -3390,17 +3357,57 @@ class AnalyticRenderer(ColoredRenderer):
 
             ######## 1 derivatives samples outside wrt v 1: (dw * (bar*vc) - dw (bar'*vc') )/ nsamples for face sample
 
+            # #Chumpy autodiff code to check derivatives here:
+            # chEdgeVerts = ch.Ch(vertsProjBndSamplesOutside)
+            # 
+            # chEdgeVerts1 = chEdgeVerts[:,0,:]
+            # chEdgeVerts2 = chEdgeVerts[:,1,:]
+            # 
+            # chSampleVerts = ch.Ch(sampleV[facesOutsideBnd])
+            # # c1 = (chEdgeVerts1 - chSampleVerts)
+            # # c2 = (chEdgeVerts2 - chSampleVerts)
+            # # n = (chEdgeVerts2 - chEdgeVerts1)
+            # 
+            # #Code to check computation of distance below
+            # # d2 = ch.abs(c1[:,:,0]*c2[:,:,1] - c1[:,:,1]*c2[:,:,0]) / ch.sqrt((ch.sum(n**2,2)))
+            # # # np_mat = ch.dot(ch.array([[0,-1],[1,0]]), n)
+            # # np_mat2 = -ch.concatenate([-n[:,:,1][:,:,None], n[:,:,0][:,:,None]],2)
+            # # np_vec2 = np_mat2 / ch.sqrt((ch.sum(np_mat2**2,2)))[:,:,None]
+            # # d2 =  d2 / ch.maximum(ch.abs(np_vec2[:,:,0]),ch.abs(np_vec2[:,:,1]))
+            # 
+            # chl = (chEdgeVerts2 - chEdgeVerts1)
+            # chlinedist = ch.sqrt((ch.sum(chl**2,axis=1)))[:,None]
+            # chlnorm = chl/chlinedist
+            # 
+            # chv1 = chSampleVerts - chEdgeVerts1
+            # chd = chv1[:,0]* chlnorm[:,0] + chv1[:,1]* chlnorm[:,1]
+            # chintersectPoint = chEdgeVerts1 + chd[:,None] * chlnorm
+            # # intersectPointDist1 = intersectPoint - chEdgeVerts1
+            # # intersectPointDist2 = intersectPoint - chEdgeVerts2
+            # # Code to check computation of distances below:
+            # # lengthIntersectToPoint1 = np.linalg.norm(intersectPointDist1.r,axis=1)
+            # # lengthIntersectToPoint2 = np.linalg.norm(intersectPointDist2.r,axis=1)
+            # 
+            # chintersectPoint = chEdgeVerts1 + chd[:,None] * chlnorm
+            # 
+            # chlineToPoint = (chSampleVerts - chintersectPoint)
+            # chn_norm = chlineToPoint / ch.sqrt((ch.sum(chlineToPoint ** 2, axis=1)))[:, None]
+            # 
+            # chdist = chlineToPoint[:,0]*chn_norm[:,0] + chlineToPoint[:,1]*chn_norm[:,1]
+            # 
+            # d_final_ch = chdist / ch.maximum(ch.abs(chn_norm[:, 0]), ch.abs(chn_norm[:, 1]))
+            # 
             # d_final_outside = d_final_ch.ravel()
             # dwdv = d_final_outside.dr_wrt(chEdgeVerts1)
             # rows = np.tile(np.arange(d_final_outside.shape[0])[None, :], [2, 1]).T.ravel()
             # cols = np.arange(d_final_outside.shape[0] * 2)
-
+            # 
             # dwdv_r_v1 = np.array(dwdv[rows, cols]).reshape([-1, 2])
-
+            # 
             # dwdv = d_final_outside.dr_wrt(chEdgeVerts2)
-            # rows = np.tile(np.arange(d_final.shape[0])[None, :], [2, 1]).T.ravel()
-            # cols = np.arange(d_final.shape[0] * 2)
-            #
+            # rows = np.tile(np.arange(d_final_ch.shape[0])[None, :], [2, 1]).T.ravel()
+            # cols = np.arange(d_final_ch.shape[0] * 2)
+            # 
             # dwdv_r_v2 = np.array(dwdv[rows, cols]).reshape([-1, 2])
 
             nonIntersect = self.nonIntersect
@@ -3482,6 +3489,7 @@ class AnalyticRenderer(ColoredRenderer):
             data2 = dImage_wrt_outside_v2.transpose([1,0,2])
 
             data = np.concatenate([data1[:,:,None,:], data2[:,:,None,:]], 2) / np.tile(self.areaWeightsTotal[None,:], [self.nsamples,1])[facesOutsideBnd][None, :, None,None]
+            data = np.concatenate([data1[:,:,None,:], data2[:,:,None,:]], 2)
 
             data = data.ravel()
 
@@ -3657,7 +3665,18 @@ class AnalyticRenderer(ColoredRenderer):
         # result_wrt_verts_nonbnd.sum_duplicates()
 
         if np.any(boundaryImage):
+            # result_wrt_verts_bnd_outside[result_wrt_verts_bnd_outside>1] = 1
+            # result_wrt_verts_bnd_outside[result_wrt_verts_bnd_outside<-1] = -1
+            # result_wrt_verts_bar_inside[result_wrt_verts_bar_inside>1] = 1
+            # result_wrt_verts_bar_inside[result_wrt_verts_bar_inside<-1] = -1
+            # result_wrt_verts_bar_outside_edge[result_wrt_verts_bar_outside_edge>1] = 1
+            # result_wrt_verts_bar_outside_edge[result_wrt_verts_bar_outside_edge<-1] = -1
+            # result_wrt_verts_nonbnd[result_wrt_verts_nonbnd>1] = 1
+            # result_wrt_verts_nonbnd[result_wrt_verts_nonbnd<-1] = -1
             result_wrt_verts = result_wrt_verts_bnd_outside + result_wrt_verts_bar_inside + result_wrt_verts_bar_outside_edge + result_wrt_verts_nonbnd
+            # result_wrt_verts[result_wrt_verts>1]=1
+            # result_wrt_verts[result_wrt_verts<-1]=-1
+
             # result_wrt_verts = result_wrt_verts_bar_outside_edge
         else:
             result_wrt_verts = result_wrt_verts_nonbnd
@@ -4065,7 +4084,7 @@ class AnalyticRenderer(ColoredRenderer):
             f = self.f_list[mesh][polygons]
             vbo_color = self.vbo_colors_mesh[mesh][polygons]
             colors_by_face = np.asarray(vc.reshape((-1, 3))[f.ravel()], dtype=np.float32, order='C')
-            colors = np.array(np.ones_like(colors_by_face) * (index + 1) / 255.0, dtype=np.float32)
+            colors = np.array(np.ones_like(colors_by_face) * (index) / 255.0, dtype=np.float32)
 
             # Pol: Make a static zero vbo_color to make it more efficient?
             vbo_color.set_array(colors)
@@ -4081,8 +4100,7 @@ class AnalyticRenderer(ColoredRenderer):
 
             GL.glUniformMatrix4fv(self.MVP_location, 1, GL.GL_TRUE, MVP)
 
-            GL.glDrawElements(primtype, len(vbo_f)*vbo_f.data.shape[1], GL.GL_UNSIGNED_INT, None)
-
+            GL.glDrawArrays(primtype, 0, len(vbo_f) * vbo_f.data.shape[1])
 
 
     def draw_texcoord_image(self, v, f, ft, boundarybool_image=None):
