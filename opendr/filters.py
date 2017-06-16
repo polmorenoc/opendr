@@ -16,8 +16,6 @@ import scipy.sparse as sp
 from chumpy.ch import MatVecMult, Ch, depends_on
 from functools import reduce
 
-    
-
 def laplacian_pyramid(input_objective, imshape, normalization, n_levels, as_list):
 
     if normalization is None:
@@ -44,8 +42,6 @@ def laplacian_pyramid(input_objective, imshape, normalization, n_levels, as_list
     output_objs.append(norm2(input_objective).reshape(imshape)) 
         
     return output_objs if as_list else reduce(lambda x, y : ch.concatenate((x.ravel(), y.ravel())), output_objs)
-
-
 
 def gaussian_pyramid(input_objective, imshape=None, normalization='SSE', n_levels=3, as_list=False, label=None):
     

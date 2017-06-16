@@ -1749,7 +1749,7 @@ class AnalyticRenderer(ColoredRenderer):
 
         # GL.glEnable(GL.GL_LINE_SMOOTH)
         # GL.glHint(GL.GL_LINE_SMOOTH_HINT, GL.GL_NICEST)
-        GL.glLineWidth(1.)
+        GL.glLineWidth(2.)
 
 
         for mesh in range(len(self.f_list)):
@@ -3216,6 +3216,7 @@ class AnalyticRenderer(ColoredRenderer):
             areaWeights[facesOutsideBnd] = (1-d_finalNP)*t_area_bnd_edge + d_finalNP *t_area_bnd_outside
             areaWeights[facesInsideBnd] = t_area_bnd_inside
             areaWeightsTotal = areaWeights.sum(0)
+            # areaWeightsTotal[areaWeightsTotal < 1] = 1
             self.areaWeightsTotal = areaWeightsTotal
 
             finalColorBndOutside = np.zeros([self.nsamples, boundaryFaces.size, 3])
@@ -3223,30 +3224,31 @@ class AnalyticRenderer(ColoredRenderer):
             finalColorBndInside = np.zeros([self.nsamples, boundaryFaces.size, 3])
 
 
-
             sampleColorsOutside = sampleColors[facesOutsideBnd]
             self.sampleColorsOutside = sampleColors.copy()
 
             finalColorBndOutside[facesOutsideBnd] = sampleColorsOutside
-            # finalColorBndOutside[facesOutsideBnd] = sampleColorsOutside / self.nsamples
+            finalColorBndOutside[facesOutsideBnd] = sampleColorsOutside / self.nsamples
             self.finalColorBndOutside_for_dr = finalColorBndOutside.copy()
-            finalColorBndOutside[facesOutsideBnd] *= d_finalNP[:,  None] * t_area_bnd_outside[:,  None]
+            # finalColorBndOutside[facesOutsideBnd] *= d_finalNP[:,  None] * t_area_bnd_outside[:,  None]
+            finalColorBndOutside[facesOutsideBnd] *= d_finalNP[:,  None]
 
             finalColorBndOutside_edge[facesOutsideBnd] = colorVertsEdge
-            # finalColorBndOutside_edge[facesOutsideBnd] = colorVertsEdge/ self.nsamples
+            finalColorBndOutside_edge[facesOutsideBnd] = colorVertsEdge/ self.nsamples
             self.finalColorBndOutside_edge_for_dr = finalColorBndOutside_edge.copy()
-            finalColorBndOutside_edge[facesOutsideBnd] *= (1 - d_finalNP[:, None]) * t_area_bnd_edge[:,  None]
+            # finalColorBndOutside_edge[facesOutsideBnd] *= (1 - d_finalNP[:, None]) * t_area_bnd_edge[:,  None]
+            finalColorBndOutside_edge[facesOutsideBnd] *= (1 - d_finalNP[:, None])
 
             sampleColorsInside = sampleColors[facesInsideBnd]
             self.sampleColorsInside = sampleColorsInside.copy()
-            finalColorBndInside[facesInsideBnd] = sampleColorsInside * self.t_area_bnd_inside[:,  None]
+            # finalColorBndInside[facesInsideBnd] = sampleColorsInside * self.t_area_bnd_inside[:,  None]
 
-            # finalColorBndInside[facesInsideBnd] = sampleColorsInside / self.nsamples
+            finalColorBndInside[facesInsideBnd] = sampleColorsInside / self.nsamples
 
             # finalColorBnd = finalColorBndOutside + finalColorBndOutside_edge + finalColorBndInside
             finalColorBnd = finalColorBndOutside + finalColorBndOutside_edge + finalColorBndInside
 
-            finalColorBnd /= areaWeightsTotal[None, :, None]
+            # finalColorBnd /= areaWeightsTotal[None, :, None]
 
             bndColorsImage = np.zeros_like(self.render_resolved)
             bndColorsImage[(zerosIm * boundaryImage), :] = np.sum(finalColorBnd, axis=0)
@@ -3464,11 +3466,14 @@ class AnalyticRenderer(ColoredRenderer):
             dd_final_dp1[nonIntersect][argminDistNonIntersect==0] = dd_final_dp1_nonintersect
             dd_final_dp2[nonIntersect][argminDistNonIntersect==1] = dd_final_dp2_nonintersect
 
-            dImage_wrt_outside_v1 = finalColorBndOutside_for_dr[facesOutsideBnd][:,:,None]*dd_final_dp1[:,None,:] - dd_final_dp1[:,None,:]*finalColorBndOutside_edge_for_dr[facesOutsideBnd][:,:,None]
-            dImage_wrt_outside_v2 = finalColorBndOutside_for_dr[facesOutsideBnd][:,:,None]*dd_final_dp2[:,None,:] - dd_final_dp2[:,None,:]*finalColorBndOutside_edge_for_dr[facesOutsideBnd][:,:,None]
+            # dImage_wrt_outside_v1 = self.t_area_bnd_outside[:, None, None] * finalColorBndOutside_for_dr[facesOutsideBnd][:,:,None]*dd_final_dp1[:,None,:] - self.t_area_bnd_edge[:, None, None] * dd_final_dp1[:,None,:]*finalColorBndOutside_edge_for_dr[facesOutsideBnd][:,:,None]
+            # dImage_wrt_outside_v2 =  self.t_area_bnd_outside[:, None, None] * finalColorBndOutside_for_dr[facesOutsideBnd][:,:,None]*dd_final_dp2[:,None,:] - self.t_area_bnd_edge[:, None, None] * dd_final_dp2[:,None,:]*finalColorBndOutside_edge_for_dr[facesOutsideBnd][:,:,None]
 
-            if np.any(linedist<1e-15) or np.any(np.isnan(dImage_wrt_outside_v1)) or np.any(np.isnan(dImage_wrt_outside_v2)):
-                pdb.set_trace()
+            dImage_wrt_outside_v1 = finalColorBndOutside_for_dr[facesOutsideBnd][:,:,None]*dd_final_dp1[:,None,:] - dd_final_dp1[:,None,:]*finalColorBndOutside_edge_for_dr[facesOutsideBnd][:,:,None]
+            dImage_wrt_outside_v2 =  finalColorBndOutside_for_dr[facesOutsideBnd][:,:,None]*dd_final_dp2[:,None,:] - dd_final_dp2[:,None,:]*finalColorBndOutside_edge_for_dr[facesOutsideBnd][:,:,None]
+
+            # if np.any(linedist<1e-15) or np.any(np.isnan(dImage_wrt_outside_v1)) or np.any(np.isnan(dImage_wrt_outside_v2)):
+            #     pdb.set_trace()
 
             ### Derivatives wrt V:
             pixels = np.tile(np.where(boundaryImage.ravel())[0][None, :], [self.nsamples, 1])[facesOutsideBnd]
@@ -3488,7 +3493,7 @@ class AnalyticRenderer(ColoredRenderer):
             data1 = dImage_wrt_outside_v1.transpose([1,0,2])
             data2 = dImage_wrt_outside_v2.transpose([1,0,2])
 
-            data = np.concatenate([data1[:,:,None,:], data2[:,:,None,:]], 2) / np.tile(self.areaWeightsTotal[None,:], [self.nsamples,1])[facesOutsideBnd][None, :, None,None]
+            # data = np.concatenate([data1[:,:,None,:], data2[:,:,None,:]], 2) / np.tile(self.areaWeightsTotal[None,:], [self.nsamples,1])[facesOutsideBnd][None, :, None,None]
             data = np.concatenate([data1[:,:,None,:], data2[:,:,None,:]], 2)
 
             data = data.ravel()
@@ -3510,8 +3515,11 @@ class AnalyticRenderer(ColoredRenderer):
             dImage_wrt_bar_v[facesOutsideBnd.ravel()] = dImage_wrt_bar_v[facesOutsideBnd.ravel()] * d_final_outside[:,None,None, None] * self.t_area_bnd_outside[:, None, None, None]
             dImage_wrt_bar_v[facesInsideBnd.ravel()] = dImage_wrt_bar_v[facesInsideBnd.ravel()] * self.t_area_bnd_inside[:, None, None, None]
 
-            dImage_wrt_bar_v /= np.tile(self.areaWeightsTotal[None,:], [self.nsamples,1]).ravel()[:, None,None, None]
-            # dImage_wrt_bar_v /= self.nsamples
+            # areaWeightsTotal = self.areaWeightsTotal
+            # areaWeightsTotal[areaWeightsTotal<1] = 1
+
+            # dImage_wrt_bar_v /= np.tile(areaWeightsTotal[None,:], [self.nsamples,1]).ravel()[:, None,None, None]
+            dImage_wrt_bar_v /= self.nsamples
 
             ### Derivatives wrt V: 2 derivatives samples outside wrt v bar outside: (w * (dbar*vc) )/ nsamples for faces sample
             # IS = np.tile(col(visible), (1, 2*f.shape[1])).ravel()
@@ -3584,9 +3592,9 @@ class AnalyticRenderer(ColoredRenderer):
 
             dImage_wrt_bar_v_edge = dImage_wrt_bar_v_edge * (1-d_final_outside[:,None,None, None]) * self.t_area_bnd_edge[:, None, None, None]
 
-            dImage_wrt_bar_v_edge /= np.tile(self.areaWeightsTotal[None,:], [self.nsamples,1])[facesOutsideBnd][:, None, None,None]
+            # dImage_wrt_bar_v_edge /= np.tile(self.areaWeightsTotal[None,:], [self.nsamples,1])[facesOutsideBnd][:, None, None,None]
 
-            # dImage_wrt_bar_v_edge /= self.nsamples
+            dImage_wrt_bar_v_edge /= self.nsamples
 
             # nFaces = len(fFrontEdge)
             # # visTriVC = self.vc.r[faces.ravel()].reshape([nFaces, 3, 3]).transpose([2, 0, 1])[:, :, :, None, None]
@@ -3627,6 +3635,15 @@ class AnalyticRenderer(ColoredRenderer):
 
         verticesNonBnd = self.v.r[f[nonBoundaryFaces].ravel()]
 
+        vertsPerFaceProjBnd = self.camera.r[f[nonBoundaryFaces].ravel()].reshape([-1,3,2])
+        nv = len(vertsPerFaceProjBnd)
+
+        p0_proj = np.c_[vertsPerFaceProjBnd[:, 0, :], np.ones([nv, 1])]
+        p1_proj = np.c_[vertsPerFaceProjBnd[:, 1, :], np.ones([nv, 1])]
+        p2_proj = np.c_[vertsPerFaceProjBnd[:, 2, :], np.ones([nv, 1])]
+        t_area_nonbnd = np.abs(np.linalg.det(np.concatenate([p0_proj[:, None], p1_proj[:, None], p2_proj[:, None]], axis=1)) * 0.5)
+        t_area_nonbnd[t_area_nonbnd> 1] = 1
+
         # barySample = self.renders_sample_barycentric[0].reshape([-1,3])[(~boundaryImage)&(visibility !=4294967295 ).ravel().astype(np.bool), :]
 
         bc = barycentric[((~boundaryImage)&(visibility !=4294967295 ))].reshape((-1, 3))
@@ -3639,6 +3656,8 @@ class AnalyticRenderer(ColoredRenderer):
         # verticesNonBnd = np.concatenate([verticesNonBnd, np.ones([verticesNonBnd.size // 3, 1])], axis=1)
 
         didp = self.barycentricDerivatives(verticesNonBnd, f[nonBoundaryFaces.ravel()], verts)
+
+        didp = didp * t_area_nonbnd[None,:,None, None]
 
         n_channels = np.atleast_3d(observed).shape[2]
         shape = visibility.shape
@@ -3673,7 +3692,9 @@ class AnalyticRenderer(ColoredRenderer):
             # result_wrt_verts_bar_outside_edge[result_wrt_verts_bar_outside_edge<-1] = -1
             # result_wrt_verts_nonbnd[result_wrt_verts_nonbnd>1] = 1
             # result_wrt_verts_nonbnd[result_wrt_verts_nonbnd<-1] = -1
-            result_wrt_verts = result_wrt_verts_bnd_outside + result_wrt_verts_bar_inside + result_wrt_verts_bar_outside_edge + result_wrt_verts_nonbnd
+            result_wrt_verts =  result_wrt_verts_bnd_outside + result_wrt_verts_bar_outside + result_wrt_verts_bar_inside + result_wrt_verts_bar_outside_edge + result_wrt_verts_nonbnd
+            # result_wrt_verts =  result_wrt_verts_bnd_outside
+
             # result_wrt_verts[result_wrt_verts>1]=1
             # result_wrt_verts[result_wrt_verts<-1]=-1
 
