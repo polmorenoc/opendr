@@ -1751,7 +1751,6 @@ class AnalyticRenderer(ColoredRenderer):
         # GL.glHint(GL.GL_LINE_SMOOTH_HINT, GL.GL_NICEST)
         GL.glLineWidth(2.)
 
-
         for mesh in range(len(self.f_list)):
 
             vaos_mesh = []
@@ -3105,6 +3104,7 @@ class AnalyticRenderer(ColoredRenderer):
             l = (p2 - p1)
             linedist = np.sqrt((np.sum(l**2,axis=1)))[:,None]
             self.linedist = linedist
+
             lnorm = l/linedist
             self.lnorm = lnorm
 
