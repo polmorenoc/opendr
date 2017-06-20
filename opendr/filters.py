@@ -27,14 +27,12 @@ def laplacian_pyramid(input_objective, imshape, normalization, n_levels, as_list
     else:
         norm2 = normalization
 
-    
     output_objs = []
     for level in range(n_levels):
     
         blur_mtx = filter_for(imshape[0], imshape[1], imshape[2] if len(imshape)>2 else 1, kernel = GaussianKernel2D(3, 1))
         blurred = MatVecMult(blur_mtx, input_objective).reshape(imshape)
         output_objs.append(norm2(input_objective - blurred))
-
 
         halfsampler_mtx, imshape = halfsampler_for(imshape)
         input_objective = MatVecMult(halfsampler_mtx, blurred.ravel()).reshape(imshape)
