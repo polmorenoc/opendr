@@ -2962,9 +2962,8 @@ class AnalyticRenderer(ColoredRenderer):
         dp = np.concatenate([dp0[:, :, None], dp1[:, :, None], dp2[:, :, None]], 2)
 
         #If dealing with degenerate triangles, ignore that gradient.
-        if np.any(nt_mag<=1e-15):
-            pdb.set_trace()
-        dp[nt_mag<=1e-15] = 0
+
+        # dp[nt_mag<=1e-15] = 0
 
         dp = dp[None, :]
 
@@ -3113,6 +3112,7 @@ class AnalyticRenderer(ColoredRenderer):
             d = v1[:,0]* lnorm[:,0] + v1[:,1]* lnorm[:,1]
             self.d = d
             intersectPoint = p1 + d[:,None] * lnorm
+            self.intersectPoint = intersectPoint
 
             v2 = p - p2
             self.v2 = v2
@@ -3143,9 +3143,10 @@ class AnalyticRenderer(ColoredRenderer):
 
             d_final = dist.squeeze()
 
-            max_nx_ny = np.maximum(np.abs(n_norm[:, 0]), np.abs(n_norm[:, 1]))
+            # max_nx_ny = np.maximum(np.abs(n_norm[:, 0]), np.abs(n_norm[:, 1]))
 
-            d_final = d_final/max_nx_ny
+            # d_final = d_final/max_nx_ny
+            # d_final = d_final
 
             verticesBnd = self.v.r[self.vpe[edge_visibility.ravel()[(zerosIm * boundaryImage).ravel().astype(np.bool)]].ravel()].reshape([-1, 2 , 3])
             verticesBndSamples = np.tile(verticesBnd[None,:,:],[self.nsamples,1,1, 1])
@@ -3416,7 +3417,8 @@ class AnalyticRenderer(ColoredRenderer):
             argminDistNonIntersect = self.argminDistNonIntersect
 
             max_dx_dy = np.maximum(np.abs(n_norm[:, 0]), np.abs(n_norm[:, 1]))
-            d_final_np = dist / max_dx_dy
+            # d_final_np = dist / max_dx_dy
+            d_final_np = dist
 
             ident = np.identity(2)
             ident = np.tile(ident[None, :], [len(p2), 1, 1])
@@ -3449,8 +3451,11 @@ class AnalyticRenderer(ColoredRenderer):
             dmax_nx_ny_p1 = np.sign(n_norm)[np.arange(len(n_norm)),argmax_nx_ny][:,None]*dn_normdp1[np.arange(len(dn_normdp1)),argmax_nx_ny]
             dmax_nx_ny_p2 = np.sign(n_norm)[np.arange(len(n_norm)),argmax_nx_ny][:,None]*dn_normdp2[np.arange(len(dn_normdp2)),argmax_nx_ny]
 
-            dd_final_dp1 = -1./max_dx_dy[:,None]**2 * dmax_nx_ny_p1 * dist + 1./max_dx_dy[:,None] *  ddistdp1
-            dd_final_dp2 = -1./max_dx_dy[:,None]**2 * dmax_nx_ny_p2 * dist + 1./max_dx_dy[:,None] *  ddistdp2
+            # dd_final_dp1 = -1./max_dx_dy[:,None]**2 * dmax_nx_ny_p1 * dist + 1./max_dx_dy[:,None] *  ddistdp1
+            # dd_final_dp2 = -1./max_dx_dy[:,None]**2 * dmax_nx_ny_p2 * dist + 1./max_dx_dy[:,None] *  ddistdp2
+
+            dd_final_dp1 = ddistdp1
+            dd_final_dp2 = ddistdp2
 
             #For those non intersecting points straight to the edge:
 
@@ -3638,6 +3643,7 @@ class AnalyticRenderer(ColoredRenderer):
         if np.any(boundaryImage):
 
             result_wrt_verts =  result_wrt_verts_bnd_outside + result_wrt_verts_bar_outside + result_wrt_verts_bar_inside + result_wrt_verts_bar_outside_edge + result_wrt_verts_nonbnd
+            result_wrt_verts = result_wrt_verts_bnd_outside
 
         else:
             result_wrt_verts = result_wrt_verts_nonbnd
@@ -5349,8 +5355,8 @@ class ResidualRenderer(ColoredRenderer):
 
         viewVerticesNonBnd = camMtx[0:3, 0:3].dot(view_mtx.dot(vertices.T).T[:, :3].T).T.reshape([-1, 3, 3])
 
-        # # Check with autodiff:
-        #
+        # # # Check with autodiff:
+        # #
         # view_mtx = np.r_[self.camera.view_mtx, np.array([[0, 0, 0, 1]])]
         # # negYMat = ch.array([[1,0,self.camera.c.r[0]],[0,-1,self.camera.c.r[1]],[0,0,1]])
         # verts_hom_ch = ch.Ch(verts_hom)
@@ -5411,9 +5417,9 @@ class ResidualRenderer(ColoredRenderer):
         # chdp0 = np.concatenate([drb0p0[:, None, :], drb1p0[:, None, :], drb2p0[:, None, :]], axis=1)
         # chdp1 = np.concatenate([drb0p1[:, None, :], drb1p1[:, None, :], drb2p1[:, None, :]], axis=1)
         # chdp2 = np.concatenate([drb0p2[:, None, :], drb1p2[:, None, :], drb2p2[:, None, :]], axis=1)
-        # #
-        # # dp = np.concatenate([dp0[:, :, None], dp1[:, :, None], dp2[:, :, None]], 2)
-        # # dp = dp[None, :]
+        #
+        # dp = np.concatenate([dp0[:, :, None], dp1[:, :, None], dp2[:, :, None]], 2)
+        # dp = dp[None, :]
 
         view_mtx = np.r_[self.camera.view_mtx, np.array([[0, 0, 0, 1]])]
         camMtx = np.r_[np.c_[self.camera.camera_mtx, np.array([0, 0, 0])], np.array([[0, 0, 0, 1]])]
@@ -5583,9 +5589,8 @@ class ResidualRenderer(ColoredRenderer):
         dp = np.concatenate([dp0[:, :, None], dp1[:, :, None], dp2[:, :, None]], 2)
 
         # If dealing with degenerate triangles, ignore that gradient.
-        if np.any(nt_mag <= 1e-15):
-            pdb.set_trace()
-        dp[nt_mag <= 1e-15] = 0
+
+        # dp[nt_mag <= 1e-15] = 0
 
         dp = dp[None, :]
 
@@ -5618,7 +5623,6 @@ class ResidualRenderer(ColoredRenderer):
         # drb2p0 # db2dp0wrt
         # drb2p1 # db2dp1wrt
         # drb2p2 # db2dp2wrt
-        #
 
         return didp
 
@@ -5645,9 +5649,7 @@ class ResidualRenderer(ColoredRenderer):
             boundaryFaces = visibility[(boundaryImage) & (visibility != 4294967295)]
             nBndFaces = len(boundaryFaces)
 
-
-            vertsProjBnd = self.camera.r[self.vpe[edge_visibility.ravel()[(zerosIm * boundaryImage).ravel().astype(np.bool)]].ravel()].reshape(
-                [-1, 2, 2])
+            vertsProjBnd = self.camera.r[self.vpe[edge_visibility.ravel()[(zerosIm * boundaryImage).ravel().astype(np.bool)]].ravel()].reshape([-1, 2, 2])
 
             vertsProjBndSamples = np.tile(vertsProjBnd[None, :], [self.nsamples, 1, 1, 1])
             sampleFaces = self.renders_faces.reshape([nsamples, -1])[:, (zerosIm * boundaryImage).ravel().astype(np.bool)].reshape([nsamples, -1]) - 1
@@ -5710,55 +5712,46 @@ class ResidualRenderer(ColoredRenderer):
 
             d_final = dist.squeeze()
 
-            max_nx_ny = np.maximum(np.abs(n_norm[:, 0]), np.abs(n_norm[:, 1]))
+            # max_nx_ny = np.maximum(np.abs(n_norm[:, 0]), np.abs(n_norm[:, 1]))
 
-            d_final = d_final / max_nx_ny
+            # d_final = d_final / max_nx_ny
+            d_final = d_final
 
-            verticesBnd = self.v.r[self.vpe[edge_visibility.ravel()[(zerosIm * boundaryImage).ravel().astype(np.bool)]].ravel()].reshape([-1, 2, 3])
-            verticesBndSamples = np.tile(verticesBnd[None, :, :], [self.nsamples, 1, 1, 1])
 
-            vc = self.vc.r[self.vpe[edge_visibility.ravel()[(zerosIm * boundaryImage).ravel().astype(np.bool)]].ravel()].reshape([-1, 2, 3])
-            vc[vc > 1] = 1
-            vc[vc < 0] = 0
-
-            vcBnd = vc
-            vcBndSamples = np.tile(vcBnd[None, :, :], [self.nsamples, 1, 1, 1])
-
-            invViewMtx = np.linalg.inv(np.r_[self.camera.view_mtx, np.array([[0, 0, 0, 1]])])
+            # invViewMtx = np.linalg.inv(np.r_[self.camera.view_mtx, np.array([[0, 0, 0, 1]])])
+            # #
+            # camMtx = np.r_[np.c_[self.camera.camera_mtx, np.array([0, 0, 0])], np.array([[0, 0, 0, 1]])]
+            # # invCamMtx = np.r_[np.c_[np.linalg.inv(self.camera.camera_mtx), np.array([0,0,0])], np.array([[0, 0, 0, 1]])]
             #
-            camMtx = np.r_[np.c_[self.camera.camera_mtx, np.array([0, 0, 0])], np.array([[0, 0, 0, 1]])]
-            # invCamMtx = np.r_[np.c_[np.linalg.inv(self.camera.camera_mtx), np.array([0,0,0])], np.array([[0, 0, 0, 1]])]
+            # view_mtx = np.r_[self.camera.view_mtx, np.array([[0, 0, 0, 1]])]
 
-            view_mtx = np.r_[self.camera.view_mtx, np.array([[0, 0, 0, 1]])]
+            # verticesBndSamples = np.concatenate([verticesBndSamples.reshape([-1, 3]), np.ones([verticesBndSamples.size // 3, 1])], axis=1)
 
-            verticesBndSamples = np.concatenate([verticesBndSamples.reshape([-1, 3]), np.ones([verticesBndSamples.size // 3, 1])], axis=1)
+            # projVerticesBndOutside = (camMtx.dot(view_mtx)).dot(verticesBndSamples.T).T[:, :3].reshape([-1, 2, 3])
+            # projVerticesBndDir = projVerticesBndOutside[:, 1, :] - projVerticesBndOutside[:, 0, :]
+            # projVerticesBndDir = projVerticesBndDir / np.sqrt((np.sum(projVerticesBndDir ** 2, 1)))[:, None]
 
-            projVerticesBndOutside = (camMtx.dot(view_mtx)).dot(verticesBndSamples.T).T[:, :3].reshape([-1, 2, 3])
-            projVerticesBndDir = projVerticesBndOutside[:, 1, :] - projVerticesBndOutside[:, 0, :]
-            projVerticesBndDir = projVerticesBndDir / np.sqrt((np.sum(projVerticesBndDir ** 2, 1)))[:, None]
-
-            dproj = (intersectPoint[:, 0] * projVerticesBndOutside[:, 0, 2] - projVerticesBndOutside[:, 0, 0]) / (
-            projVerticesBndDir[:, 0] - projVerticesBndDir[:, 2] * intersectPoint[:, 0])
-            # Code to check computation that dproj == dprojy
-            # dproj_y = (intersectPoint[:,1]* projVerticesBndOutside[:,0,2] - projVerticesBndOutside[:,0,1]) / (projVerticesBndDir[:,1] - projVerticesBndDir[:,2]*intersectPoint[:,1])
-
-            projPoint = projVerticesBndOutside[:, 0, :][:, :] + dproj[:, None] * projVerticesBndDir[:, :]
-
-            projPointVec4 = np.concatenate([projPoint, np.ones([projPoint.shape[0], 1])], axis=1)
-            viewPointIntersect = (invViewMtx.dot(np.linalg.inv(camMtx)).dot(projPointVec4.T.reshape([4, -1])).reshape([4, -1])).T[:, :3]
-
-            barycentricVertsDistIntesect = np.linalg.norm(viewPointIntersect - verticesBndSamples[:, 0:3].reshape([-1, 2, 3])[:, 0, :], axis=1)
-            barycentricVertsDistIntesect2 = np.linalg.norm(viewPointIntersect - verticesBndSamples[:, 0:3].reshape([-1, 2, 3])[:, 1, :], axis=1)
-            # Code to check barycentricVertsDistIntesect + barycentricVertsDistIntesect2 = barycentricVertsDistEdge
-            barycentricVertsDistEdge = np.linalg.norm(
-                verticesBndSamples[:, 0:3].reshape([-1, 2, 3])[:, 0, :] - verticesBndSamples[:, 0:3].reshape([-1, 2, 3])[:, 1, :], axis=1)
-
-            nonIntersect = np.abs(barycentricVertsDistIntesect + barycentricVertsDistIntesect2 - barycentricVertsDistEdge) > 1e-4
-            argminDistNonIntersect = np.argmin(np.c_[barycentricVertsDistIntesect[nonIntersect], barycentricVertsDistIntesect2[nonIntersect]], 1)
-
-            self.viewPointIntersect = viewPointIntersect
-            self.viewPointIntersect[nonIntersect] = verticesBndSamples.reshape([-1, 2, 4])[nonIntersect, :, 0:3][np.arange(nonIntersect.sum()),
-                                                    argminDistNonIntersect, :]
+            # dproj = (intersectPoint[:, 0] * projVerticesBndOutside[:, 0, 2] - projVerticesBndOutside[:, 0, 0]) / (projVerticesBndDir[:, 0] - projVerticesBndDir[:, 2] * intersectPoint[:, 0])
+            # # Code to check computation that dproj == dprojy
+            # # dproj_y = (intersectPoint[:,1]* projVerticesBndOutside[:,0,2] - projVerticesBndOutside[:,0,1]) / (projVerticesBndDir[:,1] - projVerticesBndDir[:,2]*intersectPoint[:,1])
+            #
+            # projPoint = projVerticesBndOutside[:, 0, :][:, :] + dproj[:, None] * projVerticesBndDir[:, :]
+            #
+            # projPointVec4 = np.concatenate([projPoint, np.ones([projPoint.shape[0], 1])], axis=1)
+            # viewPointIntersect = (invViewMtx.dot(np.linalg.inv(camMtx)).dot(projPointVec4.T.reshape([4, -1])).reshape([4, -1])).T[:, :3]
+            #
+            # barycentricVertsDistIntesect = np.linalg.norm(viewPointIntersect - verticesBndSamples[:, 0:3].reshape([-1, 2, 3])[:, 0, :], axis=1)
+            # barycentricVertsDistIntesect2 = np.linalg.norm(viewPointIntersect - verticesBndSamples[:, 0:3].reshape([-1, 2, 3])[:, 1, :], axis=1)
+            # # Code to check barycentricVertsDistIntesect + barycentricVertsDistIntesect2 = barycentricVertsDistEdge
+            # barycentricVertsDistEdge = np.linalg.norm(
+            #     verticesBndSamples[:, 0:3].reshape([-1, 2, 3])[:, 0, :] - verticesBndSamples[:, 0:3].reshape([-1, 2, 3])[:, 1, :], axis=1)
+            #
+            # nonIntersect = np.abs(barycentricVertsDistIntesect + barycentricVertsDistIntesect2 - barycentricVertsDistEdge) > 1e-4
+            # argminDistNonIntersect = np.argmin(np.c_[barycentricVertsDistIntesect[nonIntersect], barycentricVertsDistIntesect2[nonIntersect]], 1)
+            #
+            # self.viewPointIntersect = viewPointIntersect
+            # self.viewPointIntersect[nonIntersect] = verticesBndSamples.reshape([-1, 2, 4])[nonIntersect, :, 0:3][np.arange(nonIntersect.sum()),
+            #                                         argminDistNonIntersect, :]
 
             d_finalNP = d_final.copy()
             self.d_final = d_finalNP
@@ -5777,6 +5770,7 @@ class ResidualRenderer(ColoredRenderer):
 
             # if self.imageGT is not None:
             finalColorBnd = sampleColors * d_finalNP.reshape([self.nsamples, -1,1]) / self.d_final_total.reshape([1, -1,1])
+            self.finalColorBnd = finalColorBnd
             # else:
             #     finalColorBnd = sampleColors
 
@@ -5801,7 +5795,9 @@ class ResidualRenderer(ColoredRenderer):
                 finalResidual = (1 - boundaryImage)[:, :, None] * errors + boundaryImage[:, :, None] * bndColorsResiduals
         else:
             finalColor = self.color_image
-            finalResidual = (self.color_image - self.imageGT.r)**2
+
+            if self.imageGT is not None:
+                finalResidual = (self.color_image - self.imageGT.r)**2
 
         if self.imageGT is None:
             finalResidual = None
@@ -5817,14 +5813,6 @@ class ResidualRenderer(ColoredRenderer):
         num_channels = 3
         n_channels = num_channels
         vc_size = self.vc.size
-        n_norm = self.n_norm
-        dist = self.dist
-        linedist = self.linedist
-        d = self.d
-        v1 = self.v1
-        lnorm = self.lnorm
-
-        d_final = self.d_final
 
         # xdiff = dEdx
         # ydiff = dEdy
@@ -5853,13 +5841,20 @@ class ResidualRenderer(ColoredRenderer):
 
         if np.any(boundaryImage):
 
+            n_norm = self.n_norm
+            dist = self.dist
+            linedist = self.linedist
+            d = self.d
+            v1 = self.v1
+            lnorm = self.lnorm
+
+            d_final = self.d_final
+
             boundaryFaces = visibility[boundaryImage]
             nBndFaces = len(boundaryFaces)
 
-
             # vertsProjBnd[None, :] - sampleV[:,None,:]
             vertsProjBndSamples = np.tile(vertsProjBnd[None, :], [self.nsamples, 1, 1, 1])
-
 
             # Computing gradients:
             # A multisampled pixel color is given by: w R + (1-w) R' thus:
@@ -5879,13 +5874,13 @@ class ResidualRenderer(ColoredRenderer):
 
             ######## 1 derivatives samples outside wrt v 1: (dw * (bar*vc) - dw (bar'*vc') )/ nsamples for face sample
 
-            # #Chumpy autodiff code to check derivatives here:
-            # chEdgeVerts = ch.Ch(vertsProjBndSamples)
+            # # #Chumpy autodiff code to check derivatives here:
+            # chEdgeVerts = ch.Ch(vertsProjBndSamples.reshape([-1,2,2]))
             #
             # chEdgeVerts1 = chEdgeVerts[:,0,:]
             # chEdgeVerts2 = chEdgeVerts[:,1,:]
             #
-            # chSampleVerts = ch.Ch(sampleV)
+            # chSampleVerts = ch.Ch(sampleV.reshape([-1,2]))
             # # c1 = (chEdgeVerts1 - chSampleVerts)
             # # c2 = (chEdgeVerts2 - chSampleVerts)
             # # n = (chEdgeVerts2 - chEdgeVerts1)
@@ -5902,6 +5897,7 @@ class ResidualRenderer(ColoredRenderer):
             # chlnorm = chl/chlinedist
             #
             # chv1 = chSampleVerts - chEdgeVerts1
+            #
             # chd = chv1[:,0]* chlnorm[:,0] + chv1[:,1]* chlnorm[:,1]
             # chintersectPoint = chEdgeVerts1 + chd[:,None] * chlnorm
             # # intersectPointDist1 = intersectPoint - chEdgeVerts1
@@ -5917,7 +5913,10 @@ class ResidualRenderer(ColoredRenderer):
             #
             # chdist = chlineToPoint[:,0]*chn_norm[:,0] + chlineToPoint[:,1]*chn_norm[:,1]
             #
-            # d_final_ch = chdist / ch.maximum(ch.abs(chn_norm[:, 0]), ch.abs(chn_norm[:, 1]))
+            # # d_final_ch = chdist / ch.maximum(ch.abs(chn_norm[:, 0]), ch.abs(chn_norm[:, 1]))
+            # d_final_ch = chdist
+            #
+            # d_final_ch_weights = sampleColors * (d_final_ch.reshape([self.nsamples, -1]) / ch.sum(d_final_ch.reshape([self.nsamples, -1]), 0))[:,:,None]
             #
             # d_final_outside = d_final_ch.ravel()
             # dwdv = d_final_outside.dr_wrt(chEdgeVerts1)
@@ -5932,11 +5931,13 @@ class ResidualRenderer(ColoredRenderer):
             #
             # dwdv_r_v2 = np.array(dwdv[rows, cols]).reshape([-1, 2])
 
+
             nonIntersect = self.nonIntersect
             argminDistNonIntersect = self.argminDistNonIntersect
 
-            max_dx_dy = np.maximum(np.abs(n_norm[:, 0]), np.abs(n_norm[:, 1]))
-            d_final_np = dist / max_dx_dy
+            # max_dx_dy = np.maximum(np.abs(n_norm[:, 0]), np.abs(n_norm[:, 1]))
+            d_final_np = dist
+            # d_final_np = dist / max_dx_dy
 
             ident = np.identity(2)
             ident = np.tile(ident[None, :], [len(d_final_np), 1, 1])
@@ -5954,23 +5955,28 @@ class ResidualRenderer(ColoredRenderer):
             dipdp1 = ident + (dddp1[:, None, :] * lnorm[:, :, None]) + d[:, None, None] * dl_normdp1
             dipdp2 = (dddp2[:, None, :] * lnorm[:, :, None]) + d[:, None, None] * dl_normdp2
 
+            #good up to here.
+
             dndp1 = -dipdp1
             dndp2 = -dipdp2
 
             dn_norm = (ident - np.einsum('ij,ik->ijk', n_norm, n_norm)) / dist[:, None]
 
-            dn_normdp1 = np.einsum('ijk,ikl->ijl', dn_norm, dndp1)
-            dn_normdp2 = np.einsum('ijk,ikl->ijl', dn_norm, dndp2)
+            # dn_normdp1 = np.einsum('ijk,ikl->ijl', dn_norm, dndp1)
+            # dn_normdp2 = np.einsum('ijk,ikl->ijl', dn_norm, dndp2)
 
             ddistdp1 = np.einsum('ij,ijl->il', n_norm, dndp1)
             ddistdp2 = np.einsum('ij,ijl->il', n_norm, dndp2)
 
-            argmax_nx_ny = np.argmax(np.abs(n_norm), axis=1)
-            dmax_nx_ny_p1 = np.sign(n_norm)[np.arange(len(n_norm)), argmax_nx_ny][:, None] * dn_normdp1[np.arange(len(dn_normdp1)), argmax_nx_ny]
-            dmax_nx_ny_p2 = np.sign(n_norm)[np.arange(len(n_norm)), argmax_nx_ny][:, None] * dn_normdp2[np.arange(len(dn_normdp2)), argmax_nx_ny]
+            # argmax_nx_ny = np.argmax(np.abs(n_norm), axis=1)
+            # dmax_nx_ny_p1 = np.sign(n_norm)[np.arange(len(n_norm)), argmax_nx_ny][:, None] * dn_normdp1[np.arange(len(dn_normdp1)), argmax_nx_ny]
+            # dmax_nx_ny_p2 = np.sign(n_norm)[np.arange(len(n_norm)), argmax_nx_ny][:, None] * dn_normdp2[np.arange(len(dn_normdp2)), argmax_nx_ny]
 
-            dd_final_dp1 = -1. / max_dx_dy[:, None] ** 2 * dmax_nx_ny_p1 * dist + 1. / max_dx_dy[:, None] * ddistdp1
-            dd_final_dp2 = -1. / max_dx_dy[:, None] ** 2 * dmax_nx_ny_p2 * dist + 1. / max_dx_dy[:, None] * ddistdp2
+            # dd_final_dp1 = -1. / max_dx_dy[:, None] ** 2 * dmax_nx_ny_p1 * dist + 1. / max_dx_dy[:, None] * ddistdp1
+            # dd_final_dp2 = -1. / max_dx_dy[:, None] ** 2 * dmax_nx_ny_p2 * dist + 1. / max_dx_dy[:, None] * ddistdp2
+
+            dd_final_dp1 = ddistdp1
+            dd_final_dp2 = ddistdp2
 
             # For those non intersecting points straight to the edge:
 
@@ -5988,11 +5994,11 @@ class ResidualRenderer(ColoredRenderer):
             dd_final_dp2[nonIntersect][argminDistNonIntersect == 1] = dd_final_dp2_nonintersect
             dd_final_dp2[nonIntersect][argminDistNonIntersect == 0] = 0
 
-            dd_final_dp1_weighted_part1 = -self.d_final[:,None]/(np.tile(self.d_final_total[None,:], [self.nsamples, 1,1]).reshape([-1,1])**2) * dd_final_dp1
+            dd_final_dp1_weighted_part1 = -self.d_final[:,None]* np.tile(dd_final_dp1.reshape([self.nsamples, -1, 2]).sum(0)[None,:,:],[self.nsamples,1,1]).reshape([-1, 2])/(np.tile(self.d_final_total[None,:], [self.nsamples, 1,1]).reshape([-1,1])**2)
             dd_final_dp1_weighted_part2 = dd_final_dp1 / np.tile(self.d_final_total[None, :], [self.nsamples, 1, 1]).reshape([-1, 1])
             dd_final_dp1_weighted =  dd_final_dp1_weighted_part1 + dd_final_dp1_weighted_part2
 
-            dd_final_dp2_weighted_part1 = -self.d_final[:,None]/(np.tile(self.d_final_total[None,:], [self.nsamples, 1,1]).reshape([-1,1])**2) * dd_final_dp2
+            dd_final_dp2_weighted_part1 = -self.d_final[:,None]*np.tile(dd_final_dp2.reshape([self.nsamples, -1, 2]).sum(0)[None,:,:],[self.nsamples,1,1]).reshape([-1, 2])/(np.tile(self.d_final_total[None,:], [self.nsamples, 1,1]).reshape([-1,1])**2)
             dd_final_dp2_weighted_part2 = dd_final_dp2 / np.tile(self.d_final_total[None, :], [self.nsamples, 1, 1]).reshape([-1, 1])
             dd_final_dp2_weighted =  dd_final_dp2_weighted_part1 + dd_final_dp2_weighted_part2
 
@@ -6002,6 +6008,16 @@ class ResidualRenderer(ColoredRenderer):
             else:
                 dImage_wrt_outside_v1 = self.sampleResiduals.reshape([-1,3,1])**2 * dd_final_dp1_weighted[:, None, :]
                 dImage_wrt_outside_v2 = self.sampleResiduals.reshape([-1,3,1])**2 * dd_final_dp2_weighted[:, None, :]
+
+            # sampleV
+            # z = dd_final_dp1.reshape([8, -1, 2])
+            # eq = np.array([np.all(np.sign(z[:, i, :]) == -1) or np.all(np.sign(z[:, i, :]) == 1) for i in range(z.shape[1])])
+            # dist_ns = dist.reshape([8,-1])
+            # rightV = sampleV[0, :, 0] > np.max(sampleV[0, :, :], 0)[0] - 1
+            # dist_ns[0, rightV]
+            # dImage_wrt_outside_v1.reshape([8, -1, 3, 2])[0, rightV,:]
+            # d_final_ch_weights
+            # self.finalColorBnd
 
             ### Derivatives wrt V:
             pixels = np.tile(np.where(boundaryImage.ravel())[0][None, :], [self.nsamples, 1])
@@ -6110,7 +6126,6 @@ class ResidualRenderer(ColoredRenderer):
         if np.any(boundaryImage):
 
             result_wrt_verts = result_wrt_verts_bnd + result_wrt_verts_bnd_bar + result_wrt_verts_nonbnd
-
         else:
             result_wrt_verts = result_wrt_verts_nonbnd
 
