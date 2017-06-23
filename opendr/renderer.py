@@ -3643,7 +3643,7 @@ class AnalyticRenderer(ColoredRenderer):
         if np.any(boundaryImage):
 
             result_wrt_verts =  result_wrt_verts_bnd_outside + result_wrt_verts_bar_outside + result_wrt_verts_bar_inside + result_wrt_verts_bar_outside_edge + result_wrt_verts_nonbnd
-            result_wrt_verts = result_wrt_verts_bnd_outside
+            # result_wrt_verts = result_wrt_verts_bnd_outside
 
         else:
             result_wrt_verts = result_wrt_verts_nonbnd
@@ -5716,7 +5716,6 @@ class ResidualRenderer(ColoredRenderer):
 
             # d_final = d_final / max_nx_ny
             d_final = d_final
-
 
             # invViewMtx = np.linalg.inv(np.r_[self.camera.view_mtx, np.array([[0, 0, 0, 1]])])
             # #
