@@ -3075,7 +3075,11 @@ class AnalyticRenderer(ColoredRenderer):
             t_area_bnd_edge = np.abs(np.linalg.det(np.concatenate([p0_proj[:,None], p1_proj[:,None], p2_proj[:,None]], axis=1))*0.5)
             t_area_bnd_edge[t_area_bnd_edge > 1] = 1
 
+            if self.debug:
+                import pdb; pdb.set_trace()
+
             faces = f[sampleFaces[facesOutsideBnd]].ravel()
+
             vertsPerFaceProjBnd = self.camera.r[faces].reshape([-1, 3, 2])
             nv = len(vertsPerFaceProjBnd)
             p0_proj = np.c_[vertsPerFaceProjBnd[:,0,:], np.ones([nv,1])]
@@ -5654,6 +5658,9 @@ class ResidualRenderer(ColoredRenderer):
             vertsProjBndSamples = np.tile(vertsProjBnd[None, :], [self.nsamples, 1, 1, 1])
             sampleFaces = self.renders_faces.reshape([nsamples, -1])[:, (zerosIm * boundaryImage).ravel().astype(np.bool)].reshape([nsamples, -1]) - 1
 
+            # if self.debug:
+            #     import pdb; pdb.set_trace()
+
             faces = f[sampleFaces].ravel()
             vertsPerFaceProjBnd = self.camera.r[faces].reshape([-1, 3, 2])
             nv = len(vertsPerFaceProjBnd)
@@ -5758,9 +5765,10 @@ class ResidualRenderer(ColoredRenderer):
             self.t_area_bnd = t_area_bnd
 
             areaWeights = np.zeros([nsamples, nBndFaces])
-            areaWeights = (d_finalNP) * t_area_bnd
+            areaWeights = t_area_bnd.reshape([nsamples, nBndFaces])
             areaWeightsTotal = areaWeights.sum(0)
             # areaWeightsTotal[areaWeightsTotal < 1] = 1
+            self.areaWeights = areaWeights
             self.areaWeightsTotal = areaWeightsTotal
 
             finalColorBnd = np.ones([self.nsamples, boundaryFaces.size, 3])
@@ -5768,7 +5776,8 @@ class ResidualRenderer(ColoredRenderer):
             self.d_final_total = d_finalNP.reshape([self.nsamples, -1,1]).sum(0)
 
             # if self.imageGT is not None:
-            finalColorBnd = sampleColors * d_finalNP.reshape([self.nsamples, -1,1]) / self.d_final_total.reshape([1, -1,1])
+            finalColorBnd = sampleColors * d_finalNP.reshape([self.nsamples, -1,1]) / (self.d_final_total.reshape([1, -1,1]))
+            # finalColorBnd = areaWeights[:,:,None] * sampleColors * d_finalNP.reshape([self.nsamples, -1,1]) / (self.d_final_total.reshape([1, -1,1]) * areaWeightsTotal[None,:,None])
             self.finalColorBnd = finalColorBnd
             # else:
             #     finalColorBnd = sampleColors
@@ -6053,7 +6062,11 @@ class ResidualRenderer(ColoredRenderer):
             dImage_wrt_bar_v = self.barycentricDerivatives(verticesBnd, f[sampleFaces.ravel()], verts).swapaxes(0, 1)
 
             if self.imageGT is None:
-                dImage_wrt_bar_v = dImage_wrt_bar_v * d_final[:, None, None, None] * self.t_area_bnd[:, None, None, None] / np.tile(self.d_final_total[None, :], [self.nsamples, 1, 1]).reshape([-1, 1, 1, 1])
+                # dImage_wrt_bar_v = dImage_wrt_bar_v * d_final[:, None, None, None] * self.t_area_bnd[:, None, None, None] / np.tile(self.d_final_total[None, :], [self.nsamples, 1, 1]).reshape([-1, 1, 1, 1])
+                dImage_wrt_bar_v = dImage_wrt_bar_v * d_final[:, None, None, None]  / np.tile(self.d_final_total[None, :], [self.nsamples, 1, 1]).reshape([-1, 1, 1, 1])
+                # areaTotal = np.tile(self.areaWeightsTotal[None, :], [self.nsamples, 1, 1]).reshape([-1, 1, 1, 1])
+                # d_final_total = np.tile(self.d_final_total[None, :], [self.nsamples, 1, 1]).reshape([-1, 1, 1, 1])
+                # dImage_wrt_bar_v = self.areaWeights.reshape([-1,1,1,1]) * dImage_wrt_bar_v * d_final[:, None, None, None] / (areaTotal*d_final_total)
             else:
                 dImage_wrt_bar_v = 2*self.sampleResiduals.reshape([-1,3])[:,:,None,None] * dImage_wrt_bar_v * d_final[:, None, None, None] * self.t_area_bnd[:, None, None, None] / np.tile(self.d_final_total[None, :], [self.nsamples, 1, 1]).reshape([-1, 1, 1, 1])
 
@@ -6089,6 +6102,7 @@ class ResidualRenderer(ColoredRenderer):
         p1_proj = np.c_[vertsPerFaceProjBnd[:, 1, :], np.ones([nv, 1])]
         p2_proj = np.c_[vertsPerFaceProjBnd[:, 2, :], np.ones([nv, 1])]
         t_area_nonbnd = np.abs(np.linalg.det(np.concatenate([p0_proj[:, None], p1_proj[:, None], p2_proj[:, None]], axis=1)) * 0.5)
+
         t_area_nonbnd[t_area_nonbnd > 1] = 1
 
         bc = barycentric[((~boundaryImage) & (visibility != 4294967295))].reshape((-1, 3))
@@ -6098,7 +6112,8 @@ class ResidualRenderer(ColoredRenderer):
         didp = self.barycentricDerivatives(verticesNonBnd, f[nonBoundaryFaces.ravel()], verts)
 
         if self.imageGT is None:
-            didp = didp * t_area_nonbnd[None, :, None, None]
+            # didp = didp * t_area_nonbnd[None, :, None, None]
+            didp = didp
         else:
             didp = 2 * self.residuals[((~boundaryImage) & (visibility != 4294967295))].reshape((-1, 3)).T[:,:,None,None] * didp * t_area_nonbnd[None, :, None, None]
 
