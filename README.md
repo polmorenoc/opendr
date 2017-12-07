@@ -11,5 +11,11 @@ For my [projects](https://github.com/polmorenoc/inversegraphics), I've had to up
     - Get derivatives wrt Texture units working.
 - As for Chumpy: most of it is the same. Added some code for other optimization methods.
 
-I'll upload a simple demo asap! For a more complicated use-case see my [Overcoming Occlusion with Inverse Graphics project](https://github.com/polmorenoc/inversegraphics).
+Two short demos are available that show how to use OpenDR.
+- demo_fit_cube.py fits the scale of a cube to the appropriate size.
+- demo_fit_teapot.py uses a deformable teapot model and fits its PCA shape parameters to the ground truth. You'll need to create a data folder and add [teapotModel.pkl][https://drive.google.com/file/d/1JO5ZsXHb_KTsjFMFx7rxY0YVAwnM3TMY/view?usp=sharing] (click to download).
 
+
+
+
+For a more complicated use-case see my [Overcoming Occlusion with Inverse Graphics project](https://github.com/polmorenoc/inversegraphics).
