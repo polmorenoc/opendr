@@ -110,7 +110,7 @@ b = teapotModel['ppcaB']
 chVertices = shape_model.VerticesModel(chShapeParams=chShapeParams, meshLinearTransform=meshLinearTransform, W=W, b=b)
 chVertices.init()
 
-chVertices = ch.dot(geometry.RotateZ(-np.pi / 2)[0:3, 0:3], chVertices.T).T
+chVertices = ch.dot(geometry.RotateZ(-np.pi/2)[0:3, 0:3], chVertices.T).T
 
 smFaces = [[faces]]
 smVColors = [chVColorsGT * np.ones(chVertices.shape)]
