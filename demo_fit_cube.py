@@ -140,7 +140,6 @@ rendererGT = ch.Ch(renderer.r.copy()) #Fix the GT position
 chScaleGT[0] = 0.05
 chScaleGT[1] = 0.05
 
-
 plt.figure()
 plt.title('Init object')
 renderer.r

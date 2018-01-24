@@ -44,9 +44,9 @@ from numpy import dot, isinf, isnan, any, sqrt, isreal, real, nan, inf
 def minimize(X, f, grad, args, on_step=None, maxnumlinesearch=None, maxnumfuneval=None, red=1.0, verbose=True):
     INT = 0.1;# don't reevaluate within 0.1 of the limit of the current bracket
     EXT = 3.0;              # extrapolate maximum 3 times the current step-size
-    MAX = 20;                     # max 20 function evaluations per line search
-    RATIO = 10;                                   # maximum allowed slope ratio
-    SIG = 0.1;RHO = SIG/2;# SIG and RHO are the constants controlling the Wolfe-
+    MAX = 40;                     # max 20 function evaluations per line search
+    RATIO = 20;                                   # maximum allowed slope ratio
+    SIG = 0.5;RHO = SIG/2;# SIG and RHO are the constants controlling the Wolfe-
     #Powell conditions. SIG is the maximum allowed absolute ratio between
     #previous and new slopes (derivatives in the search direction), thus setting
     #SIG to low (positive) values forces higher precision in the line-searches.
@@ -85,6 +85,8 @@ def minimize(X, f, grad, args, on_step=None, maxnumlinesearch=None, maxnumfuneva
     i = i + (length<0)                                         # coun it epochs?!
     s = -df0; d0 = -dot(s,s)    # initial search direction (steepest) and slope
     x3 = red/(1.0-d0)                             # initial step is red/(|s|+1)
+
+    # import ipdb; ipdb.set_trace()
 
     while i < abs(length):                                 # while not finished
         i = i + (length>0)                                 # count iterations?!
