@@ -182,6 +182,8 @@ class BaseRenderer(Ch):
         GL.glRenderbufferStorage(GL.GL_RENDERBUFFER,  GL.GL_DEPTH_COMPONENT, self.frustum['width'], self.frustum['height'])
         GL.glFramebufferRenderbuffer(GL.GL_FRAMEBUFFER, GL.GL_DEPTH_ATTACHMENT, GL.GL_RENDERBUFFER, self.z_buf)
 
+        self.line_width = 1.
+
         #FBO_f
         # if self.msaa and self.glMode == 'glfw':
         if self.msaa:
@@ -448,6 +450,12 @@ class BaseRenderer(Ch):
         boundaryid_image = self.boundaryid_image
         return np.asarray(boundaryid_image != 4294967295, np.uint32).reshape(boundaryid_image.shape)
 
+    @depends_on(terms+dterms)
+    def boundarybool_image_aa(self):
+        self._call_on_changed()
+        boundaryid_image = self.boundaryid_image_aa
+        return np.asarray(boundaryid_image != 4294967295, np.uint32).reshape(boundaryid_image.shape)
+
     @property
     def shape(self):
         raise NotImplementedError('Should be implemented in inherited class.')
@@ -591,6 +599,83 @@ class BaseRenderer(Ch):
         raw = np.flipud(np.frombuffer(GL.glReadPixels( 0,0, self.frustum['width'], self.frustum['height'], GL.GL_RGB, GL.GL_UNSIGNED_BYTE), np.uint8).reshape(self.frustum['height'],self.frustum['height'],3).astype(np.uint32))
 
         raw = raw[:,:,0] + raw[:,:,1]*256 + raw[:,:,2]*256*256 - 1
+
+        GL.glClear(GL.GL_COLOR_BUFFER_BIT | GL.GL_DEPTH_BUFFER_BIT)
+
+        return raw
+
+    def draw_edge_visibility_aa(self, v, e, f, hidden_wireframe=True):
+        """Assumes camera is set up correctly in gl context."""
+        shaders.glUseProgram(self.colorProgram)
+        GL.glBindFramebuffer(GL.GL_FRAMEBUFFER, self.fbo)
+
+        GL.glDepthMask(GL.GL_TRUE)
+        GL.glEnable(GL.GL_DEPTH_TEST)
+        GL.glClear(GL.GL_COLOR_BUFFER_BIT | GL.GL_DEPTH_BUFFER_BIT)
+
+        GL.glEnable(GL.GL_POLYGON_OFFSET_FILL)
+        GL.glPolygonOffset(1, 1)
+        self.draw_colored_verts(np.zeros_like(self.vc.r))
+        GL.glDisable(GL.GL_POLYGON_OFFSET_FILL)
+
+        # GL.glClear(GL.GL_COLOR_BUFFER_BIT)
+
+        ec = np.arange(1, len(e)+1)
+        ec = np.tile(ec.reshape((-1,1)), (1, 3))
+        ec[:, 0] = ec[:, 0] & 255
+        ec[:, 1] = (ec[:, 1] >> 8 ) & 255
+        ec[:, 2] = (ec[:, 2] >> 16 ) & 255
+        ec = np.asarray(ec, dtype=np.uint8)
+        ec = np.ones_like(ec, dtype=np.uint8)*255
+
+        # GL.glDepthFunc(GL.GL_GREATER)
+
+        # GL.glEnable(GL.GL_POLYGON_OFFSET_LINE)
+        # GL.glPolygonOffset(-10000.0, -10000.0)
+        # GL.glDepthMask(GL.GL_FALSE)
+        # self.projectionMatrix[2, 2] += 0.0000001
+
+        GL.glDepthFunc(GL.GL_LEQUAL)
+        GL.glEnable(GL.GL_MULTISAMPLE)
+        GL.glPolygonMode(GL.GL_FRONT_AND_BACK, GL.GL_LINE)
+        GL.glEnable(GL.GL_LINE_SMOOTH)
+        GL.glEnable(GL.GL_BLEND)
+        # GL.glBlendFunc(GL.GL_SRC_ALPHA, GL.GL_ONE_MINUS_SRC_ALPHA)
+        GL.glHint(GL.GL_LINE_SMOOTH_HINT, GL.GL_NICEST)
+        GL.glLineWidth(1)
+        self.draw_colored_primitives(self.vao_dyn_ub, v, e, ec)
+        GL.glPolygonMode(GL.GL_FRONT_AND_BACK, GL.GL_FILL)
+        GL.glLineWidth(self.line_width)
+        GL.glDisable(GL.GL_MULTISAMPLE)
+        GL.glDisable(GL.GL_LINE_SMOOTH)
+        GL.glDisable(GL.GL_BLEND)
+        GL.glDepthFunc(GL.GL_LESS)
+
+        # self.projectionMatrix[2, 2] -= 0.0000001
+        # GL.glDisable(GL.GL_POLYGON_OFFSET_LINE)
+        # GL.glDepthMask(GL.GL_TRUE)
+
+        # if hidden_wireframe:
+        #     GL.glEnable(GL.GL_DEPTH_TEST)
+        #     GL.glEnable(GL.GL_POLYGON_OFFSET_FILL)
+        #     #Pol change it to a smaller number to avoid double edges in my teapot.
+        #     GL.glPolygonOffset(1.0, 1.0)
+        #     GL.glPolygonMode(GL.GL_FRONT_AND_BACK, GL.GL_FILL)
+        #     # self.draw_colored_primitives(self.vao_dyn_ub, v, f, fc=np.zeros(f.shape).astype(np.uint8))
+        #     self.draw_colored_verts(np.zeros_like(self.vc.r))
+        #     # self.draw_colored_primitives(self.vaoub, v, e, np.zeros_like(ec).astype(np.uint8))
+        #     # self.projectionMatrix[2,2] -= delta
+        #     GL.glDisable(GL.GL_POLYGON_OFFSET_FILL)
+
+        GL.glBindFramebuffer(GL.GL_FRAMEBUFFER, self.fbo)
+        GL.glReadBuffer(GL.GL_COLOR_ATTACHMENT0)
+
+        raw = np.flipud(np.frombuffer(GL.glReadPixels( 0,0, self.frustum['width'], self.frustum['height'], GL.GL_RGB, GL.GL_UNSIGNED_BYTE), np.uint8).reshape(self.frustum['height'],self.frustum['height'],3).astype(np.uint32))
+
+        raw = raw[:,:,0] + raw[:,:,1]*256 + raw[:,:,2]*256*256 
+
+        plt.imsave('raw.png',raw)
+        import ipdb; ipdb.set_trace()
 
         GL.glClear(GL.GL_COLOR_BUFFER_BIT | GL.GL_DEPTH_BUFFER_BIT)
 
@@ -742,6 +827,55 @@ class BaseRenderer(Ch):
 
             # plt.imsave("opendr_boundary_edge_visibility_result.png", visibility.reshape(shape))
             return visibility.reshape(shape)
+
+
+    def draw_boundaryid_image_aa(self, v, f, vpe, fpe, camera):
+
+        GL.glUseProgram(self.colorProgram)
+
+        if False:
+            visibility = self.draw_edge_visibility(v, vpe, f, hidden_wireframe=True)
+            return visibility
+
+        if True:
+        #try:
+            view_mtx = self.camera.openglMat.dot(np.asarray(np.vstack((self.camera.view_matrix, np.array([0, 0, 0, 1]))),np.float32))
+            GL.glUniformMatrix4fv(self.MVP_location, 1, GL.GL_TRUE, np.dot(self.projectionMatrix, view_mtx))
+
+            GL.glBindFramebuffer(GL.GL_DRAW_FRAMEBUFFER, self.fbo)
+            GL.glClear(GL.GL_COLOR_BUFFER_BIT | GL.GL_DEPTH_BUFFER_BIT);
+
+            silhouette_edges, faces_facing_camera = self.compute_vpe_boundary_idxs(v, f, camera, fpe)
+
+            # self.faces_facing_camera = faces_facing_camera
+            self.silhouette_edges = silhouette_edges
+
+            lines_e = vpe[silhouette_edges]
+            self.lines_e = lines_e
+            lines_v = v
+
+            if len(lines_e)==0:
+                return np.ones((self.frustum['height'], self.frustum['width'])).astype(np.int32) * 4294967295
+
+            # fpe = fpe[np.any(np.in1d(fpe, np.unique(self.visibility_image[self.visibility_image != 4294967295])).reshape([-1, 2]), 1)]
+
+            visibility = self.draw_edge_visibility_aa(lines_v, lines_e, f, hidden_wireframe=True)
+            visibility_edge = visibility.copy()
+            # plt.imsave("opendr_boundary_edge_visibility.png", visibility)
+
+            shape = visibility.shape
+            visibility = visibility.ravel()
+            visible = np.nonzero(visibility.ravel() != 4294967295)[0]
+
+            visibility[visible] = silhouette_edges.take(visibility.take(visible))
+
+            self.frontFacingEdgeFaces = np.zeros([visibility_edge.shape[0],visibility_edge.shape[1], 2]).astype(np.int32).reshape([-1,2])
+
+            self.frontFacingEdgeFaces[visible] = self.vis_silhouette_face[visibility_edge.ravel().take(visible)]
+
+            # plt.imsave("opendr_boundary_edge_visibility_result.png", visibility.reshape(shape))
+            return visibility.reshape(shape)
+
 
     def draw_visibility_image(self, v, f, boundarybool_image=None):
         v = np.asarray(v)
@@ -9401,6 +9535,7 @@ class ResidualRendererOpenDR(ColoredRenderer):
         # GL.glEnable(GL.GL_LINE_SMOOTH)
         # GL.glHint(GL.GL_LINE_SMOOTH_HINT, GL.GL_NICEST)
         GL.glLineWidth(2.)
+        self.line_width = 2.
 
         for mesh in range(len(self.f_list)):
 
@@ -11614,6 +11749,24 @@ class ResidualRendererOpenDR(ColoredRenderer):
         # self.texture_mapping_on(with_vertex_colors=True)
 
         return result
+
+
+    @depends_on(dterms + terms)
+    def boundaryid_image_aa(self):
+        self._call_on_changed()
+
+        # self.texture_mapping_of
+        self.makeCurrentContext()
+        GL.glUseProgram(self.colorProgram)
+
+        result = self.draw_boundaryid_image_aa(self.v.r, self.f, self.vpe, self.fpe, self.camera)
+
+        GL.glUseProgram(self.colorTextureProgram)
+        # self.texture_mapping_on(with_vertex_colors=True)
+
+        return result
+
+
 
     def draw_color_image(self, with_vertex_colors=True, with_texture_on=True):
         self.makeCurrentContext()
