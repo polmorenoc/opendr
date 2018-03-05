@@ -9615,7 +9615,6 @@ class ResidualRendererOpenDR(ColoredRenderer):
         self.textureID = GL.glGetUniformLocation(self.colorTextureProgram, "myTextureSampler")
 
     def initGL_AnalyticRenderer(self):
-        self.initGLTexture()
 
         self.updateRender = True
         self.updateDerivatives = True
@@ -9790,15 +9789,40 @@ class ResidualRendererOpenDR(ColoredRenderer):
         # GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_BASE_LEVEL, 0)
         # GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MAX_LEVEL, 0)
 
+
+        # texture = GL.GLuint(0)
+        # GL.glGenTextures(1, texture)
+
+        # GL.glBindTexture(GL.GL_TEXTURE_2D, texture)
+        # image = np.array(np.flipud((self.textures_list[mesh][polygons])), order='C', dtype=np.float32)
+        # GL.glTexStorage2D(GL.GL_TEXTURE_2D, 1, GL.GL_RGB32F, image.shape[1], image.shape[0])
+        # GL.glTexSubImage2D(GL.GL_TEXTURE_2D, 0, 0, 0, image.shape[1], image.shape[0], GL.GL_RGB, GL.GL_FLOAT, image)
+
+        GL.glBindTexture(GL.GL_TEXTURE_2D, 0)
+
         GL.glActiveTexture(GL.GL_TEXTURE0)
 
-        whitePixel = np.ones([1, 1, 3])
+        whitePixel = np.ones([4, 4, 3])
         self.whitePixelTextureID = GL.GLuint(0)
         GL.glGenTextures(1, self.whitePixelTextureID)
+
         GL.glBindTexture(GL.GL_TEXTURE_2D, self.whitePixelTextureID)
+
+        GL.glPixelStorei(GL.GL_UNPACK_ALIGNMENT, 1)
+        GL.glTexParameterf(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MAG_FILTER, GL.GL_LINEAR)
+        GL.glTexParameterf(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MIN_FILTER, GL.GL_LINEAR_MIPMAP_LINEAR)
+        GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_BASE_LEVEL, 0)
+        GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MAX_LEVEL, 0)
+        GL.glTexParameteri(GL.GL_TEXTURE_2D,GL.GL_TEXTURE_WRAP_S,GL.GL_CLAMP_TO_EDGE)
+        GL.glTexParameteri(GL.GL_TEXTURE_2D,GL.GL_TEXTURE_WRAP_T,GL.GL_CLAMP_TO_EDGE)
+
         image = np.array(np.flipud((whitePixel)), order='C', dtype=np.float32)
-        GL.glTexStorage2D(GL.GL_TEXTURE_2D, 1, GL.GL_RGB32F, image.shape[1], image.shape[0])
-        GL.glTexSubImage2D(GL.GL_TEXTURE_2D, 0, 0, 0, image.shape[1], image.shape[0], GL.GL_RGB, GL.GL_FLOAT, image)
+
+        
+        GL.glTexImage2D(GL.GL_TEXTURE_2D, 0, GL.GL_RGB32F, image.shape[1], image.shape[0], 0, GL.GL_RGB, GL.GL_FLOAT, image)
+        # GL.glTexStorage2D(GL.GL_TEXTURE_2D, 1, GL.GL_RGBA8, image.shape[1], image.shape[0])
+
+        # GL.glTexSubImage2D(GL.GL_TEXTURE_2D, 0, 0, 0, image.shape[1], image.shape[0], GL.GL_RGB, GL.GL_FLOAT, image)
 
         self.fbo_ms_errors = GL.glGenFramebuffers(1)
 
