@@ -2318,7 +2318,7 @@ class mean(Ch):
                 idxs_presum = np.arange(self.x.size).reshape(self.x.shape)
                 idxs_presum = np.rollaxis(idxs_presum, self.axis, 0)
                 idxs_postsum = np.arange(self.r.size).reshape(self.r.shape)
-                tp = np.ones(idxs_presum.ndim)
+                tp = np.ones(idxs_presum.ndim, np.int64)
                 tp[0] = idxs_presum.shape[0]
                 idxs_postsum = np.tile(idxs_postsum, tp)
                 data = np.ones(idxs_postsum.size) / self.x.shape[self.axis]

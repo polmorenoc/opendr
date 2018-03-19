@@ -14,12 +14,14 @@ import chumpy
 import pickle as pickle
 
 src = ''
+global num_passed, num_not_passed
 num_passed = 0
 num_not_passed = 0
+global which_passed
 which_passed = []
 
 def r(fn_name, args_req, args_opt, nplib=numpy, chlib=chumpy):
-    global num_passed, num_not_passed
+
     result = [None, None]
         
     for lib in [nplib, chlib]:
@@ -44,7 +46,6 @@ def r(fn_name, args_req, args_opt, nplib=numpy, chlib=chumpy):
             if lib is chlib:
                 result[0] = 'passed'
                 num_passed += 1
-                global which_passed
                 which_passed.append(fn_name)
                 
                 if hasattr(_, 'dterms'):
@@ -529,6 +530,5 @@ def main():
 
 
 if __name__ == '__main__':
-    global which_passed
     main()
     print(' '.join(which_passed))
