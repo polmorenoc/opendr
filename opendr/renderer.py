@@ -10085,6 +10085,7 @@ class ResidualRendererOpenDR(ColoredRenderer):
                 # fc[:, 0] = fc[:, 0] & 255
                 # fc[:, 1] = (fc[:, 1] >> 8) & 255
                 # fc[:, 2] = (fc[:, 2] >> 16) & 255
+
                 fc = np.asarray(fc, dtype=np.uint32)
                 vbo_face_ids = vbo.VBO(fc)
                 vbo_face_ids.bind()
@@ -11052,7 +11053,8 @@ class ResidualRendererOpenDR(ColoredRenderer):
             [nsamples, -1, 2])
 
         sampleFaces = self.renders_faces.reshape([nsamples, -1])[:, (zerosIm * boundaryImage).ravel().astype(np.bool)].reshape([nsamples, -1]) - 1
-
+        if 4294967295 in sampleFaces:
+            sampleFaces[sampleFaces==4294967295] = 0 #Not correct but need to check further.
         sampleColors = self.renders.reshape([nsamples, -1, 3])[:, (zerosIm * boundaryImage).ravel().astype(np.bool), :].reshape([nsamples, -1, 3])
 
         nonBoundaryFaces = visibility[zerosIm * (~boundaryImage) & (visibility != 4294967295)]
@@ -11402,6 +11404,9 @@ class ResidualRendererOpenDR(ColoredRenderer):
             # Each pixel relies on three verts
             pixels = np.tile(np.where(boundaryImage.ravel())[0][None, :], [self.nsamples, 1])
             IS = np.tile(col(pixels), (1, 3)).ravel()
+
+            if 4294967295 in sampleFaces:
+                sampleFaces[sampleFaces==4294967295] = 0 #Not correct but need to check further.
 
             faces = f[sampleFaces].ravel()
             JS = col(faces)
