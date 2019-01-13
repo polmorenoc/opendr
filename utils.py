@@ -261,11 +261,11 @@ def getCubeData(scale=(2,2,2), st=False, rgb=np.array([1.0, 1.0, 1.0])):
 
 def setupCamera(v, cameraParams):
 
-    chDistMat = geometry.Translate(x=0, y=cameraParams['Zshift'], z=cameraParams['chCamHeight'])
+    chDistMat = geometry.Translate(x=0, y=cameraParams['Zshift'], z=0)
 
     chRotElMat = geometry.RotateX(a=-cameraParams['chCamEl'])
 
-    chCamModelWorld = ch.dot(chDistMat, chRotElMat)
+    chCamModelWorld = ch.dot(chRotElMat, chDistMat)
 
     flipZYRotation = np.array([[1.0, 0.0, 0.0, 0.0],
                                 [0.0, 0, 1.0, 0.0],

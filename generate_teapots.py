@@ -6,13 +6,15 @@ import generative_models
 from utils import *
 import OpenGL.GL as GL
 from utils import *
+import h5py
+import cv2
+import os
 plt.ion()
 from OpenGL import contextdata
-import sys
 
 #__GL_THREADED_OPTIMIZATIONS
 
-#Main script options:r
+#Main script options:
 
 glModes = ['glfw','mesa']
 glMode = glModes[0]
@@ -54,7 +56,6 @@ chLightIntensityGT = ch.Ch([1])
 chGlobalConstantGT = ch.Ch([0.5])
 
 chCamElGT = ch.Ch([gtCamElevation])
-chCamHeightGT = ch.Ch([gtCamHeight])
 focalLenght = 35 ##milimeters
 chCamFocalLengthGT = ch.Ch([35/1000])
 
@@ -121,11 +122,6 @@ smTexturesList = [[None]]
 
 chVertices = chVertices - ch.mean(chVertices, axis=0)
 
-# minZ = ch.min(chVertices[:, 2])
-# chMinZ = ch.min(chVertices[:, 2])
-# zeroZVerts = chVertices[:, 2] - chMinZ
-# chVertices = ch.hstack([chVertices[:, 0:2], zeroZVerts.reshape([-1, 1])])
-
 chVertices = chVertices * 0.09
 smCenter = ch.array([0, 0, 0.1])
 
@@ -162,7 +158,7 @@ c1 = height/2  #principal point
 a1 = 3.657  #Aspect ratio / mm to pixels
 a2 = 3.657  #Aspect ratio / mm to pixels
 
-cameraParamsGT = {'Zshift':ZshiftGT, 'chCamEl': chCamElGT, 'chCamHeight':chCamHeightGT, 'chCamFocalLength':chCamFocalLengthGT, 'a':np.array([a1,a2]), 'width': width, 'height':height, 'c':np.array([c0, c1])}
+cameraParamsGT = {'Zshift':ZshiftGT, 'chCamEl': chCamElGT, 'chCamFocalLength':chCamFocalLengthGT, 'a':np.array([a1,a2]), 'width': width, 'height':height, 'c':np.array([c0, c1])}
 
 #Create renderer object
 renderer = createRenderer(glMode, cameraParamsGT, v_scene, vc_scene, f_list_scene, vn_scene, uv_scene, haveTextures_list_scene,
@@ -176,42 +172,90 @@ renderer.initGLTexture()
 renderer.debug = False
 winShared = renderer.win
 
+
+print("Creating Ground Truth")
+
+trainAzsGT = np.array([])
+trainObjAzsGT = np.array([])
+trainElevsGT = np.array([])
+trainLightAzsGT = np.array([])
+trainLightElevsGT = np.array([])
+trainLightIntensitiesGT = np.array([])
+trainVColorGT = np.array([])
+trainIds = np.array([], dtype=np.uint32)
+trainAmbientIntensityGT = np.array([])
+trainShapeModelCoeffsGT = np.array([]).reshape([0,latentDim])
+
+prefix = 'teapot_dataset'
+gtDir = 'groundtruth/' + prefix + '/'
+if not os.path.exists(gtDir + 'images/'):
+    os.makedirs(gtDir + 'images/')
+
+
+gtDtype = [('trainIds', trainIds.dtype.name),
+           ('trainAzsGT', trainAzsGT.dtype.name),
+           ('trainElevsGT', trainElevsGT.dtype.name),
+           ('trainLightAzsGT', trainLightAzsGT.dtype.name),
+           ('trainLightElevsGT', trainLightElevsGT.dtype.name),
+           ('trainLightIntensitiesGT', trainLightIntensitiesGT.dtype.name),
+           ('trainAmbientIntensityGT', trainAmbientIntensityGT.dtype),
+           ('trainVColorGT', trainVColorGT.dtype.name, (3,) ),
+           ('trainShapeModelCoeffsGT', trainShapeModelCoeffsGT.dtype, (latentDim,)),]
+
+
+groundTruth = np.array([], dtype = gtDtype)
+groundTruthFilename = gtDir + 'groundTruth.h5'
+gtDataFile = h5py.File(groundTruthFilename, 'a')
+
+gtDataset = gtDataFile.create_dataset(prefix, data=groundTruth, maxshape=(None,))
+
+np.random.seed(1) #Set a seed for reproducibility.
+
+dataset_size = 10
+for train_i in np.arange(dataset_size):
+    chAzGTVals = np.mod(np.random.uniform(0, np.pi, 1) - np.pi / 2, 2 * np.pi)
+    chElGTVals = np.random.uniform(0.05, np.pi / 2, 1)
+    chLightAzGTVals = np.random.uniform(0, 2 * np.pi, 1)
+    chLightElGTVals = np.random.uniform(0, np.pi / 2, 1)
+    chAmbientIntensityGTVals = np.random.uniform(0.4, 0.6)
+    chLightIntensityGTVals = np.random.uniform(0.8, 1.0)
+    chVColorsGTVals = np.random.uniform(0.0, 1.0, [1, 3])
+    shapeParamsVals = np.random.randn(latentDim)
+
+    chAzimuthGT[:] = chAzGTVals
+    chCamElGT[:] = chElGTVals
+    chLightAzimuthGT[:] = chLightAzGTVals
+    chLightElevationGT[:] = chLightElGTVals
+    chLightIntensityGT[:] = chLightIntensityGTVals
+    chGlobalConstantGT[:] = chAmbientIntensityGTVals
+    chVColorsGT[:] = chVColorsGTVals
+    chShapeParams[:] = shapeParamsVals
+
+    image = renderer.r.copy()
+
+    cv2.imwrite(gtDir + 'images/im' + str(train_i) + '.jpeg', 255 * image[:, :, [2, 1, 0]],
+                [int(cv2.IMWRITE_JPEG_QUALITY), 100])
+
+    gtDataset.resize(gtDataset.shape[0] + 1, axis=0)
+    gtDataset[-1] = np.array([(train_i,
+                               chAzGTVals,
+                               chElGTVals,
+                               chLightAzGTVals,
+                               chLightElGTVals,
+                               chLightIntensityGTVals,
+                               chAmbientIntensityGTVals,
+                               chVColorsGTVals,
+                               shapeParamsVals,
+                               )], dtype=gtDtype)
+
+    gtDataFile.flush()
+    print("Generated " + str(train_i) + " GT instances.")
+
 plt.figure()
 plt.title('GT object')
 plt.imshow(renderer.r)
-
-rendererGT = ch.Ch(renderer.r.copy()) #Fix the GT position
-
-#Vary teapot PCA shape:
-chShapeParams[0] = chShapeParams[0].r + 2
-chShapeParams[1] = chShapeParams[1].r - 2
-
-plt.figure()
-plt.title('Init object')
-renderer.r
-plt.imshow(renderer.r)
-
-variances = ch.Ch([0.3])**2
-negLikModel = -ch.sum(generative_models.LogGaussianModel(renderer=renderer, groundtruth=rendererGT, variances=variances, useMask=True)) / numPixels
-
-global iter
-iter = 0
-def cb(_):
-    pass
-
-global method
-methods = ['dogleg', 'minimize', 'BFGS', 'L-BFGS-B', 'Nelder-Mead'] #Nelder-mead is the finite difference simplex method
-method = 1
-
-options = {'disp': True, 'maxiter': 5}
-ch.minimize({'raw': negLikModel}, bounds=None, method=methods[method], x0=chShapeParams, callback=cb, options=options)
-
-plt.figure()
-plt.title('Fitted object')
-renderer.r
-plt.imshow(renderer.r)
-
 plt.show(0.1)
+
 
 #Clean up.
 renderer.makeCurrentContext()

@@ -99,7 +99,7 @@ def dImage_wrt_2dVerts_bnd_new(observed, visible, visibility, barycentric, image
     """Construct a sparse jacobian that relates 2D projected vertex positions
     (in the columns) to pixel values (in the rows). This can be done
     in two steps."""
-
+    num_verts = np.int32(num_verts)
     n_channels = np.atleast_3d(observed).shape[2]
     shape = visibility.shape
 
@@ -128,20 +128,6 @@ def dImage_wrt_2dVerts_bnd_new(observed, visible, visibility, barycentric, image
         IS = np.concatenate([IS*n_channels+i for i in range(n_channels)])
         JS = np.concatenate([JS for i in range(n_channels)])
 
-    # Step 2: get the data ready, ie the actual values of the derivatives
-    # ksize = 1
-    # bndf = bnd_bool.astype(np.float64)
-    # nbndf = np.logical_not(bnd_bool).astype(np.float64)
-    # sobel_normalizer = cv2.Sobel(np.asarray(np.tile(row(np.arange(10)), (10, 1)), np.float64), cv2.CV_64F, dx=1, dy=0, ksize=ksize)[5,5]
-    #
-    # bnd_nan = bndf.reshape((observed.shape[0], observed.shape[1], -1)).copy()
-    # bndindices = bnd_nan.ravel()>0
-    # bnd_nan.ravel()[bnd_nan.ravel()>0] = np.nan
-    # bnd_nan += 1
-    # obs_nonbnd = np.atleast_3d(observed) * bnd_nan
-    #
-    # ydiffnb_, xdiffnb = nangradients(obs_nonbnd)
-    # ydiffnb, xdiffnb = nangradients(obs_nonbnd)
 
     observed = np.atleast_3d(observed)
 
@@ -152,26 +138,6 @@ def dImage_wrt_2dVerts_bnd_new(observed, visible, visibility, barycentric, image
         ydiffbnd = np.atleast_3d(ydiffbnd)
         xdiffbnd = np.atleast_3d(xdiffbnd)
 
-    # ydiffbnd, xdiffbnd = np.gradient(observed.squeeze())
-    # ydiffedge = np.vstack(np.diff(observed.squeeze(), axis=0), np.zeros(1,shape[1],n_channels))
-    # xdiffedge = np.hstack(np.diff(observed.squeeze(), axis=1), np.zeros(shape[0],1,n_channels))
-
-    # This corrects for a bias imposed boundary differences begin spread over two pixels
-    # (by np.gradients or similar) but only counted once (since OpenGL's line
-    # drawing spans 1 pixel)
-    # xdiffbnd *= 2.0
-    # ydiffbnd *= 2.0
-
-    # xdiffnb = -xdiffnb
-    # ydiffnb = -ydiffnb
-
-    # ydiffnb *= 0
-    # xdiffnb *= 0
-
-    # ipdb.set_trace()
-
-    # xdiffbnd = np.zeros([shape[0],shape[1],n_channels])
-    # ydiffbnd = np.zeros([shape[0],shape[1],n_channels])
 
     xdiffbnd.reshape([shape[0]*shape[1], n_channels])[ridxs_int,:] = observed.reshape([shape[0]*shape[1], n_channels])[ridxs_int,:] - observed.reshape([shape[0]*shape[1], n_channels])[ridxs_int-1,:]
 
@@ -181,22 +147,6 @@ def dImage_wrt_2dVerts_bnd_new(observed, visible, visibility, barycentric, image
 
     ydiffbnd.reshape([shape[0]*shape[1], n_channels])[tidxs_int,:] = observed.reshape([shape[0]*shape[1], n_channels])[tidxs_int+ shape[1],:] - observed.reshape([shape[0]*shape[1], n_channels])[tidxs_int,:]
 
-
-    # xdiffbnd.reshape([shape[0]*shape[1], n_channels])[ridxs_int,:]=     xdiffbnd.reshape([shape[0]*shape[1], n_channels])[ridxs_int,:]*2
-    #
-    # xdiffbnd.reshape([shape[0]*shape[1], n_channels])[lidxs_int,:]= xdiffbnd.reshape([shape[0]*shape[1], n_channels])[lidxs_int,:]*2
-    #
-    # ydiffbnd.reshape([shape[0]*shape[1], n_channels])[bidxs_int,:]=     ydiffbnd.reshape([shape[0]*shape[1], n_channels])[bidxs_int,:]*2
-    #
-    # ydiffbnd.reshape([shape[0]*shape[1], n_channels])[tidxs_int,:]=     ydiffbnd.reshape([shape[0]*shape[1], n_channels])[tidxs_int,:]*2
-
-    # xdiffbnd.reshape([shape[0]*shape[1], n_channels])[ridxs_int,:] = 0
-    #
-    # xdiffbnd.reshape([shape[0]*shape[1], n_channels])[lidxs_int,:] = 0
-    #
-    # ydiffbnd.reshape([shape[0]*shape[1], n_channels])[bidxs_int,:] = 0
-    #
-    # ydiffbnd.reshape([shape[0]*shape[1], n_channels])[tidxs_int,:] = 0
 
     xdiffbnd = -xdiffbnd
     ydiffbnd = -ydiffbnd
@@ -212,26 +162,6 @@ def dImage_wrt_2dVerts_bnd_new(observed, visible, visibility, barycentric, image
         plt.title('xdiffbnd')
         import pdb; pdb.set_trace()
 
-    # idxs = np.isnan(xdiffnb.ravel())
-    # xdiffnb.ravel()[idxs] = xdiffbnd.ravel()[idxs]
-    #
-    # idxs = np.isnan(ydiffnb.ravel())
-    # ydiffnb.ravel()[idxs] = ydiffbnd.ravel()[idxs]
-
-    # idxs = np.isnan(xdiffnb.ravel())
-    # xdiffnb.ravel()[idxs] = xdiffbnd.ravel()[idxs]
-    # boundxdiff = xdiffnb.ravel().copy()
-
-    # xdiffnb.ravel()[bndindices] = xdiffbnd.ravel()[bndindices]
-
-    # ipdb.set_trace()
-
-    # idxs = np.isnan(ydiffnb.ravel())
-    # ydiffnb.ravel()[idxs] = ydiffbnd.ravel()[idxs]
-    # boundydiff = ydiffnb.ravel().copy()
-
-    # ydiffnb.ravel()[bndindices] = ydiffbnd.ravel()[bndindices]
-
     if True: # should be right thing
         xdiff = xdiffbnd
         ydiff = ydiffbnd
@@ -239,36 +169,6 @@ def dImage_wrt_2dVerts_bnd_new(observed, visible, visibility, barycentric, image
         xdiff = xdiffbnd
         ydiff = ydiffbnd
 
-
-    # TODO: NORMALIZER IS WRONG HERE
-    # xdiffnb = -cv2.Sobel(obs_nonbnd, cv2.CV_64F, dx=1, dy=0, ksize=ksize) / np.atleast_3d(cv2.Sobel(row(np.arange(obs_nonbnd.shape[1])).astype(np.float64), cv2.CV_64F, dx=1, dy=0, ksize=ksize))
-    # ydiffnb = -cv2.Sobel(obs_nonbnd, cv2.CV_64F, dx=0, dy=1, ksize=ksize) / np.atleast_3d(cv2.Sobel(col(np.arange(obs_nonbnd.shape[0])).astype(np.float64), cv2.CV_64F, dx=0, dy=1, ksize=ksize))
-    #
-    # xdiffnb.ravel()[np.isnan(xdiffnb.ravel())] = 0.
-    # ydiffnb.ravel()[np.isnan(ydiffnb.ravel())] = 0.
-    # xdiffnb.ravel()[np.isinf(xdiffnb.ravel())] = 0.
-    # ydiffnb.ravel()[np.isinf(ydiffnb.ravel())] = 0.
-
-    # xdiffnb = np.atleast_3d(xdiffnb)
-    # ydiffnb = np.atleast_3d(ydiffnb)
-    #
-    # xdiffbnd = -cv2.Sobel(observed, cv2.CV_64F, dx=1, dy=0, ksize=ksize) / sobel_normalizer
-    # ydiffbnd = -cv2.Sobel(observed, cv2.CV_64F, dx=0, dy=1, ksize=ksize) / sobel_normalizer
-    #
-    # xdiff = xdiffnb * np.atleast_3d(nbndf)
-    # xdiff.ravel()[np.isnan(xdiff.ravel())] = 0
-    # xdiff += xdiffbnd*np.atleast_3d(bndf)
-    #
-    # ydiff = ydiffnb * np.atleast_3d(nbndf)
-    # ydiff.ravel()[np.isnan(ydiff.ravel())] = 0
-    # ydiff += ydiffbnd*np.atleast_3d(bndf)
-
-    #import pdb; pdb.set_trace()
-
-    #xdiff = xdiffnb
-    #ydiff = ydiffnb
-
-    #import pdb; pdb.set_trace()
 
     datas = []
 
@@ -286,91 +186,10 @@ def dImage_wrt_2dVerts_bnd_new(observed, visible, visibility, barycentric, image
 
     data = np.concatenate(datas)
 
-    ij = np.vstack((IS.ravel(), JS.ravel()))
-    #
-    # #
-    # hJS_idx = np.where((np.arange(2*f.shape[1]*n_channels) + 1 ) % 2)[0].tolist()
-    # #
-    # # ldata = np.zeros([len(lidxs_int), f.shape[1]*n_channels]).astype(np.float64)
-    # # ldata[:, hJS_idx] =  data.reshape([len(visible), 2*f.shape[1]*n_channels])[col(visibleidxs[lidxs_int]).tolist(), hJS_idx]
-    # shape3d = [shape[0],shape[1],3]
-    # numPixels = shape[0]*shape[1]
-    #
-    #
-    # ldata = np.concatenate([np.concatenate([boundxdiff.reshape(shape3d)[:,:,channel].ravel()[lidxs_int]*bc0[visibleidxs[lidxs_int]].ravel(), boundxdiff.reshape(shape3d)[:,:,channel].ravel()[lidxs_int]*bc1[visibleidxs[lidxs_int]].ravel(), boundxdiff.reshape(shape3d)[:,:,channel].ravel()[lidxs_int]*bc2[visibleidxs[lidxs_int]].ravel()]) for channel in range(n_channels)])
-    #
-    # ISnew = np.tile(col(lidxs_out), (1, f.shape[1])).ravel()
-    # JSnew = col(f[visibility.ravel()[lidxs_int]].ravel())*2
-    # # JSnew = np.hstack((JSnew*2, JSnew*2+1)).ravel()
-    #
-    # if n_channels > 1:
-    #     ISnew = np.concatenate([ISnew*n_channels+i for i in range(n_channels)])
-    #     JSnew = np.concatenate([JSnew for i in range(n_channels)])
-    #
-    # ijnew = np.vstack((ISnew.ravel(), JSnew.ravel()))
-    #
-    # # rdata = np.zeros([len(ridxs_int), f.shape[1]*n_channels]).astype(np.float64)
-    # # rdata[:, hJS_idx] =  data.reshape([len(visible), f.shape[1]*n_channels])[col(visibleidxs[ridxs_int]), hJS_idx]
-    # rdata = np.concatenate([np.concatenate([boundxdiff.reshape(shape3d)[:,:,channel].ravel()[ridxs_int]*bc0[visibleidxs[ridxs_int]].ravel(), boundxdiff.reshape(shape3d)[:,:,channel].ravel()[ridxs_int]*bc1[visibleidxs[ridxs_int]].ravel(), boundxdiff.reshape(shape3d)[:,:,channel].ravel()[ridxs_int]*bc2[visibleidxs[ridxs_int]].ravel()]) for channel in range(n_channels)])
-    #
-    # ISnew = np.tile(col(ridxs_out), (1, f.shape[1])).ravel()
-    # JSnew = col(f[visibility.ravel()[ridxs_int]].ravel())*2
-    # # JSnew = np.hstack((JSnew*2, JSnew*2+1)).ravel()
-    #
-    # if n_channels > 1:
-    #     ISnew = np.concatenate([ISnew*n_channels+i for i in range(n_channels)])
-    #     JSnew = np.concatenate([JSnew for i in range(n_channels)])
-    #
-    #
-    # ijnew = np.hstack((ijnew, np.vstack((ISnew.ravel(), JSnew.ravel()))))
-    #
-    # vJS_idx = np.where(np.arange(2*f.shape[1]*n_channels) % 2)[0].tolist()
-    #
-    # # tdata = np.zeros([len(tidxs_int), 2*f.shape[1]*n_channels]).astype(np.float64)
-    # # tdata[:, vJS_idx] =  data.reshape([len(visible), 2*f.shape[1]*n_channels])[col(visibleidxs[tidxs_int]), vJS_idx]
-    # tdata = np.concatenate([np.concatenate([boundydiff.reshape(shape3d)[:,:,channel].ravel()[tidxs_int]*bc0[visibleidxs[tidxs_int]].ravel(), boundydiff.reshape(shape3d)[:,:,channel].ravel()[tidxs_int]*bc1[visibleidxs[tidxs_int]].ravel(), boundydiff.reshape(shape3d)[:,:,channel].ravel()[tidxs_int]*bc2[visibleidxs[tidxs_int]].ravel()]) for channel in range(n_channels)])
-    #
-    # ISnew = np.tile(col(tidxs_out), (1, f.shape[1])).ravel()
-    # JSnew = col(f[visibility.ravel()[tidxs_int]].ravel())*2 + 1
-    # # JSnew = np.hstack((JSnew*2, JSnew*2+1)).ravel()
-    #
-    # if n_channels > 1:
-    #     ISnew = np.concatenate([ISnew*n_channels+i for i in range(n_channels)])
-    #     JSnew = np.concatenate([JSnew for i in range(n_channels)])
-    #
-    # ijnew = np.hstack((ijnew, np.vstack((ISnew.ravel(), JSnew.ravel()))))
-    #
-    # # bdata = np.zeros([len(bidxs_int), 2*f.shape[1]*n_channels]).astype(np.float64)
-    # # bdata[:, vJS_idx] =  data.reshape([len(visible), 2*f.shape[1]*n_channels])[col(visibleidxs[bidxs_int]), vJS_idx]
-    # bdata = np.concatenate([np.concatenate([boundydiff.reshape(shape3d)[:,:,channel].ravel()[bidxs_int]*bc0[visibleidxs[bidxs_int]].ravel(), boundydiff.reshape(shape3d)[:,:,channel].ravel()[bidxs_int]*bc1[visibleidxs[bidxs_int]].ravel(), boundydiff.reshape(shape3d)[:,:,channel].ravel()[bidxs_int]*bc2[visibleidxs[bidxs_int]].ravel()]) for channel in range(n_channels)])
-    #
-    # ISnew = np.tile(col(bidxs_out), (1, f.shape[1])).ravel()
-    # JSnew = col(f[visibility.ravel()[bidxs_int]].ravel())*2+1
-    # # JSnew = np.hstack((JSnew*2, JSnew*2+1)).ravel()
-    #
-    # if n_channels > 1:
-    #     ISnew = np.concatenate([ISnew*n_channels+i for i in range(n_channels)])
-    #     JSnew = np.concatenate([JSnew for i in range(n_channels)])
-    #
-    # # ipdb.set_trace()
-    #
-    # ijnew = np.hstack((ijnew, np.vstack((ISnew.ravel(), JSnew.ravel()))))
-    #
-    # ij = np.hstack((ij, ijnew))
-    #
-    # data = np.concatenate([data, ldata.ravel(), rdata.ravel(), tdata.ravel(), bdata.ravel()])
+    ij = np.vstack((IS.ravel(), JS.ravel())).astype(np.int32)
 
 
     result = sp.csc_matrix((data, ij), shape=(image_width*image_height*n_channels, num_verts*2))
-
-    # hJS_idx = np.where(np.arange(num_verts*2) % 2)
-    # vJS_idx = np.where((np.arange(num_verts*2)+ 1) % 2)
-
-    #Pol: Is there any problem with this idea? Yep, terribly slow!
-    # result[col(lIS_new).tolist(), hJS_idx[0].tolist()] = result[col(lIS_new).tolist(), hJS_idx[0].tolist()]
-    # result[col(rIS_new).tolist(), hJS_idx[0].tolist()] = result[col(rIS_new).tolist(), hJS_idx[0].tolist()]
-    # result[col(tIS_new).tolist(), hJS_idx[0].tolist()] = result[col(tIS_new).tolist(), hJS_idx[0].tolist()]
-    # result[col(bIS_new).tolist(), hJS_idx[0].tolist()] = result[col(bIS_new).tolist(), hJS_idx[0].tolist()]
 
     return result
 
@@ -380,6 +199,7 @@ def dImage_wrt_2dVerts_bnd(observed, visible, visibility, barycentric, image_wid
     (in the columns) to pixel values (in the rows). This can be done
     in two steps."""
 
+    num_verts = np.int32(num_verts)
     n_channels = np.atleast_3d(observed).shape[2]
     shape = visibility.shape
 
@@ -504,78 +324,9 @@ def dImage_wrt_2dVerts_bnd(observed, visible, visibility, barycentric, image_wid
 
     data = np.concatenate(datas)
 
-    ij = np.vstack((IS.ravel(), JS.ravel()))
-
-    #
-    hJS_idx = np.where((np.arange(2*f.shape[1]*n_channels) + 1 ) % 2)[0].tolist()
-    #
-    # ldata = np.zeros([len(lidxs_int), 2*f.shape[1]*n_channels]).astype(np.float64)
-    # ldata[:, hJS_idx] =  data.reshape([len(visible), 2*f.shape[1]*n_channels])[col(visibleidxs[lidxs_int]).tolist(), hJS_idx]
-    #
-    # ISnew = np.tile(col(lidxs_out), (1, 2*f.shape[1])).ravel()
-    # JSnew = col(f[visibility.ravel()[lidxs_int]].ravel())
-    # JSnew = np.hstack((JSnew*2, JSnew*2+1)).ravel()
-    #
-    # if n_channels > 1:
-    #     ISnew = np.concatenate([ISnew*n_channels+i for i in range(n_channels)])
-    #     JSnew = np.concatenate([JSnew for i in range(n_channels)])
-    #
-    # ij = np.hstack((ij, np.vstack((ISnew.ravel(), JSnew.ravel()))))
-    #
-    # rdata = np.zeros([len(ridxs_int), 2*f.shape[1]*n_channels]).astype(np.float64)
-    # rdata[:, hJS_idx] =  data.reshape([len(visible), 2*f.shape[1]*n_channels])[col(visibleidxs[ridxs_int]), hJS_idx]
-    #
-    # ISnew = np.tile(col(ridxs_out), (1, 2*f.shape[1])).ravel()
-    # JSnew = col(f[visibility.ravel()[ridxs_int]].ravel())
-    # JSnew = np.hstack((JSnew*2, JSnew*2+1)).ravel()
-    #
-    # if n_channels > 1:
-    #     ISnew = np.concatenate([ISnew*n_channels+i for i in range(n_channels)])
-    #     JSnew = np.concatenate([JSnew for i in range(n_channels)])
-    #
-    # ij = np.hstack((ij, np.vstack((ISnew.ravel(), JSnew.ravel()))))
-    #
-    # vJS_idx = np.where(np.arange(2*f.shape[1]*n_channels) % 2)[0].tolist()
-    #
-    # tdata = np.zeros([len(tidxs_int), 2*f.shape[1]*n_channels]).astype(np.float64)
-    # tdata[:, vJS_idx] =  data.reshape([len(visible), 2*f.shape[1]*n_channels])[col(visibleidxs[tidxs_int]), vJS_idx]
-    #
-    # ISnew = np.tile(col(tidxs_out), (1, 2*f.shape[1])).ravel()
-    # JSnew = col(f[visibility.ravel()[tidxs_int]].ravel())
-    # JSnew = np.hstack((JSnew*2, JSnew*2+1)).ravel()
-    #
-    # if n_channels > 1:
-    #     ISnew = np.concatenate([ISnew*n_channels+i for i in range(n_channels)])
-    #     JSnew = np.concatenate([JSnew for i in range(n_channels)])
-    #
-    # ij = np.hstack((ij, np.vstack((ISnew.ravel(), JSnew.ravel()))))
-    #
-    # bdata = np.zeros([len(bidxs_int), 2*f.shape[1]*n_channels]).astype(np.float64)
-    # bdata[:, vJS_idx] =  data.reshape([len(visible), 2*f.shape[1]*n_channels])[col(visibleidxs[bidxs_int]), vJS_idx]
-    #
-    # ISnew = np.tile(col(bidxs_out), (1, 2*f.shape[1])).ravel()
-    # JSnew = col(f[visibility.ravel()[bidxs_int]].ravel())
-    # JSnew = np.hstack((JSnew*2, JSnew*2+1)).ravel()
-    #
-    # if n_channels > 1:
-    #     ISnew = np.concatenate([ISnew*n_channels+i for i in range(n_channels)])
-    #     JSnew = np.concatenate([JSnew for i in range(n_channels)])
-    #
-    # ij = np.hstack((ij, np.vstack((ISnew.ravel(), JSnew.ravel()))))
-    #
-    # data = np.concatenate([data, ldata.ravel(), rdata.ravel(), tdata.ravel(), bdata.ravel()])
-    #
+    ij = np.vstack((IS.ravel(), JS.ravel())).astype(np.int32)
 
     result = sp.csc_matrix((data, ij), shape=(image_width*image_height*n_channels, num_verts*2))
-
-    # hJS_idx = np.where(np.arange(num_verts*2) % 2)
-    # vJS_idx = np.where((np.arange(num_verts*2)+ 1) % 2)
-
-    #Pol: Is there any problem with this idea? Yep, terribly slow!
-    # result[col(lIS_new).tolist(), hJS_idx[0].tolist()] = result[col(lIS_new).tolist(), hJS_idx[0].tolist()]
-    # result[col(rIS_new).tolist(), hJS_idx[0].tolist()] = result[col(rIS_new).tolist(), hJS_idx[0].tolist()]
-    # result[col(tIS_new).tolist(), hJS_idx[0].tolist()] = result[col(tIS_new).tolist(), hJS_idx[0].tolist()]
-    # result[col(bIS_new).tolist(), hJS_idx[0].tolist()] = result[col(bIS_new).tolist(), hJS_idx[0].tolist()]
 
     return result
 
@@ -584,7 +335,7 @@ def dImage_wrt_2dVerts(observed, visible, visibility, barycentric, image_width, 
     """Construct a sparse jacobian that relates 2D projected vertex positions
     (in the columns) to pixel values (in the rows). This can be done
     in two steps."""
-
+    num_verts = np.int32(num_verts)
     n_channels = np.atleast_3d(observed).shape[2]
     shape = visibility.shape
 
@@ -626,7 +377,7 @@ def dImage_wrt_2dVerts(observed, visible, visibility, barycentric, image_width, 
 
     data = np.concatenate(datas)
 
-    ij = np.vstack((IS.ravel(), JS.ravel()))
+    ij = np.vstack((IS.ravel(), JS.ravel())).astype(np.int32)
     result = sp.csc_matrix((data, ij), shape=(image_width*image_height*n_channels, num_verts*2))
 
     return result
@@ -646,7 +397,7 @@ def flow_to(self, v_next, cam_next):
     barycentric = self.barycentric_image
 
     # map 3d to 3d
-    JS = col(self.f[visibility.ravel()[visible]]).ravel()
+    JS = col(self.f[visibility.ravel()[visible]]).ravel().astype(np.int32)
     IS = np.tile(col(np.arange(JS.size/3)), (1, 3)).ravel()
     data = barycentric.reshape((-1,3))[visible].ravel()
 
@@ -696,7 +447,7 @@ def dr_wrt_bgcolor(visibility, frustum, num_channels):
     # JS = np.concatenate((JS*3, JS*3+1, JS*3+2))
     # data = np.concatenate((data, data, data))
 
-    ij = np.vstack((IS.ravel(), JS.ravel()))
+    ij = np.vstack((IS.ravel(), JS.ravel())).astype(np.int32)
     result = sp.csc_matrix((data, ij), shape=(frustum['width']*frustum['height']*num_channels, num_channels))
     return result
 
@@ -713,11 +464,8 @@ def dr_wrt_vc(visible, visibility, f, barycentric, frustum, vc_size, num_channel
     IS = np.concatenate([IS*num_channels+k for k in range(num_channels)])
     JS = np.concatenate([JS*num_channels+k for k in range(num_channels)])
     data = np.concatenate([data for i in range(num_channels)])
-    # IS = np.concatenate((IS*3, IS*3+1, IS*3+2))
-    # JS = np.concatenate((JS*3, JS*3+1, JS*3+2))
-    # data = np.concatenate((data, data, data))
 
-    ij = np.vstack((IS.ravel(), JS.ravel()))
+    ij = np.vstack((IS.ravel(), JS.ravel())).astype(np.int32)
     result = sp.csc_matrix((data, ij), shape=(frustum['width']*frustum['height']*num_channels, vc_size))
     return result
 

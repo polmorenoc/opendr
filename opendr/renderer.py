@@ -257,6 +257,10 @@ class BaseRenderer(Ch):
         # GL.glClear(GL.GL_DEPTH_BUFFER_BIT)
 
 
+        self.vao_static = GL.GLuint(0)
+        GL.glGenVertexArrays(1, self.vao_static)
+        GL.glBindVertexArray(self.vao_static)
+
         ############################
         # ENABLE SHADER
 
@@ -343,9 +347,6 @@ class BaseRenderer(Ch):
 
         self.vbo_colors_face = vbo.VBO(np.array(self.vc_by_face, dtype=np.float32))
 
-        self.vao_static = GL.GLuint(0)
-
-        GL.glGenVertexArrays(1, self.vao_static)
         GL.glBindVertexArray(self.vao_static)
 
         self.vbo_indices.bind()
@@ -363,9 +364,6 @@ class BaseRenderer(Ch):
         self.vao_static_face = GL.GLuint(0)
         GL.glGenVertexArrays(1, self.vao_static_face)
         GL.glBindVertexArray(self.vao_static_face)
-
-        #Can arrays be empty?
-
 
         self.vbo_indices_range.bind()
 
@@ -1243,7 +1241,7 @@ class TexturedRenderer(ColoredRenderer):
         // Ouput data
         out vec3 color;
         void main(){
-            color = theColor * texture2D( myTextureSampler, UV).rgb;
+            color = theColor * texture( myTextureSampler, UV).rgb;
         }""", GL.GL_FRAGMENT_SHADER)
 
         VERTEX_SHADER = shaders.compileShader("""#version 330 core
@@ -1842,7 +1840,7 @@ class AnalyticRenderer(ColoredRenderer):
         // Ouput data
         out vec3 color;
         void main(){
-            color = theColor * texture2D( myTextureSampler, UV).rgb;
+            color = theColor * texture( myTextureSampler, UV).rgb;
         }""", GL.GL_FRAGMENT_SHADER)
 
         VERTEX_SHADER = shaders.compileShader("""#version 330 core
@@ -2029,7 +2027,7 @@ class AnalyticRenderer(ColoredRenderer):
             layout(location = 4) out vec2 barycentric2;
             
             void main(){
-                vec3 finalColor = theColor * texture2D( myTextureSampler, UV).rgb;
+                vec3 finalColor = theColor * texture( myTextureSampler, UV).rgb;
                 color = finalColor.rgb;
                                 
                 sample_pos = ((0.5*pos.xy/pos.w) + 0.5)*vec2(ww,wh);
@@ -4449,7 +4447,7 @@ class AnalyticRendererOpenDR(ColoredRenderer):
         // Ouput data
         out vec3 color;
         void main(){
-            color = theColor * texture2D( myTextureSampler, UV).rgb;
+            color = theColor * texture( myTextureSampler, UV).rgb;
         }""", GL.GL_FRAGMENT_SHADER)
 
         VERTEX_SHADER = shaders.compileShader("""#version 330 core
@@ -4636,7 +4634,7 @@ class AnalyticRendererOpenDR(ColoredRenderer):
             layout(location = 4) out vec2 barycentric2;
             
             void main(){
-                vec3 finalColor = theColor * texture2D( myTextureSampler, UV).rgb;
+                vec3 finalColor = theColor * texture( myTextureSampler, UV).rgb;
                 color = finalColor.rgb;
                                 
                 sample_pos = ((0.5*pos.xy/pos.w) + 0.5)*vec2(ww,wh);
@@ -7061,7 +7059,7 @@ class ResidualRenderer(ColoredRenderer):
         // Ouput data
         out vec3 color;
         void main(){
-            color = theColor * texture2D( myTextureSampler, UV).rgb;
+            color = theColor * texture( myTextureSampler, UV).rgb;
         }""", GL.GL_FRAGMENT_SHADER)
 
         VERTEX_SHADER = shaders.compileShader("""#version 330 core
@@ -7247,7 +7245,7 @@ class ResidualRenderer(ColoredRenderer):
             layout(location = 4) out vec2 barycentric2;
 
             void main(){
-                vec3 finalColor = theColor * texture2D( myTextureSampler, UV).rgb;
+                vec3 finalColor = theColor * texture( myTextureSampler, UV).rgb;
                 color = finalColor.rgb;
 
                 sample_pos = ((0.5*pos.xy/pos.w) + 0.5)*vec2(ww,wh);
@@ -7318,7 +7316,7 @@ class ResidualRenderer(ColoredRenderer):
                 sample_barycentric1 = texelFetch(sample_barycentric_coords1, texcoord, sample).xy;
                 sample_barycentric2 = texelFetch(sample_barycentric_coords2, texcoord, sample).xy;
                 
-                //vec3 imgColor = texture2D(imageGT, gl_FragCoord.xy/vec2(ww,wh)).rgb;
+                //vec3 imgColor = texture(imageGT, gl_FragCoord.xy/vec2(ww,wh)).rgb;
                 //res = imgColor - colorFetchOut;
                 
             }""", GL.GL_FRAGMENT_SHADER)
@@ -9493,7 +9491,7 @@ class ResidualRendererOpenDR(ColoredRenderer):
         // Ouput data
         out vec3 color;
         void main(){
-            color = theColor * texture2D( myTextureSampler, UV).rgb;
+            color = theColor * texture( myTextureSampler, UV).rgb;
         }""", GL.GL_FRAGMENT_SHADER)
 
         VERTEX_SHADER = shaders.compileShader("""#version 330 core
@@ -9679,7 +9677,7 @@ class ResidualRendererOpenDR(ColoredRenderer):
             layout(location = 4) out vec2 barycentric2;
 
             void main(){
-                vec3 finalColor = theColor * texture2D( myTextureSampler, UV).rgb;
+                vec3 finalColor = theColor * texture( myTextureSampler, UV).rgb;
                 color = finalColor.rgb;
 
                 sample_pos = ((0.5*pos.xy/pos.w) + 0.5)*vec2(ww,wh);
@@ -9750,7 +9748,7 @@ class ResidualRendererOpenDR(ColoredRenderer):
                 sample_barycentric1 = texelFetch(sample_barycentric_coords1, texcoord, sample).xy;
                 sample_barycentric2 = texelFetch(sample_barycentric_coords2, texcoord, sample).xy;
                 
-                //vec3 imgColor = texture2D(imageGT, gl_FragCoord.xy/vec2(ww,wh)).rgb;
+                //vec3 imgColor = texture(imageGT, gl_FragCoord.xy/vec2(ww,wh)).rgb;
                 //res = imgColor - colorFetchOut;
                 
             }""", GL.GL_FRAGMENT_SHADER)
