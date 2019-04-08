@@ -1,5 +1,6 @@
-# Modern OpenDR
-This code is based on the work of Matt Loper's OpenDR: [https://github.com/mattloper/opendr/wiki].
+# Modern (OpenGL 3.3+) version similar to OpenDR
+This code is initially based on the work of Matt Loper's OpenDR: [https://github.com/mattloper/opendr/wiki].
+API has changed to adapt and add some functionality, so the it's not fully compatible with the original OpenDR, please look at the demos to see how to run. Note: some bugs have been noticed related to people trying OpenDR and chumpy using later versions of python, I'll look into this problem asap.
 
 For my [projects](https://github.com/polmorenoc/inversegraphics), I've had to update the implementation with:
 - Updated to be used with Python 3.4+
