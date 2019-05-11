@@ -141,6 +141,8 @@ def tensordot(a, b, axes=2):
     >>> np.tensordot(a, A, ((2, 1), (1, 0)))
     array([acccbbdddd, aaaaacccccccbbbbbbdddddddd], dtype=object)
     """
+
+    import numpy as np
     try:
         iter(axes)
     except:
@@ -161,7 +163,7 @@ def tensordot(a, b, axes=2):
         axes_b = [axes_b]
         nb = 1
 
-    a, b = asarray(a), asarray(b)
+    a, b = np.asarray(a), np.asarray(b)
     as_ = a.shape
     nda = a.ndim
     bs = b.shape
@@ -201,5 +203,5 @@ def tensordot(a, b, axes=2):
 
     at = a.transpose(newaxes_a).reshape(newshape_a)
     bt = b.transpose(newaxes_b).reshape(newshape_b)
-    res = dot(at, bt)
+    res = np.dot(at, bt)
     return res.reshape(olda + oldb)
