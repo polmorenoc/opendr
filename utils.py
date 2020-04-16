@@ -56,26 +56,6 @@ def createRenderer(glMode, cameraParams, v, vc, f_list, vn, uv, haveTextures_lis
     return renderer
 
 
-def createRenderer(glMode, cameraParams, v, vc, f_list, vn, uv, haveTextures_list, textures_list, frustum, win ):
-    renderer = TexturedRenderer()
-    renderer.set(glMode=glMode)
-
-    vflat = [item for sublist in v for item in sublist]
-
-    if len(vflat)==1:
-        vstack = vflat[0]
-    else:
-
-        vstack = ch.vstack(vflat)
-
-    camera, modelRotation, _ = setupCamera(vstack, cameraParams)
-
-    vnflat = [item for sublist in vn for item in sublist]
-    vcflat = [item for sublist in vc for item in sublist]
-
-    setupTexturedRenderer(renderer, vstack, vflat, f_list, vcflat, vnflat,  uv, haveTextures_list, textures_list, camera, frustum, win)
-    return renderer
-
 #Method from https://github.com/adamlwgriffiths/Pyrr/blob/master/pyrr/geometry.py
 def create_cube(scale=(1.0,1.0,1.0), st=False, rgba=np.array([1.,1.,1.,1.]), dtype='float32', type='triangles'):
     """Returns a Cube reading for rendering."""
@@ -378,7 +358,9 @@ def setupTexturedRenderer(renderer, vstack, vch, f_list, vc_list, vnch, uv, have
 
     haveTextures_listflat = [item for sublist in haveTextures_list for item in sublist]
 
-    renderer.set(camera=camera, frustum=frustum, v=vstack, f=fstack, vn=vnstack, vc=vcstack, ft=ftstack, texture_stack=texture_stack, v_list=vch, f_list=f_listflat, vc_list=vc_list, ft_list=uvflat, textures_list=textures_listflat, haveUVs_list=haveTextures_listflat, bgcolor=ch.ones(3), overdraw=True)
+    renderer.set(camera=camera, frustum=frustum, v=vstack, f=fstack, vn=vnstack, vc=vcstack, ft=ftstack,
+        texture_stack=texture_stack, v_list=vch, f_list=f_listflat, vc_list=vc_list, ft_list=uvflat, 
+        textures_list=textures_listflat, haveUVs_list=haveTextures_listflat, bgcolor=ch.ones(3), overdraw=True)
     renderer.msaa = True
     renderer.sharedWin = sharedWin
 

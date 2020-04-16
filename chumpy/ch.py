@@ -1021,7 +1021,7 @@ __all__ += ['array', 'amax','amin', 'max', 'min', 'maximum','minimum','nanmax','
             'greater', 'greater_equal', 'less', 'less_equal', 'equal', 'not_equal',
             'nonzero', 'ascontiguousarray', 'asfarray', 'arange', 'asarray', 'copy',
             'cross',
-            'shape', 'tensordot', 'sign']
+            'shape', 'sign']
 
 
 __all__ += ['SumOfSquares',
@@ -2547,6 +2547,7 @@ def nonzero(a):
 try:
     import inspect
     exec(''.join(inspect.getsourcelines(np.tensordot)[0]))
+    __all__.append('tensordot')
 except: pass
 
 

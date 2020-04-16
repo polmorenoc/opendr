@@ -61,7 +61,7 @@ chCamFocalLengthGT = ch.Ch([35/1000])
 # bottomElev = np.pi/2 - (gtCamElevation + np.arctan(17.5 / focalLenght ))
 # ZshiftGT =  ch.Ch(-gtCamHeight * np.tan(bottomElev)) #Move camera backwards to match the elevation desired as it looks at origin.
 
-# ZshiftGT =  ch.Ch([-0.2])
+ZshiftGT =  ch.Ch([-0.2])
 
 # Baackground cube - add to renderer by default.
 verticesCube, facesCube, normalsCube, vColorsCube, texturesListCube, haveTexturesCube = getCubeData()
@@ -116,10 +116,11 @@ c1 = height/2  #principal point
 a1 = 3.657  #Aspect ratio / mm to pixels
 a2 = 3.657  #Aspect ratio / mm to pixels
 
-cameraParamsGT = {'chCamEl': chCamElGT, 'chCamHeight':chCamHeightGT, 'chCamFocalLength':chCamFocalLengthGT, 'a':np.array([a1,a2]), 'width': width, 'height':height, 'c':np.array([c0, c1])}
+cameraParamsGT = {'Zshift':ZshiftGT,'chCamEl': chCamElGT, 'chCamHeight':chCamHeightGT, 'chCamFocalLength':chCamFocalLengthGT, 'a':np.array([a1,a2]), 'width': width, 'height':height, 'c':np.array([c0, c1])}
 
 #Create renderer object
-renderer = createRenderer(glMode, cameraParamsGT, v_scene, vc_scene, f_list_scene, vn_scene, uv_scene, haveTextures_list_scene,
+renderer = createRenderer(glMode, cameraParamsGT, v_scene, vc_scene, f_list_scene, 
+    vn_scene, uv_scene, haveTextures_list_scene,
                                textures_list_scene, frustum, None)
 # Initialize renderer
 renderer.overdraw = True
