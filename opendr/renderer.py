@@ -1143,8 +1143,6 @@ class ColoredRenderer(BaseRenderer):
             result = np.flipud(np.frombuffer(GL.glReadPixels( 0,0, self.frustum['width'], self.frustum['height'], 
                 GL.GL_RGB, GL.GL_UNSIGNED_BYTE), np.uint8).reshape(self.frustum['height'],self.frustum['width'],3).astype(np.float64))/255.0
             # plt.imsave("opendr_draw_color_image.png", result)
-            # import cv2
-            # cv2.imshow("res",result)
 
             GL.glBindFramebuffer(GL.GL_DRAW_FRAMEBUFFER, self.fbo)
             GL.glDisable(GL.GL_MULTISAMPLE)
@@ -1157,7 +1155,6 @@ class ColoredRenderer(BaseRenderer):
 
             return result
         except:
-            aaa
             import pdb; pdb.set_trace()
 
     @depends_on(dterms+terms)
